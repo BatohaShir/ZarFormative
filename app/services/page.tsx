@@ -754,12 +754,6 @@ function ServicesPageContent() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t mt-6 md:mt-8">
-        <div className="container mx-auto px-4 py-6 md:py-8 text-center text-muted-foreground">
-          <p className="text-xs md:text-sm">&copy; 2025 Uilchilgee.mn. Бүх эрх хуулиар хамгаалагдсан.</p>
-        </div>
-      </footer>
     </div>
   );
 }

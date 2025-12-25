@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Send, ArrowLeft, Phone, Trash2, Paperclip, MapPin, Image, Video } from "lucide-react";
+import { Send, ArrowLeft, Phone, Trash2, Paperclip, MapPin, Image, Video, Check, X, Clock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,17 +32,106 @@ interface ChatModalProps {
     avatar: string;
   };
   serviceTitle: string;
+  conversationType?: "incoming" | "outgoing";
+  initialMessage?: string;
+  initialMessageTime?: Date;
+  requestExpiresAt?: number;
+  onAccept?: () => void;
+  onDecline?: () => void;
+  isAccepted?: boolean;
 }
 
-export function ChatModal({ open, onOpenChange, provider, serviceTitle }: ChatModalProps) {
-  const [messages, setMessages] = React.useState<Message[]>([
-    {
-      id: 1,
-      text: `Сайн байна уу! "${serviceTitle}" үйлчилгээний талаар асуух зүйл байвал бичнэ үү.`,
-      sender: "provider",
-      timestamp: new Date(Date.now() - 60000),
-    },
-  ]);
+function formatTimeRemaining(expiresAt: number): string {
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) return "00:00";
+
+  const hours = Math.floor(remaining / (1000 * 60 * 60));
+  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}`;
+  }
+  return `${minutes} мин`;
+}
+
+export function ChatModal({
+  open,
+  onOpenChange,
+  provider,
+  serviceTitle,
+  conversationType = "outgoing",
+  initialMessage,
+  initialMessageTime,
+  requestExpiresAt,
+  onAccept,
+  onDecline,
+  isAccepted = false,
+}: ChatModalProps) {
+  const [timeRemaining, setTimeRemaining] = React.useState<string | null>(null);
+  const isPendingRequest = conversationType === "incoming" && requestExpiresAt && requestExpiresAt > Date.now() && !isAccepted;
+
+  // Timer update for pending requests
+  React.useEffect(() => {
+    if (!isPendingRequest || !requestExpiresAt) return;
+
+    const updateTimer = () => {
+      const remaining = requestExpiresAt - Date.now();
+      if (remaining <= 0) {
+        setTimeRemaining(null);
+      } else {
+        setTimeRemaining(formatTimeRemaining(requestExpiresAt));
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [isPendingRequest, requestExpiresAt]);
+  // Build initial messages based on conversation type and initial message
+  const buildInitialMessages = React.useCallback((): Message[] => {
+    const messages: Message[] = [];
+
+    if (conversationType === "incoming") {
+      // Client wrote to me about my service - their message is from "provider" perspective (the other person)
+      if (initialMessage) {
+        messages.push({
+          id: 1,
+          text: initialMessage,
+          sender: "provider", // "provider" here means the other person in chat
+          timestamp: initialMessageTime || new Date(Date.now() - 60000),
+        });
+      }
+    } else {
+      // I wrote to a provider about their service
+      // First show greeting from provider
+      messages.push({
+        id: 1,
+        text: `Сайн байна уу! "${serviceTitle}" үйлчилгээний талаар асуух зүйл байвал бичнэ үү.`,
+        sender: "provider",
+        timestamp: new Date(Date.now() - 120000),
+      });
+      // Then show my message if exists
+      if (initialMessage) {
+        messages.push({
+          id: 2,
+          text: initialMessage,
+          sender: "user",
+          timestamp: initialMessageTime || new Date(Date.now() - 60000),
+        });
+      }
+    }
+
+    return messages;
+  }, [conversationType, initialMessage, initialMessageTime, serviceTitle]);
+
+  const [messages, setMessages] = React.useState<Message[]>(buildInitialMessages);
+
+  // Reset messages when conversation changes
+  React.useEffect(() => {
+    if (open) {
+      setMessages(buildInitialMessages());
+    }
+  }, [open, buildInitialMessages]);
   const [newMessage, setNewMessage] = React.useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -158,46 +247,81 @@ export function ChatModal({ open, onOpenChange, provider, serviceTitle }: ChatMo
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
+        {/* Input or Accept/Decline buttons */}
         <div className="p-4 border-t shrink-0 bg-background rounded-b-xl">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex gap-2 items-center"
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9">
-                  <Paperclip className="h-5 w-5 text-muted-foreground" />
+          {isPendingRequest ? (
+            <div className="space-y-3">
+              {/* Timer */}
+              <div className="flex items-center justify-center gap-2 p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-sm text-amber-700 dark:text-amber-300">
+                  Хариу өгөх хугацаа: <span className="font-mono font-bold">{timeRemaining || "00:00"}</span>
+                </span>
+              </div>
+              {/* Accept/Decline buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={() => {
+                    onDecline?.();
+                    onOpenChange(false);
+                  }}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Татгалзах
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                <DropdownMenuItem className="gap-3 cursor-pointer">
-                  <MapPin className="h-4 w-4" />
-                  <span>Локаци</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-3 cursor-pointer">
-                  <Image className="h-4 w-4" />
-                  <span>Фото</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="gap-3 cursor-pointer">
-                  <Video className="h-4 w-4" />
-                  <span>Видео</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Input
-              placeholder="Мессеж бичих..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="flex-1"
-            />
-            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
-          </form>
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => {
+                    onAccept?.();
+                  }}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Хүлээн авах
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              className="flex gap-2 items-center"
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9">
+                    <Paperclip className="h-5 w-5 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuItem className="gap-3 cursor-pointer">
+                    <MapPin className="h-4 w-4" />
+                    <span>Локаци</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-3 cursor-pointer">
+                    <Image className="h-4 w-4" />
+                    <span>Фото</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-3 cursor-pointer">
+                    <Video className="h-4 w-4" />
+                    <span>Видео</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Input
+                placeholder="Мессеж бичих..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="flex-1"
+              />
+              <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </form>
+          )}
         </div>
       </DialogContent>
     </Dialog>

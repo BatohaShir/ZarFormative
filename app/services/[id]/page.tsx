@@ -11,9 +11,9 @@ import { FavoritesButton } from "@/components/favorites-button";
 import { MessagesButton } from "@/components/messages-button";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
-import { ChatModal } from "@/components/chat-modal";
+import { ServiceRequestModal } from "@/components/service-request-modal";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
-import { ChevronLeft, MapPin, Phone, MessageCircle, Share2, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
+import { ChevronLeft, MapPin, Share2, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass } from "lucide-react";
 
 const services: Record<string, {
   id: number;
@@ -323,21 +323,105 @@ const services: Record<string, {
   },
 };
 
+// Storage key for pending requests
+const PENDING_REQUESTS_KEY = "uilchilgee_pending_requests";
+
+interface PendingRequest {
+  serviceId: string;
+  expiresAt: number; // timestamp
+}
+
+function getPendingRequests(): PendingRequest[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(PENDING_REQUESTS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+function savePendingRequest(serviceId: string) {
+  const requests = getPendingRequests().filter(r => r.serviceId !== serviceId);
+  const expiresAt = Date.now() + 2 * 60 * 60 * 1000; // 2 hours
+  requests.push({ serviceId, expiresAt });
+  localStorage.setItem(PENDING_REQUESTS_KEY, JSON.stringify(requests));
+}
+
+function isPendingRequest(serviceId: string): { pending: boolean; expiresAt: number | null } {
+  const requests = getPendingRequests();
+  const request = requests.find(r => r.serviceId === serviceId);
+  if (request && request.expiresAt > Date.now()) {
+    return { pending: true, expiresAt: request.expiresAt };
+  }
+  return { pending: false, expiresAt: null };
+}
+
+function formatTimeRemaining(expiresAt: number): string {
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) return "00:00:00";
+
+  const hours = Math.floor(remaining / (1000 * 60 * 60));
+  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+}
+
 export default function ServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const { toggleFavorite, isFavorite } = useFavorites();
   const { isAuthenticated } = useAuth();
-  const [chatOpen, setChatOpen] = React.useState(false);
+  const [requestModalOpen, setRequestModalOpen] = React.useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = React.useState(false);
+  const [requestPending, setRequestPending] = React.useState(false);
+  const [timeRemaining, setTimeRemaining] = React.useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = React.useState<number | null>(null);
   const service = services[id];
 
-  const handleMessageClick = () => {
+  // Check pending status on mount
+  React.useEffect(() => {
+    const status = isPendingRequest(id);
+    if (status.pending && status.expiresAt) {
+      setRequestPending(true);
+      setExpiresAt(status.expiresAt);
+    }
+  }, [id]);
+
+  // Timer update
+  React.useEffect(() => {
+    if (!requestPending || !expiresAt) return;
+
+    const updateTimer = () => {
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) {
+        setRequestPending(false);
+        setExpiresAt(null);
+        setTimeRemaining(null);
+      } else {
+        setTimeRemaining(formatTimeRemaining(expiresAt));
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [requestPending, expiresAt]);
+
+  const handleServiceRequest = () => {
     if (isAuthenticated) {
-      setChatOpen(true);
+      setRequestModalOpen(true);
     } else {
       setShowLoginPrompt(true);
     }
+  };
+
+  const handleRequestSent = () => {
+    savePendingRequest(id);
+    const newExpiresAt = Date.now() + 2 * 60 * 60 * 1000;
+    setRequestPending(true);
+    setExpiresAt(newExpiresAt);
   };
 
   const handleShare = async () => {
@@ -418,7 +502,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
         </div>
       </header>
 
-      <main className="container mx-auto px-3 md:px-4 py-4 md:py-6">
+      <main className="container mx-auto px-3 md:px-4 py-4 md:py-6 pb-24 lg:pb-6">
         <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
@@ -513,6 +597,14 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                   <p className="text-[9px] text-muted-foreground mt-0.5">Лайк</p>
                 </div>
               </div>
+
+              {/* View Profile Button */}
+              <Link href={`/account/${encodeURIComponent(service.provider.name.replace(/\s+/g, '-').toLowerCase())}`}>
+                <Button variant="outline" className="w-full" size="sm">
+                  <UserCircle className="h-4 w-4 mr-2" />
+                  Профиль харах
+                </Button>
+              </Link>
             </div>
 
             {/* Description */}
@@ -665,19 +757,35 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               </div>
 
               <div className="space-y-3 pt-2">
-                <Button className="w-full" size="lg">
-                  <Phone className="h-4 w-4 mr-2" />
-                  Залгах
-                </Button>
-                <Button variant="outline" className="w-full" size="lg" onClick={handleMessageClick}>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Мессеж бичих
-                </Button>
+                {requestPending ? (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg space-y-3">
+                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                      <Hourglass className="h-5 w-5 animate-pulse" />
+                      <span className="font-medium">Хүсэлт илгээгдсэн</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Та {service.provider.name}-д хүсэлт илгээсэн байна. Баталгаажуулалт болон харилцаа эхлэхийг хүлээнэ үү.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 p-3 bg-background rounded-lg">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-mono text-lg font-bold">{timeRemaining || "02:00:00"}</span>
+                    </div>
+                    <p className="text-xs text-center text-muted-foreground">
+                      Хугацаа дуусахад дахин хүсэлт илгээх боломжтой
+                    </p>
+                  </div>
+                ) : (
+                  <Button className="w-full" size="lg" onClick={handleServiceRequest}>
+                    Үйлчилгээ авах
+                  </Button>
+                )}
+                <Link href={`/account/${encodeURIComponent(service.provider.name.replace(/\s+/g, '-').toLowerCase())}`}>
+                  <Button variant="ghost" className="w-full" size="lg">
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    Профиль харах
+                  </Button>
+                </Link>
               </div>
-
-              <p className="text-xs text-center text-muted-foreground pt-2">
-                Үйлчилгээ авахдаа урьдчилан холбогдож лавлана уу
-              </p>
 
               {/* Reviews in Sidebar */}
               {service.reviews.length > 0 && (
@@ -731,29 +839,39 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
       </main>
 
       {/* Mobile Fixed Bottom Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-3 md:p-4 flex gap-2 md:gap-3 safe-area-pb">
-        <Button className="flex-1" size="default">
-          <Phone className="h-4 w-4 mr-2" />
-          Залгах
-        </Button>
-        <Button variant="outline" size="default" onClick={handleMessageClick}>
-          <MessageCircle className="h-4 w-4" />
-        </Button>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-3 md:p-4 safe-area-pb">
+        {requestPending ? (
+          <div className="flex items-center justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <Hourglass className="h-4 w-4 animate-pulse" />
+              <span className="text-sm font-medium">Хүсэлт илгээгдсэн</span>
+            </div>
+            <div className="flex items-center gap-1.5 font-mono font-bold">
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{timeRemaining || "02:00:00"}</span>
+            </div>
+          </div>
+        ) : (
+          <Button className="w-full" size="default" onClick={handleServiceRequest}>
+            Үйлчилгээ авах
+          </Button>
+        )}
       </div>
 
-      {/* Chat Modal */}
-      <ChatModal
-        open={chatOpen}
-        onOpenChange={setChatOpen}
+      {/* Service Request Modal */}
+      <ServiceRequestModal
+        open={requestModalOpen}
+        onOpenChange={setRequestModalOpen}
         provider={service.provider}
         serviceTitle={service.title}
+        onRequestSent={handleRequestSent}
       />
 
       {/* Login Prompt Modal */}
       <LoginPromptModal
         open={showLoginPrompt}
         onOpenChange={setShowLoginPrompt}
-        onSuccess={() => setChatOpen(true)}
+        onSuccess={() => setRequestModalOpen(true)}
       />
     </div>
   );

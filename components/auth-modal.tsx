@@ -18,8 +18,158 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Phone, Mail, User, Lock, Eye, EyeOff, LogOut, UserCircle, Star, ThumbsUp, ThumbsDown, Calendar, Pencil } from "lucide-react";
+import { Phone, Mail, User, Lock, Eye, EyeOff, LogOut, UserCircle, Star, ThumbsUp, ThumbsDown, Calendar, Pencil, Save, Briefcase, Plus, Trash2, GraduationCap, Cake } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+
+// Mock данные - потом будут из БД
+const SCHOOLS_DB = [
+  "МУИС",
+  "ШУТИС",
+  "ХААИС",
+  "МУБИС",
+  "СУИС",
+  "Отгонтэнгэр их сургууль",
+  "Монгол Улсын Их Сургууль",
+  "Шинжлэх Ухаан Технологийн Их Сургууль",
+  "Хөдөө Аж Ахуйн Их Сургууль",
+  "Боловсролын Их Сургууль",
+  "Соёл Урлагийн Их Сургууль",
+  "Эрүүл Мэндийн Шинжлэх Ухааны Их Сургууль",
+  "Батлан хамгаалахын их сургууль",
+  "Хүмүүнлэгийн Ухааны Их Сургууль",
+];
+
+const COMPANIES_DB = [
+  "Голомт банк",
+  "Хаан банк",
+  "Худалдаа хөгжлийн банк",
+  "Төрийн банк",
+  "Монгол Пост",
+  "МЦС",
+  "Юнител",
+  "Скайтел",
+  "Жи Мобайл",
+  "Оюу Толгой",
+  "Эрдэнэт үйлдвэр",
+  "Таван Толгой",
+  "МАК",
+  "Монголын Төмөр Зам",
+  "МИАТ",
+  "APU",
+  "Шунхлай групп",
+  "Монос групп",
+  "Номин холдинг",
+  "И-Март",
+  "Nomin Foods",
+];
+
+const POSITIONS_DB = [
+  "Програм хангамжийн инженер",
+  "IT мэргэжилтэн",
+  "Веб хөгжүүлэгч",
+  "Мобайл хөгжүүлэгч",
+  "Дата шинжээч",
+  "Систем администратор",
+  "Төслийн менежер",
+  "Бизнес шинжээч",
+  "UI/UX дизайнер",
+  "Маркетингийн менежер",
+  "Борлуулалтын менежер",
+  "Нягтлан бодогч",
+  "Хүний нөөцийн менежер",
+  "Санхүүгийн шинжээч",
+  "Үйлдвэрлэлийн инженер",
+];
+
+const DEGREES_DB = [
+  "Бакалавр",
+  "Магистр",
+  "Доктор",
+  "Дипломын",
+  "Мэргэжлийн",
+  "Компьютерийн ухаан",
+  "Мэдээллийн технологи",
+  "Программ хангамж",
+  "Бизнесийн удирдлага",
+  "Маркетинг",
+  "Санхүү",
+  "Нягтлан бодох бүртгэл",
+  "Эдийн засаг",
+  "Хууль зүй",
+];
+
+// Autocomplete Input Component
+interface AutocompleteInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  suggestions: string[];
+  placeholder: string;
+  className?: string;
+}
+
+function AutocompleteInput({ value, onChange, suggestions, placeholder, className }: AutocompleteInputProps) {
+  const [isOpen, setIsOpen] = React.useState(false);
+  const [filteredSuggestions, setFilteredSuggestions] = React.useState<string[]>([]);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (value.length > 0) {
+      const filtered = suggestions.filter(s =>
+        s.toLowerCase().includes(value.toLowerCase())
+      ).slice(0, 5);
+      setFilteredSuggestions(filtered);
+      setIsOpen(filtered.length > 0 && !suggestions.includes(value));
+    } else {
+      setFilteredSuggestions([]);
+      setIsOpen(false);
+    }
+  }, [value, suggestions]);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <Input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={className}
+        onFocus={() => {
+          if (filteredSuggestions.length > 0 && !suggestions.includes(value)) {
+            setIsOpen(true);
+          }
+        }}
+      />
+      {isOpen && filteredSuggestions.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-40 overflow-y-auto">
+          {filteredSuggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors"
+              onClick={() => {
+                onChange(suggestion);
+                setIsOpen(false);
+              }}
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -79,6 +229,218 @@ export function AuthModal() {
   };
 
   const [profileOpen, setProfileOpen] = React.useState(false);
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [profileData, setProfileData] = React.useState({
+    firstName: "Батбаяр",
+    lastName: "Дорж",
+    phone: "+976 9911 2233",
+    birthDate: "1995-05-15",
+  });
+
+  interface Education {
+    id: number;
+    school: string;
+    degree: string;
+    startDate: string;
+    endDate: string;
+    isCurrent: boolean;
+  }
+
+  const [educations, setEducations] = React.useState<Education[]>([
+    {
+      id: 1,
+      school: "МУИС",
+      degree: "Компьютерийн ухаан, Бакалавр",
+      startDate: "2015-09",
+      endDate: "2019-06",
+      isCurrent: false,
+    },
+  ]);
+
+  const [showAddEducation, setShowAddEducation] = React.useState(false);
+  const [editingEducationId, setEditingEducationId] = React.useState<number | null>(null);
+  const [newEducation, setNewEducation] = React.useState<Omit<Education, "id">>({
+    school: "",
+    degree: "",
+    startDate: "",
+    endDate: "",
+    isCurrent: false,
+  });
+
+  const handleAddEducation = () => {
+    if (educations.length >= 5) return;
+    if (!newEducation.school || !newEducation.degree || !newEducation.startDate) return;
+
+    setEducations([
+      ...educations,
+      { ...newEducation, id: Date.now() },
+    ]);
+    setNewEducation({
+      school: "",
+      degree: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+    });
+    setShowAddEducation(false);
+  };
+
+  const handleEditEducation = (edu: Education) => {
+    setEditingEducationId(edu.id);
+    setNewEducation({
+      school: edu.school,
+      degree: edu.degree,
+      startDate: edu.startDate,
+      endDate: edu.endDate,
+      isCurrent: edu.isCurrent,
+    });
+  };
+
+  const handleSaveEducation = () => {
+    if (!newEducation.school || !newEducation.degree || !newEducation.startDate) return;
+
+    setEducations(educations.map((edu) =>
+      edu.id === editingEducationId
+        ? { ...newEducation, id: edu.id }
+        : edu
+    ));
+    setEditingEducationId(null);
+    setNewEducation({
+      school: "",
+      degree: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+    });
+  };
+
+  const handleCancelEditEducation = () => {
+    setEditingEducationId(null);
+    setNewEducation({
+      school: "",
+      degree: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+    });
+  };
+
+  const handleDeleteEducation = (id: number) => {
+    setEducations(educations.filter((e) => e.id !== id));
+  };
+
+  interface WorkExperience {
+    id: number;
+    company: string;
+    position: string;
+    startDate: string;
+    endDate: string;
+    isCurrent: boolean;
+  }
+
+  const [workExperiences, setWorkExperiences] = React.useState<WorkExperience[]>([
+    {
+      id: 1,
+      company: "Голомт банк",
+      position: "Програм хангамжийн инженер",
+      startDate: "2021-03",
+      endDate: "",
+      isCurrent: true,
+    },
+    {
+      id: 2,
+      company: "Монгол Пост",
+      position: "IT мэргэжилтэн",
+      startDate: "2019-06",
+      endDate: "2021-02",
+      isCurrent: false,
+    },
+  ]);
+
+  const [showAddWork, setShowAddWork] = React.useState(false);
+  const [editingWorkId, setEditingWorkId] = React.useState<number | null>(null);
+  const [newWork, setNewWork] = React.useState<Omit<WorkExperience, "id">>({
+    company: "",
+    position: "",
+    startDate: "",
+    endDate: "",
+    isCurrent: false,
+  });
+
+  const handleAddWork = () => {
+    if (workExperiences.length >= 5) return;
+    if (!newWork.company || !newWork.position || !newWork.startDate) return;
+
+    setWorkExperiences([
+      ...workExperiences,
+      { ...newWork, id: Date.now() },
+    ]);
+    setNewWork({
+      company: "",
+      position: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+    });
+    setShowAddWork(false);
+  };
+
+  const handleEditWork = (work: WorkExperience) => {
+    setEditingWorkId(work.id);
+    setNewWork({
+      company: work.company,
+      position: work.position,
+      startDate: work.startDate,
+      endDate: work.endDate,
+      isCurrent: work.isCurrent,
+    });
+  };
+
+  const handleSaveWork = () => {
+    if (!newWork.company || !newWork.position || !newWork.startDate) return;
+
+    setWorkExperiences(workExperiences.map((work) =>
+      work.id === editingWorkId
+        ? { ...newWork, id: work.id }
+        : work
+    ));
+    setEditingWorkId(null);
+    setNewWork({
+      company: "",
+      position: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+    });
+  };
+
+  const handleCancelEditWork = () => {
+    setEditingWorkId(null);
+    setNewWork({
+      company: "",
+      position: "",
+      startDate: "",
+      endDate: "",
+      isCurrent: false,
+    });
+  };
+
+  const handleDeleteWork = (id: number) => {
+    setWorkExperiences(workExperiences.filter((w) => w.id !== id));
+  };
+
+  const formatWorkDate = (dateStr: string) => {
+    if (!dateStr) return "Одоог хүртэл";
+    const [year, month] = dateStr.split("-");
+    const months = ["1-р сар", "2-р сар", "3-р сар", "4-р сар", "5-р сар", "6-р сар", "7-р сар", "8-р сар", "9-р сар", "10-р сар", "11-р сар", "12-р сар"];
+    return `${year} оны ${months[parseInt(month) - 1]}`;
+  };
+
+  const formatBirthDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const [year, month, day] = dateStr.split("-");
+    return `${year} оны ${parseInt(month)}-р сарын ${parseInt(day)}`;
+  };
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -141,12 +503,15 @@ export function AuthModal() {
         </DropdownMenu>
 
         {/* Profile Modal */}
-        <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-          <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl p-4 sm:p-6">
-            <DialogHeader>
+        <Dialog open={profileOpen} onOpenChange={(open) => {
+          setProfileOpen(open);
+          if (!open) setIsEditing(false);
+        }}>
+          <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl p-0 max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="p-4 sm:p-6 pb-0 shrink-0">
               <DialogTitle className="text-center text-lg">Миний профайл</DialogTitle>
             </DialogHeader>
-            <div className="space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-4 space-y-6">
               {/* Avatar and Name */}
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
@@ -203,40 +568,531 @@ export function AuthModal() {
               {/* Info */}
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <Mail className="h-5 w-5 text-muted-foreground" />
-                  <div>
+                  <User className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Нэр</p>
+                    {isEditing ? (
+                      <Input
+                        value={profileData.firstName}
+                        onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
+                        className="h-8 text-sm mt-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium">{profileData.firstName}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                  <User className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Овог</p>
+                    {isEditing ? (
+                      <Input
+                        value={profileData.lastName}
+                        onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
+                        className="h-8 text-sm mt-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium">{profileData.lastName}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                  <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Имэйл</p>
                     <p className="text-sm font-medium">{user.email}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <Phone className="h-5 w-5 text-muted-foreground" />
-                  <div>
+                  <Phone className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Утас</p>
-                    <p className="text-sm font-medium">+976 9911 2233</p>
+                    {isEditing ? (
+                      <Input
+                        value={profileData.phone}
+                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                        className="h-8 text-sm mt-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium">{profileData.phone}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-                  <div>
+                  <Cake className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground">Төрсөн огноо</p>
+                    {isEditing ? (
+                      <Input
+                        type="date"
+                        value={profileData.birthDate}
+                        onChange={(e) => setProfileData({ ...profileData, birthDate: e.target.value })}
+                        className="h-8 text-sm mt-1"
+                      />
+                    ) : (
+                      <p className="text-sm font-medium">{formatBirthDate(profileData.birthDate)}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                  <Calendar className="h-5 w-5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Бүртгүүлсэн</p>
                     <p className="text-sm font-medium">2023 оны 5-р сар</p>
                   </div>
                 </div>
               </div>
 
-              {/* Logout Button */}
-              <Button
-                variant="outline"
-                className="w-full text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                onClick={() => {
-                  logout();
-                  setProfileOpen(false);
-                }}
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Гарах
-              </Button>
+              {/* Education */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-muted-foreground" />
+                    <h4 className="font-semibold text-sm">Боловсрол</h4>
+                  </div>
+                  {educations.length < 5 && !showAddEducation && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs gap-1"
+                      onClick={() => setShowAddEducation(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Нэмэх
+                    </Button>
+                  )}
+                </div>
+
+                {/* Add Education Form */}
+                {showAddEducation && (
+                  <div className="p-3 border rounded-lg space-y-3 bg-muted/20">
+                    <AutocompleteInput
+                      placeholder="Сургуулийн нэр"
+                      value={newEducation.school}
+                      onChange={(value) => setNewEducation({ ...newEducation, school: value })}
+                      suggestions={SCHOOLS_DB}
+                      className="h-9 text-sm"
+                    />
+                    <AutocompleteInput
+                      placeholder="Мэргэжил, зэрэг"
+                      value={newEducation.degree}
+                      onChange={(value) => setNewEducation({ ...newEducation, degree: value })}
+                      suggestions={DEGREES_DB}
+                      className="h-9 text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
+                        <Input
+                          type="month"
+                          value={newEducation.startDate}
+                          onChange={(e) => setNewEducation({ ...newEducation, startDate: e.target.value })}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Төгссөн</label>
+                        <Input
+                          type="month"
+                          value={newEducation.endDate}
+                          onChange={(e) => setNewEducation({ ...newEducation, endDate: e.target.value })}
+                          disabled={newEducation.isCurrent}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newEducation.isCurrent}
+                        onChange={(e) => setNewEducation({ ...newEducation, isCurrent: e.target.checked, endDate: "" })}
+                        className="rounded"
+                      />
+                      Одоо суралцаж байгаа
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={handleAddEducation}
+                        disabled={!newEducation.school || !newEducation.degree || !newEducation.startDate}
+                      >
+                        Хадгалах
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setShowAddEducation(false);
+                          setNewEducation({ school: "", degree: "", startDate: "", endDate: "", isCurrent: false });
+                        }}
+                      >
+                        Болих
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Education List */}
+                {educations.length === 0 && !showAddEducation ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Боловсролын мэдээлэл нэмээгүй байна
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {[...educations].sort((a, b) => {
+                      // Sort by start date descending (newest first)
+                      return b.startDate.localeCompare(a.startDate);
+                    }).map((edu) => (
+                      editingEducationId === edu.id ? (
+                        <div key={edu.id} className="p-3 border rounded-lg space-y-3 bg-muted/20">
+                          <AutocompleteInput
+                            placeholder="Сургуулийн нэр"
+                            value={newEducation.school}
+                            onChange={(value) => setNewEducation({ ...newEducation, school: value })}
+                            suggestions={SCHOOLS_DB}
+                            className="h-9 text-sm"
+                          />
+                          <AutocompleteInput
+                            placeholder="Мэргэжил, зэрэг"
+                            value={newEducation.degree}
+                            onChange={(value) => setNewEducation({ ...newEducation, degree: value })}
+                            suggestions={DEGREES_DB}
+                            className="h-9 text-sm"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
+                              <Input
+                                type="month"
+                                value={newEducation.startDate}
+                                onChange={(e) => setNewEducation({ ...newEducation, startDate: e.target.value })}
+                                className="h-9 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Төгссөн</label>
+                              <Input
+                                type="month"
+                                value={newEducation.endDate}
+                                onChange={(e) => setNewEducation({ ...newEducation, endDate: e.target.value })}
+                                disabled={newEducation.isCurrent}
+                                className="h-9 text-sm"
+                              />
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={newEducation.isCurrent}
+                              onChange={(e) => setNewEducation({ ...newEducation, isCurrent: e.target.checked, endDate: "" })}
+                              className="rounded"
+                            />
+                            Одоо суралцаж байгаа
+                          </label>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 h-8 text-xs"
+                              onClick={handleSaveEducation}
+                              disabled={!newEducation.school || !newEducation.degree || !newEducation.startDate}
+                            >
+                              Хадгалах
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={handleCancelEditEducation}
+                            >
+                              Болих
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          key={edu.id}
+                          className="p-3 bg-muted/30 rounded-lg group relative cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => handleEditEducation(edu)}
+                        >
+                          <div className="pr-16">
+                            <p className="font-medium text-sm">{edu.degree}</p>
+                            <p className="text-xs text-muted-foreground">{edu.school}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatWorkDate(edu.startDate)} - {edu.isCurrent ? "Одоог хүртэл" : formatWorkDate(edu.endDate)}
+                            </p>
+                          </div>
+                          <div className="absolute top-3 right-3 flex gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleEditEducation(edu); }}
+                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500 transition-opacity"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteEducation(edu.id); }}
+                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 transition-opacity"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
+
+                {educations.length > 0 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    {educations.length}/5 боловсрол
+                  </p>
+                )}
+              </div>
+
+              {/* Work Experience */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-muted-foreground" />
+                    <h4 className="font-semibold text-sm">Ажлын туршлага</h4>
+                  </div>
+                  {workExperiences.length < 5 && !showAddWork && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs gap-1"
+                      onClick={() => setShowAddWork(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Нэмэх
+                    </Button>
+                  )}
+                </div>
+
+                {/* Add Work Form */}
+                {showAddWork && (
+                  <div className="p-3 border rounded-lg space-y-3 bg-muted/20">
+                    <AutocompleteInput
+                      placeholder="Байгууллагын нэр"
+                      value={newWork.company}
+                      onChange={(value) => setNewWork({ ...newWork, company: value })}
+                      suggestions={COMPANIES_DB}
+                      className="h-9 text-sm"
+                    />
+                    <AutocompleteInput
+                      placeholder="Албан тушаал"
+                      value={newWork.position}
+                      onChange={(value) => setNewWork({ ...newWork, position: value })}
+                      suggestions={POSITIONS_DB}
+                      className="h-9 text-sm"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
+                        <Input
+                          type="month"
+                          value={newWork.startDate}
+                          onChange={(e) => setNewWork({ ...newWork, startDate: e.target.value })}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">Дууссан</label>
+                        <Input
+                          type="month"
+                          value={newWork.endDate}
+                          onChange={(e) => setNewWork({ ...newWork, endDate: e.target.value })}
+                          disabled={newWork.isCurrent}
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newWork.isCurrent}
+                        onChange={(e) => setNewWork({ ...newWork, isCurrent: e.target.checked, endDate: "" })}
+                        className="rounded"
+                      />
+                      Одоо ажиллаж байгаа
+                    </label>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={handleAddWork}
+                        disabled={!newWork.company || !newWork.position || !newWork.startDate}
+                      >
+                        Хадгалах
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setShowAddWork(false);
+                          setNewWork({ company: "", position: "", startDate: "", endDate: "", isCurrent: false });
+                        }}
+                      >
+                        Болих
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Work List */}
+                {workExperiences.length === 0 && !showAddWork ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Ажлын туршлага нэмээгүй байна
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {[...workExperiences].sort((a, b) => {
+                      // Sort by start date descending (newest first)
+                      return b.startDate.localeCompare(a.startDate);
+                    }).map((work) => (
+                      editingWorkId === work.id ? (
+                        <div key={work.id} className="p-3 border rounded-lg space-y-3 bg-muted/20">
+                          <AutocompleteInput
+                            placeholder="Байгууллагын нэр"
+                            value={newWork.company}
+                            onChange={(value) => setNewWork({ ...newWork, company: value })}
+                            suggestions={COMPANIES_DB}
+                            className="h-9 text-sm"
+                          />
+                          <AutocompleteInput
+                            placeholder="Албан тушаал"
+                            value={newWork.position}
+                            onChange={(value) => setNewWork({ ...newWork, position: value })}
+                            suggestions={POSITIONS_DB}
+                            className="h-9 text-sm"
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
+                              <Input
+                                type="month"
+                                value={newWork.startDate}
+                                onChange={(e) => setNewWork({ ...newWork, startDate: e.target.value })}
+                                className="h-9 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Дууссан</label>
+                              <Input
+                                type="month"
+                                value={newWork.endDate}
+                                onChange={(e) => setNewWork({ ...newWork, endDate: e.target.value })}
+                                disabled={newWork.isCurrent}
+                                className="h-9 text-sm"
+                              />
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={newWork.isCurrent}
+                              onChange={(e) => setNewWork({ ...newWork, isCurrent: e.target.checked, endDate: "" })}
+                              className="rounded"
+                            />
+                            Одоо ажиллаж байгаа
+                          </label>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              className="flex-1 h-8 text-xs"
+                              onClick={handleSaveWork}
+                              disabled={!newWork.company || !newWork.position || !newWork.startDate}
+                            >
+                              Хадгалах
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs"
+                              onClick={handleCancelEditWork}
+                            >
+                              Болих
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          key={work.id}
+                          className="p-3 bg-muted/30 rounded-lg group relative cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => handleEditWork(work)}
+                        >
+                          <div className="pr-16">
+                            <p className="font-medium text-sm">{work.position}</p>
+                            <p className="text-xs text-muted-foreground">{work.company}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatWorkDate(work.startDate)} - {work.isCurrent ? "Одоог хүртэл" : formatWorkDate(work.endDate)}
+                            </p>
+                          </div>
+                          <div className="absolute top-3 right-3 flex gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleEditWork(work); }}
+                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500 transition-opacity"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteWork(work.id); }}
+                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 transition-opacity"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
+
+                {workExperiences.length > 0 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    {workExperiences.length}/5 ажлын туршлага
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2">
+                {!isEditing && (
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Засварлах
+                  </Button>
+                )}
+
+                {isEditing ? (
+                  <Button
+                    className="w-full"
+                    onClick={() => setIsEditing(false)}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Хадгалах
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    onClick={() => {
+                      logout();
+                      setProfileOpen(false);
+                    }}
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Гарах
+                  </Button>
+                )}
+              </div>
             </div>
           </DialogContent>
         </Dialog>

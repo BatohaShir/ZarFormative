@@ -11,7 +11,8 @@ import { FavoritesButton } from "@/components/favorites-button";
 import { MessagesButton } from "@/components/messages-button";
 import { ChatModal } from "@/components/chat-modal";
 import { useAuth } from "@/contexts/auth-context";
-import { ChevronLeft, Search, Archive, Trash2, MoreVertical, ArchiveRestore } from "lucide-react";
+import { useMessages } from "@/contexts/messages-context";
+import { ChevronLeft, Search, Archive, Trash2, MoreVertical, ArchiveRestore, Clock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,80 +23,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Conversation {
   id: number;
-  provider: {
+  type: "incoming" | "outgoing";
+  person: {
     name: string;
     avatar: string;
   };
-  serviceTitle: string;
+  service: {
+    title: string;
+    image: string;
+  };
   lastMessage: string;
   lastMessageTime: Date;
   unreadCount: number;
   isOnline: boolean;
+  requestExpiresAt?: number;
 }
-
-// Mock conversations data
-const mockConversations: Conversation[] = [
-  {
-    id: 1,
-    provider: {
-      name: "Болд Констракшн",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    },
-    serviceTitle: "Орон сууцны засвар",
-    lastMessage: "Баярлалаа! Таны хүсэлтийг хүлээн авлаа. Удахгүй холбогдох болно.",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 5), // 5 mins ago
-    unreadCount: 2,
-    isOnline: true,
-  },
-  {
-    id: 2,
-    provider: {
-      name: "Цэвэр Гэр ХХК",
-      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    },
-    serviceTitle: "Гэрийн цэвэрлэгээ",
-    lastMessage: "Сайн байна уу! Маргааш 10 цагт ирж болох уу?",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-    unreadCount: 0,
-    isOnline: true,
-  },
-  {
-    id: 3,
-    provider: {
-      name: "ТехМастер",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    },
-    serviceTitle: "Компьютер засвар",
-    lastMessage: "Таны компьютер засвар дууссан байна. Ирж авч болно.",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-    unreadCount: 0,
-    isOnline: false,
-  },
-  {
-    id: 4,
-    provider: {
-      name: "Сараа багш",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    },
-    serviceTitle: "Англи хэлний хичээл",
-    lastMessage: "Дараагийн хичээл Лхагва гарагт болно.",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-    unreadCount: 0,
-    isOnline: false,
-  },
-  {
-    id: 5,
-    provider: {
-      name: "Хурд Логистик",
-      avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop",
-    },
-    serviceTitle: "Ачаа тээвэр",
-    lastMessage: "Таны ачааг амжилттай хүргэлээ. Баярлалаа!",
-    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 1 week ago
-    unreadCount: 0,
-    isOnline: true,
-  },
-];
 
 function formatMessageTime(date: Date): string {
   const now = new Date();
@@ -115,35 +57,65 @@ function formatMessageTime(date: Date): string {
   }
 }
 
+function formatTimeRemaining(expiresAt: number): string {
+  const remaining = expiresAt - Date.now();
+  if (remaining <= 0) return "00:00";
+
+  const hours = Math.floor(remaining / (1000 * 60 * 60));
+  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, "0")}`;
+  }
+  return `${minutes} мин`;
+}
+
 export default function MessagesPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+  const {
+    conversations,
+    archivedConversations,
+    markAsRead,
+    archiveConversation,
+    unarchiveConversation,
+    deleteConversation,
+    acceptRequest,
+    declineRequest,
+    isAccepted,
+  } = useMessages();
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [conversations, setConversations] = React.useState<Conversation[]>(mockConversations);
-  const [archivedConversations, setArchivedConversations] = React.useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = React.useState<Conversation | null>(null);
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [, setTick] = React.useState(0);
 
-  const handleArchiveChat = (e: React.MouseEvent, conversation: Conversation) => {
+  // Update timer every minute
+  React.useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleArchiveChat = (e: React.MouseEvent, conversationId: number) => {
     e.stopPropagation();
-    setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
-    setArchivedConversations((prev) => [...prev, conversation]);
+    archiveConversation(conversationId);
   };
 
-  const handleUnarchiveChat = (e: React.MouseEvent, conversation: Conversation) => {
+  const handleUnarchiveChat = (e: React.MouseEvent, conversationId: number) => {
     e.stopPropagation();
-    setArchivedConversations((prev) => prev.filter((c) => c.id !== conversation.id));
-    setConversations((prev) => [...prev, conversation]);
+    unarchiveConversation(conversationId);
   };
 
   const handleDeleteChat = (e: React.MouseEvent, conversationId: number) => {
     e.stopPropagation();
-    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
-    setArchivedConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    deleteConversation(conversationId);
   };
 
   const handleOpenChat = (conversation: Conversation) => {
-    setSelectedConversation(conversation);
+    // Mark conversation as read
+    if (conversation.unreadCount > 0) {
+      markAsRead(conversation.id);
+    }
+    setSelectedConversation({ ...conversation, unreadCount: 0 });
     setChatOpen(true);
   };
 
@@ -160,14 +132,14 @@ export default function MessagesPage() {
 
   const filteredConversations = conversations.filter(
     (conv) =>
-      conv.provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.serviceTitle.toLowerCase().includes(searchQuery.toLowerCase())
+      conv.person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conv.service.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredArchivedConversations = archivedConversations.filter(
     (conv) =>
-      conv.provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.serviceTitle.toLowerCase().includes(searchQuery.toLowerCase())
+      conv.person.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conv.service.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -250,43 +222,59 @@ export default function MessagesPage() {
                   >
                     <button
                       onClick={() => handleOpenChat(conversation)}
-                      className="flex-1 flex items-center gap-2 md:gap-3 p-2 md:p-3 text-left"
+                      className="flex-1 flex items-center gap-3 md:gap-4 p-2 md:p-3 text-left"
                     >
-                      {/* Avatar */}
+                      {/* Service Image with Avatar overlay */}
                       <div className="relative shrink-0">
                         <img
-                          src={conversation.provider.avatar}
-                          alt={conversation.provider.name}
-                          className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover"
+                          src={conversation.service.image}
+                          alt={conversation.service.title}
+                          className="w-14 h-14 md:w-16 md:h-16 rounded-lg object-cover"
                         />
-                        {conversation.isOnline && (
-                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-                        )}
+                        {/* Avatar in top-left corner */}
+                        <div className="absolute -top-1.5 -left-1.5">
+                          <img
+                            src={conversation.person.avatar}
+                            alt={conversation.person.name}
+                            className="w-6 h-6 md:w-7 md:h-7 rounded-full object-cover border-2 border-background"
+                          />
+                          {conversation.isOnline && (
+                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-[1.5px] border-background" />
+                          )}
+                        </div>
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-xs md:text-sm truncate max-w-[140px] sm:max-w-[200px] md:max-w-none">
-                            {conversation.provider.name}
-                          </span>
-                          <span className="text-xs text-muted-foreground shrink-0">
-                            {formatMessageTime(conversation.lastMessageTime)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate max-w-[180px] sm:max-w-[250px] md:max-w-none mb-0.5">
-                          {conversation.serviceTitle}
+                        <span className="font-semibold text-sm md:text-base truncate block max-w-40 sm:max-w-55 md:max-w-none">
+                          {conversation.person.name}
+                        </span>
+                        <p className="text-xs text-muted-foreground truncate max-w-50 sm:max-w-70 md:max-w-none">
+                          {conversation.service.title}
                         </p>
-                        <p className={`text-xs md:text-sm truncate max-w-[180px] sm:max-w-[250px] md:max-w-none ${conversation.unreadCount > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                        <p className={`text-sm truncate max-w-50 sm:max-w-70 md:max-w-none mt-0.5 ${conversation.unreadCount > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
                           {conversation.lastMessage}
                         </p>
                       </div>
-
-                      {/* Unread Indicator */}
-                      {conversation.unreadCount > 0 && (
-                        <div className="shrink-0 w-2.5 h-2.5 bg-primary rounded-full" />
-                      )}
                     </button>
+
+                    {/* Unread + Timer + Time - centered vertically */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {conversation.unreadCount > 0 && (
+                        <div className="w-2 h-2 bg-primary rounded-full" />
+                      )}
+                      {conversation.requestExpiresAt && conversation.requestExpiresAt > Date.now() && (
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded">
+                          <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+                          <span className="text-xs font-mono font-medium text-amber-700 dark:text-amber-300">
+                            {formatTimeRemaining(conversation.requestExpiresAt)}
+                          </span>
+                        </div>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {formatMessageTime(conversation.lastMessageTime)}
+                      </span>
+                    </div>
 
                     {/* Actions Menu */}
                     <DropdownMenu>
@@ -301,7 +289,7 @@ export default function MessagesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={(e) => handleArchiveChat(e as unknown as React.MouseEvent, conversation)}
+                          onClick={(e) => handleArchiveChat(e as unknown as React.MouseEvent, conversation.id)}
                           className="gap-2 cursor-pointer"
                         >
                           <Archive className="h-4 w-4" />
@@ -338,31 +326,39 @@ export default function MessagesPage() {
                   >
                     <button
                       onClick={() => handleOpenChat(conversation)}
-                      className="flex-1 flex items-center gap-2 md:gap-3 p-2 md:p-3 text-left opacity-70"
+                      className="flex-1 flex items-center gap-3 md:gap-4 p-2 md:p-3 text-left opacity-60"
                     >
-                      {/* Avatar */}
+                      {/* Service Image with Avatar overlay */}
                       <div className="relative shrink-0">
                         <img
-                          src={conversation.provider.avatar}
-                          alt={conversation.provider.name}
-                          className="w-10 h-10 md:w-12 md:h-12 rounded-full object-cover grayscale"
+                          src={conversation.service.image}
+                          alt={conversation.service.title}
+                          className="w-14 h-14 md:w-16 md:h-16 rounded-lg object-cover grayscale"
                         />
+                        {/* Avatar in top-left corner */}
+                        <div className="absolute -top-1.5 -left-1.5">
+                          <img
+                            src={conversation.person.avatar}
+                            alt={conversation.person.name}
+                            className="w-6 h-6 md:w-7 md:h-7 rounded-full object-cover border-2 border-background grayscale"
+                          />
+                        </div>
                       </div>
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-xs md:text-sm truncate max-w-[140px] sm:max-w-[200px] md:max-w-none">
-                            {conversation.provider.name}
+                          <span className="font-semibold text-sm md:text-base truncate max-w-40 sm:max-w-55 md:max-w-none">
+                            {conversation.person.name}
                           </span>
                           <span className="text-xs text-muted-foreground shrink-0">
                             {formatMessageTime(conversation.lastMessageTime)}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground truncate max-w-[180px] sm:max-w-[250px] md:max-w-none mb-0.5">
-                          {conversation.serviceTitle}
+                        <p className="text-xs text-muted-foreground truncate max-w-50 sm:max-w-70 md:max-w-none">
+                          {conversation.service.title}
                         </p>
-                        <p className="text-xs md:text-sm truncate max-w-[180px] sm:max-w-[250px] md:max-w-none text-muted-foreground">
+                        <p className="text-sm truncate max-w-50 sm:max-w-70 md:max-w-none mt-0.5 text-muted-foreground">
                           {conversation.lastMessage}
                         </p>
                       </div>
@@ -381,7 +377,7 @@ export default function MessagesPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={(e) => handleUnarchiveChat(e as unknown as React.MouseEvent, conversation)}
+                          onClick={(e) => handleUnarchiveChat(e as unknown as React.MouseEvent, conversation.id)}
                           className="gap-2 cursor-pointer"
                         >
                           <ArchiveRestore className="h-4 w-4" />
@@ -404,13 +400,21 @@ export default function MessagesPage() {
         </Tabs>
       </main>
 
+
       {/* Chat Modal */}
       {selectedConversation && (
         <ChatModal
           open={chatOpen}
           onOpenChange={setChatOpen}
-          provider={selectedConversation.provider}
-          serviceTitle={selectedConversation.serviceTitle}
+          provider={selectedConversation.person}
+          serviceTitle={selectedConversation.service.title}
+          conversationType={selectedConversation.type}
+          initialMessage={selectedConversation.lastMessage}
+          initialMessageTime={selectedConversation.lastMessageTime}
+          requestExpiresAt={selectedConversation.requestExpiresAt}
+          isAccepted={isAccepted(selectedConversation.id)}
+          onAccept={() => acceptRequest(selectedConversation.id)}
+          onDecline={() => declineRequest(selectedConversation.id)}
         />
       )}
     </div>
