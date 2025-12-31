@@ -497,7 +497,7 @@ function ServicesPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
@@ -515,18 +515,13 @@ function ServicesPageContent() {
               </h1>
             </Link>
           </div>
+          {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
             <MessagesButton />
             <FavoritesButton />
             <ThemeToggle />
             <AuthModal />
           </nav>
-          <div className="flex items-center gap-2 md:hidden">
-            <MessagesButton className="h-9 w-9" />
-            <FavoritesButton className="h-9 w-9" />
-            <ThemeToggle />
-            <AuthModal />
-          </div>
         </div>
       </header>
 

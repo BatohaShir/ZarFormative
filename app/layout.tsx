@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { FavoritesProvider } from "@/contexts/favorites-context";
 import { AuthProvider } from "@/contexts/auth-context";
 import { MessagesProvider } from "@/contexts/messages-context";
+import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,7 +40,10 @@ export default function RootLayout({
         >
           <AuthProvider>
             <FavoritesProvider>
-              <MessagesProvider>{children}</MessagesProvider>
+              <MessagesProvider>
+                {children}
+                <MobileBottomNav />
+              </MessagesProvider>
             </FavoritesProvider>
           </AuthProvider>
         </ThemeProvider>

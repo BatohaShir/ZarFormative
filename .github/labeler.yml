@@ -1,0 +1,46 @@
+# Auto-labeling for pull requests
+
+'documentation':
+  - '**/*.md'
+  - 'docs/**/*'
+
+'dependencies':
+  - 'package.json'
+  - 'package-lock.json'
+  - 'yarn.lock'
+  - 'pnpm-lock.yaml'
+
+'tests':
+  - '**/*.test.*'
+  - '**/*.spec.*'
+  - '__tests__/**/*'
+  - 'jest.config.*'
+  - 'vitest.config.*'
+
+'ui':
+  - 'components/**/*'
+  - 'app/**/*.tsx'
+  - '**/*.css'
+
+'api':
+  - 'app/api/**/*'
+  - 'lib/api/**/*'
+
+'database':
+  - 'prisma/**/*'
+  - 'lib/prisma.*'
+
+'auth':
+  - 'lib/auth.*'
+  - 'app/api/auth/**/*'
+
+'configuration':
+  - '*.config.*'
+  - '.github/**/*'
+  - '.husky/**/*'
+  - 'tsconfig.json'
+  - '.eslintrc.*'
+  - '.prettierrc.*'
+
+'workflow':
+  - '.github/workflows/**/*'

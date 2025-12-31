@@ -394,7 +394,7 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="container mx-auto px-2 md:px-4 py-2 md:py-4 flex items-center justify-between">
@@ -422,13 +422,6 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
             <ThemeToggle />
             <AuthModal />
           </nav>
-          {/* Mobile Nav */}
-          <div className="flex items-center gap-1 md:hidden">
-            <MessagesButton className="h-8 w-8" />
-            <FavoritesButton className="h-8 w-8" />
-            <ThemeToggle />
-            <AuthModal />
-          </div>
         </div>
       </header>
 

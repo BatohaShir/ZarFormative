@@ -142,7 +142,7 @@ const recommendedServices = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
@@ -158,13 +158,6 @@ export default function Home() {
             <ThemeToggle />
             <AuthModal />
           </nav>
-          {/* Mobile Nav */}
-          <div className="flex items-center gap-2 md:hidden">
-            <MessagesButton className="h-9 w-9" />
-            <FavoritesButton className="h-9 w-9" />
-            <ThemeToggle />
-            <AuthModal />
-          </div>
         </div>
       </header>
 
@@ -232,24 +225,26 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <Footer />
+      {/* Footer - Desktop only */}
+      <div className="hidden md:block">
+        <Footer />
+      </div>
 
-      {/* Create Service FAB */}
-      <Link href="/services/create" className="fixed bottom-6 right-6 z-50 group">
+      {/* Create Service FAB - Desktop only */}
+      <Link href="/services/create" className="hidden md:flex fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 group">
         <div className="relative">
-          {/* Tooltip */}
-          <div className="absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-foreground text-background text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
+          {/* Tooltip - Desktop only */}
+          <div className="hidden md:block absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-foreground text-background text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
             Үйлчилгээ нэмэх
             <div className="absolute top-full right-4 border-4 border-transparent border-t-foreground" />
           </div>
-          {/* Button */}
+          {/* Button - Smaller on mobile */}
           <Button
             size="lg"
-            className="h-14 pl-4 pr-5 rounded-full shadow-lg hover:shadow-xl transition-all bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 gap-2"
+            className="h-12 md:h-14 px-3 md:pl-4 md:pr-5 rounded-full shadow-lg hover:shadow-xl transition-all bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 gap-1.5 md:gap-2"
           >
-            <Plus className="h-5 w-5" />
-            <span className="font-medium">Зарлах</span>
+            <Plus className="h-4 w-4 md:h-5 md:w-5" />
+            <span className="font-medium text-sm md:text-base">Зарлах</span>
           </Button>
           {/* Pulse animation */}
           <span className="absolute -top-1 -right-1 flex h-3 w-3">

@@ -9,7 +9,7 @@ export const allCategories: Category[] = [
   {
     id: "transport",
     name: "Тээвэрлэлт, хүргэлт",
-    icon: "/icons /delivery-man.png",
+    icon: "/icons/delivery-man.png",
     subcategories: [
       "Ачаа тээвэр",
       "Хүргэлт",
@@ -24,7 +24,7 @@ export const allCategories: Category[] = [
   {
     id: "repair",
     name: "Засвар, өнгөлгөө",
-    icon: "/icons /artist.png",
+    icon: "/icons/artist.png",
     subcategories: [
       "Орон сууцны засвар",
       "Өнгөлгөө",
@@ -41,7 +41,7 @@ export const allCategories: Category[] = [
   {
     id: "tech-repair",
     name: "Техник засвар",
-    icon: "/icons /mechanic.png",
+    icon: "/icons/mechanic.png",
     subcategories: [
       "Гар утас засвар",
       "Компьютер засвар",
@@ -58,7 +58,7 @@ export const allCategories: Category[] = [
   {
     id: "cleaning",
     name: "Цэвэрлэгээ",
-    icon: "/icons /cleaning.png",
+    icon: "/icons/cleaning.png",
     subcategories: [
       "Гэрийн цэвэрлэгээ",
       "Оффис цэвэрлэгээ",
@@ -74,7 +74,7 @@ export const allCategories: Category[] = [
   {
     id: "equipment",
     name: "Тоног төхөөрөмж",
-    icon: "/icons /products.png",
+    icon: "/icons/products.png",
     subcategories: [
       "Үйлдвэрийн тоног",
       "Барилгын тоног",
@@ -104,7 +104,7 @@ export const allCategories: Category[] = [
   {
     id: "construction",
     name: "Барилга",
-    icon: "/icons /workers.png",
+    icon: "/icons/workers.png",
     subcategories: [
       "Барилгын ажил",
       "Дотор дизайн",
@@ -121,7 +121,7 @@ export const allCategories: Category[] = [
   {
     id: "business",
     name: "Бизнес үйлчилгээ",
-    icon: "/icons /cooperation.png",
+    icon: "/icons/cooperation.png",
     subcategories: [
       "Нягтлан бодох",
       "Хуулийн зөвлөгөө",
@@ -138,7 +138,7 @@ export const allCategories: Category[] = [
   {
     id: "education",
     name: "Сургалт, хичээл",
-    icon: "/icons /teaching.png",
+    icon: "/icons/teaching.png",
     subcategories: [
       "Англи хэл",
       "Орос хэл",
@@ -158,7 +158,7 @@ export const allCategories: Category[] = [
   {
     id: "installation",
     name: "Суурилуулалт",
-    icon: "/icons /mechanic (1).png",
+    icon: "/icons/mechanic-2.png",
     subcategories: [
       "Кондиционер",
       "Интернет, сүлжээ",
@@ -175,7 +175,7 @@ export const allCategories: Category[] = [
   {
     id: "it",
     name: "IT үйлчилгээ",
-    icon: "/icons /laptop.png",
+    icon: "/icons/laptop.png",
     subcategories: [
       "Веб хөгжүүлэлт",
       "Гар утасны апп",

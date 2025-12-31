@@ -194,13 +194,24 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-export function AuthModal() {
+interface AuthModalProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
   const { user, login, logout, updateAvatar, isAuthenticated } = useAuth();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   const [phoneStep, setPhoneStep] = React.useState<"phone" | "code">("phone");
-  const [open, setOpen] = React.useState(false);
+  const [internalOpen, setInternalOpen] = React.useState(false);
+
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = isControlled
+    ? (value: boolean) => { if (!value && onClose) onClose(); }
+    : setInternalOpen;
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");

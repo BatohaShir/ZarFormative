@@ -1,0 +1,40 @@
+{
+  "description": "ZAR Formative - AI-powered project configuration",
+  "autoApprove": {
+    "enabled": true,
+    "allowedCommands": [
+      "git add",
+      "git commit",
+      "git push",
+      "git checkout",
+      "git pull",
+      "git fetch",
+      "git merge",
+      "npm install",
+      "npm run build",
+      "npm run test",
+      "npm run lint",
+      "npm run format",
+      "npx tsc",
+      "npx prettier",
+      "npx eslint"
+    ]
+  },
+  "hooks": {
+    "beforeCommit": {
+      "enabled": true,
+      "command": "npm run lint && npm run type-check"
+    },
+    "afterCommit": {
+      "enabled": true,
+      "command": "echo '✅ Commit created successfully'"
+    }
+  },
+  "taskAutomation": {
+    "enabled": true,
+    "linearSync": true,
+    "autoCreateBranches": true,
+    "branchNamingPattern": "feature/{ticket-id}-{description}",
+    "commitMessagePattern": "{type}({scope}): {description}\n\nLinear: {ticket-url}"
+  }
+}

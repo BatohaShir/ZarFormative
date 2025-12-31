@@ -464,7 +464,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20 lg:pb-0">
+    <div className="min-h-screen bg-background pb-32 md:pb-20 lg:pb-0">
       {/* Header */}
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4 flex items-center justify-between">
@@ -492,13 +492,6 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
             <ThemeToggle />
             <AuthModal />
           </nav>
-          {/* Mobile Nav */}
-          <div className="flex items-center gap-2 md:hidden">
-            <MessagesButton className="h-9 w-9" />
-            <FavoritesButton className="h-9 w-9" />
-            <ThemeToggle />
-            <AuthModal />
-          </div>
         </div>
       </header>
 
@@ -629,20 +622,22 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Mobile Reviews - Shows on mobile only */}
-            {service.reviews.length > 0 && (
-              <div className="lg:hidden space-y-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-semibold flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4" />
-                    Сэтгэгдэл ({service.reviews.length})
-                  </h2>
+            <div className="lg:hidden space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-semibold flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" />
+                  Сэтгэгдэл ({service.reviews.length})
+                </h2>
+                {service.reviews.length > 0 && (
                   <div className="flex items-center gap-1 text-sm">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                     <span className="font-medium">
                       {(service.reviews.reduce((acc, r) => acc + r.rating, 0) / service.reviews.length).toFixed(1)}
                     </span>
                   </div>
-                </div>
+                )}
+              </div>
+              {service.reviews.length > 0 ? (
                 <div className="space-y-3">
                   {service.reviews.map((review) => (
                     <div key={review.id} className="bg-muted/50 rounded-lg p-3 space-y-2">
@@ -675,8 +670,13 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-8 bg-muted/30 rounded-lg">
+                  <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Одоогоор сэтгэгдэл байхгүй байна</p>
+                </div>
+              )}
+            </div>
 
           </div>
 
@@ -788,20 +788,22 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               </div>
 
               {/* Reviews in Sidebar */}
-              {service.reviews.length > 0 && (
-                <div className="border-t pt-4 mt-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      Сэтгэгдэл ({service.reviews.length})
-                    </h3>
+              <div className="border-t pt-4 mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Сэтгэгдэл ({service.reviews.length})
+                  </h3>
+                  {service.reviews.length > 0 && (
                     <div className="flex items-center gap-1 text-sm">
                       <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                       <span className="font-medium text-xs">
                         {(service.reviews.reduce((acc, r) => acc + r.rating, 0) / service.reviews.length).toFixed(1)}
                       </span>
                     </div>
-                  </div>
+                  )}
+                </div>
+                {service.reviews.length > 0 ? (
                   <div className="space-y-2 max-h-[480px] overflow-y-auto">
                     {service.reviews.map((review) => (
                       <div key={review.id} className="bg-muted/50 rounded-lg p-3 space-y-1.5">
@@ -831,15 +833,20 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-6 bg-muted/30 rounded-lg">
+                    <MessageSquare className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
+                    <p className="text-xs text-muted-foreground">Одоогоор сэтгэгдэл байхгүй байна</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </main>
 
-      {/* Mobile Fixed Bottom Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t p-3 md:p-4 safe-area-pb">
+      {/* Mobile Fixed Bottom Bar - Above bottom nav */}
+      <div className="md:hidden fixed bottom-16 left-0 right-0 bg-background border-t p-3 z-40">
         {requestPending ? (
           <div className="flex items-center justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
             <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
