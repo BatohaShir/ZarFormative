@@ -180,7 +180,8 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
-  const { user, login, logout, updateAvatar, isAuthenticated } = useAuth();
+  const { user, profile, signIn, signUp, signOut, isAuthenticated, isLoading } = useAuth();
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -296,20 +297,37 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
       return;
     }
 
-    // TODO: API call for registration
-    console.log("Registration data:", {
-      userType: registerUserType,
-      ...(registerUserType === "individual"
-        ? { firstName: regFirstName, lastName: regLastName }
-        : { companyName: regCompanyName, registrationNumber: regRegistrationNumber }),
-      email: regEmail,
-      phone: regPhone,
-      password: regPassword,
-    });
+    setIsSubmitting(true);
+    setRegErrors({});
 
-    // For now, just close the modal
-    setOpen(false);
-    resetState();
+    try {
+      const metadata = registerUserType === "individual"
+        ? {
+            first_name: regFirstName,
+            last_name: regLastName,
+            phone_number: regPhone,
+            is_company: false,
+          }
+        : {
+            first_name: regCompanyName,
+            last_name: regRegistrationNumber,
+            phone_number: regPhone,
+            is_company: true,
+          };
+
+      const { error } = await signUp(regEmail, regPassword, metadata);
+
+      if (error) {
+        setRegErrors({ general: error });
+        return;
+      }
+
+      // Success - close modal
+      setOpen(false);
+      resetState();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const clearRegError = (field: string) => {
@@ -322,28 +340,29 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError("Имэйл болон нууц үгээ оруулна уу");
       return;
     }
-    const success = login(email, password);
-    if (success) {
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const { error } = await signIn(email, password);
+      if (error) {
+        setError(error);
+        return;
+      }
       setOpen(false);
       resetState();
-    } else {
-      setError("Имэйл эсвэл нууц үг буруу байна");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const [profileOpen, setProfileOpen] = React.useState(false);
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [profileData, setProfileData] = React.useState({
-    firstName: "Батбаяр",
-    lastName: "Дорж",
-    phone: "+976 9911 2233",
-    birthDate: "1995-05-15",
-  });
 
   interface Education {
     id: number;
@@ -553,14 +572,19 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        updateAvatar(result);
-      };
-      reader.readAsDataURL(file);
+      // TODO: Upload avatar to Supabase Storage
+      console.log("Avatar upload not implemented yet:", file.name);
     }
   };
+
+  // Get display name from profile or user email
+  const displayName = profile
+    ? profile.is_company
+      ? profile.first_name || "Компани"
+      : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
+    : user?.email?.split("@")[0] || "Хэрэглэгч";
+
+  const avatarUrl = profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
 
   // If user is authenticated, show user menu
   if (isAuthenticated && user) {
@@ -571,27 +595,27 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
             <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <div className="relative">
                 <img
-                  src={user.avatar}
-                  alt={user.name}
+                  src={avatarUrl}
+                  alt={displayName}
                   className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover border-2 border-blue-500"
                 />
                 {/* Online indicator */}
                 <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-[2px] border-background" />
               </div>
               <span className="hidden md:block text-sm font-medium max-w-24 truncate">
-                {user.name}
+                {displayName}
               </span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="flex items-center gap-3 p-3 border-b">
               <img
-                src={user.avatar}
-                alt={user.name}
+                src={avatarUrl}
+                alt={displayName}
                 className="w-10 h-10 rounded-full object-cover"
               />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{user.name}</p>
+                <p className="font-medium text-sm truncate">{displayName}</p>
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
@@ -604,7 +628,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="gap-2 cursor-pointer text-red-600 focus:text-red-600"
-              onClick={logout}
+              onClick={() => signOut()}
             >
               <LogOut className="h-4 w-4" />
               Гарах
@@ -613,10 +637,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
         </DropdownMenu>
 
         {/* Profile Modal */}
-        <Dialog open={profileOpen} onOpenChange={(open) => {
-          setProfileOpen(open);
-          if (!open) setIsEditing(false);
-        }}>
+        <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
           <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl p-0 max-h-[90vh] flex flex-col overflow-hidden">
             <DialogHeader className="p-4 sm:p-6 pb-0 shrink-0">
               <DialogTitle className="text-center text-lg">Миний профайл</DialogTitle>
@@ -626,8 +647,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
                   <img
-                    src={user.avatar}
-                    alt={user.name}
+                    src={avatarUrl}
+                    alt={displayName}
                     className="w-24 h-24 rounded-full object-cover border-[3px] border-blue-500"
                   />
                   <button
@@ -645,7 +666,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   />
                 </div>
                 <div className="text-center">
-                  <h3 className="text-xl font-semibold">{user.name}</h3>
+                  <h3 className="text-xl font-semibold">{displayName}</h3>
                   <p className="text-sm text-muted-foreground">{user.email}</p>
                 </div>
               </div>
@@ -681,30 +702,14 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   <User className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Нэр</p>
-                    {isEditing ? (
-                      <Input
-                        value={profileData.firstName}
-                        onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
-                        className="h-8 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-medium">{profileData.firstName}</p>
-                    )}
+                    <p className="text-sm font-medium">{profile?.first_name || "-"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                   <User className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Овог</p>
-                    {isEditing ? (
-                      <Input
-                        value={profileData.lastName}
-                        onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
-                        className="h-8 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-medium">{profileData.lastName}</p>
-                    )}
+                    <p className="text-sm font-medium">{profile?.last_name || "-"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
@@ -718,40 +723,18 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   <Phone className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground">Утас</p>
-                    {isEditing ? (
-                      <Input
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                        className="h-8 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-medium">{profileData.phone}</p>
-                    )}
+                    <p className="text-sm font-medium">{profile?.phone_number || "-"}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <Cake className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Төрсөн огноо</p>
-                    {isEditing ? (
-                      <Input
-                        type="date"
-                        value={profileData.birthDate}
-                        onChange={(e) => setProfileData({ ...profileData, birthDate: e.target.value })}
-                        className="h-8 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="text-sm font-medium">{formatBirthDate(profileData.birthDate)}</p>
-                    )}
+                {profile?.is_company && (
+                  <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                    <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">Төрөл</p>
+                      <p className="text-sm font-medium">Байгууллага</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                  <Calendar className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground">Бүртгүүлсэн</p>
-                    <p className="text-sm font-medium">2023 оны 5-р сар</p>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* Education */}
@@ -1170,38 +1153,17 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
 
               {/* Action Buttons */}
               <div className="space-y-2">
-                {!isEditing && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Засварлах
-                  </Button>
-                )}
-
-                {isEditing ? (
-                  <Button
-                    className="w-full"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Хадгалах
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    onClick={() => {
-                      logout();
-                      setProfileOpen(false);
-                    }}
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    Гарах
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  className="w-full text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={() => {
+                    signOut();
+                    setProfileOpen(false);
+                  }}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Гарах
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -1340,19 +1302,17 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   )}
                 </button>
               </div>
-              <Button className="w-full h-9 sm:h-10 text-sm" onClick={handleLogin}>
-                Нэвтрэх
+              <Button
+                className="w-full h-9 sm:h-10 text-sm"
+                onClick={handleLogin}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Уншиж байна..." : "Нэвтрэх"}
               </Button>
               <Button variant="link" className="w-full text-xs sm:text-sm h-8">
                 Нууц үгээ мартсан?
               </Button>
 
-              {/* Test credentials hint */}
-              <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-                <p className="font-medium mb-1">Тест хэрэглэгч:</p>
-                <p>Имэйл: <span className="font-mono text-foreground">test@test.com</span></p>
-                <p>Нууц үг: <span className="font-mono text-foreground">123456</span></p>
-              </div>
             </div>
           </TabsContent>
 
@@ -1609,8 +1569,18 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                 )}
               </div>
 
-              <Button className="w-full h-9 sm:h-10 text-sm" onClick={handleRegister}>
-                Бүртгүүлэх
+              {regErrors.general && (
+                <p className="text-xs sm:text-sm text-red-500 text-center bg-red-50 dark:bg-red-950/30 p-2 rounded">
+                  {regErrors.general}
+                </p>
+              )}
+
+              <Button
+                className="w-full h-9 sm:h-10 text-sm"
+                onClick={handleRegister}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Уншиж байна..." : "Бүртгүүлэх"}
               </Button>
             </div>
           </TabsContent>

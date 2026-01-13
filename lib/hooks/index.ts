@@ -4,19 +4,7 @@
 
 /* eslint-disable */
 
-export * from './user';
-export * from './account';
-export * from './session';
-export * from './verification-token';
-export * from './category';
-export * from './service';
-export * from './feature';
-export * from './review';
-export * from './favorite';
-export * from './conversation';
-export * from './message';
-export * from './education';
-export * from './work-experience';
+export * from './profiles';
 export { getQueryKey } from '@zenstackhq/tanstack-query/runtime-v5';
 export { Provider } from '@zenstackhq/tanstack-query/runtime-v5/react';
 export { default as metadata } from './__model_meta';

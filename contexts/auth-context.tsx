@@ -1,105 +1,175 @@
 "use client";
 
 import * as React from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
-interface User {
+interface Profile {
   id: string;
-  name: string;
-  email: string;
-  avatar: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  is_company: boolean;
+  avatar_url: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  logout: () => void;
-  updateAvatar: (avatarUrl: string) => void;
+  profile: Profile | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    metadata: {
+      first_name: string;
+      last_name: string;
+      phone_number?: string;
+      is_company?: boolean;
+    }
+  ) => Promise<{ error: string | null }>;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
-// Test user credentials
-const TEST_USER = {
-  email: "test@test.com",
-  password: "123456",
-  user: {
-    id: "1",
-    name: "Батбаяр Д.",
-    email: "test@test.com",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-  },
-};
-
-const STORAGE_KEY = "uilchilgee_auth_user";
-
-function getStoredUser(): User | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
-}
-
-function storeUser(user: User | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (user) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // Ignore storage errors
-  }
-}
+const supabase = createClient();
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<User | null>(null);
-  const [isInitialized, setIsInitialized] = React.useState(false);
+  const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  // Initialize from localStorage on mount
-  React.useEffect(() => {
-    const storedUser = getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
+  // Fetch profile from database
+  const fetchProfile = React.useCallback(async (userId: string) => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      console.error("Error fetching profile:", error);
+      return null;
     }
-    setIsInitialized(true);
+    return data as Profile;
   }, []);
 
-  const login = (email: string, password: string): boolean => {
-    if (email === TEST_USER.email && password === TEST_USER.password) {
-      setUser(TEST_USER.user);
-      storeUser(TEST_USER.user);
-      return true;
-    }
-    return false;
-  };
-
-  const logout = () => {
-    setUser(null);
-    storeUser(null);
-  };
-
-  const updateAvatar = (avatarUrl: string) => {
+  // Refresh profile
+  const refreshProfile = React.useCallback(async () => {
     if (user) {
-      const updatedUser = { ...user, avatar: avatarUrl };
-      setUser(updatedUser);
-      storeUser(updatedUser);
+      const profileData = await fetchProfile(user.id);
+      setProfile(profileData);
     }
-  };
+  }, [user, fetchProfile]);
+
+  // Initialize auth state
+  React.useEffect(() => {
+    const initAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        setUser(session.user);
+        const profileData = await fetchProfile(session.user.id);
+        setProfile(profileData);
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        const profileData = await fetchProfile(session.user.id);
+        setProfile(profileData);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
+
+  // Sign in with email and password
+  const signIn = React.useCallback(
+    async (email: string, password: string): Promise<{ error: string | null }> => {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { error: null };
+    },
+    []
+  );
+
+  // Sign up with email and password
+  const signUp = React.useCallback(
+    async (
+      email: string,
+      password: string,
+      metadata: {
+        first_name: string;
+        last_name: string;
+        phone_number?: string;
+        is_company?: boolean;
+      }
+    ): Promise<{ error: string | null }> => {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: metadata,
+        },
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      return { error: null };
+    },
+    []
+  );
+
+  // Sign out
+  const signOut = React.useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+  }, []);
 
   const isAuthenticated = user !== null;
 
-  // Don't render children until we've checked localStorage
-  if (!isInitialized) {
-    return null;
-  }
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateAvatar, isAuthenticated }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        isAuthenticated,
+        isLoading,
+        signIn,
+        signUp,
+        signOut,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

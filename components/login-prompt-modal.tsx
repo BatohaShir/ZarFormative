@@ -20,26 +20,35 @@ interface LoginPromptModalProps {
 }
 
 export function LoginPromptModal({ open, onOpenChange, onSuccess }: LoginPromptModalProps) {
-  const { login } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError("Имэйл болон нууц үгээ оруулна уу");
       return;
     }
-    const success = login(email, password);
-    if (success) {
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      const { error } = await signIn(email, password);
+      if (error) {
+        setError(error);
+        return;
+      }
       setEmail("");
       setPassword("");
       setError("");
       onOpenChange(false);
       onSuccess?.();
-    } else {
-      setError("Имэйл эсвэл нууц үг буруу байна");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -106,16 +115,13 @@ export function LoginPromptModal({ open, onOpenChange, onSuccess }: LoginPromptM
                 )}
               </button>
             </div>
-            <Button className="w-full h-10" onClick={handleLogin}>
-              Нэвтрэх
+            <Button
+              className="w-full h-10"
+              onClick={handleLogin}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Уншиж байна..." : "Нэвтрэх"}
             </Button>
-
-            {/* Test credentials hint */}
-            <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-              <p className="font-medium mb-1">Тест хэрэглэгч:</p>
-              <p>Имэйл: <span className="font-mono text-foreground">test@test.com</span></p>
-              <p>Нууц үг: <span className="font-mono text-foreground">123456</span></p>
-            </div>
           </div>
         </div>
       </DialogContent>

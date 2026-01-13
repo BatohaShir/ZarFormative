@@ -183,7 +183,7 @@ interface WorkExperience {
 
 export default function MyProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, user, logout, updateAvatar } = useAuth();
+  const { isAuthenticated, user, profile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -191,12 +191,15 @@ export default function MyProfilePage() {
 
   // Profile editing state
   const [isEditing, setIsEditing] = React.useState(false);
-  const [profileData, setProfileData] = React.useState({
-    firstName: "Батбаяр",
-    lastName: "Дорж",
-    phone: "+976 9911 2233",
-    birthDate: "1995-05-15",
-  });
+
+  // Get display name from profile or user email
+  const displayName = profile
+    ? profile.is_company
+      ? profile.first_name || "Компани"
+      : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
+    : user?.email?.split("@")[0] || "Хэрэглэгч";
+
+  const avatarUrl = profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
 
   // Education state
   const [educations, setEducations] = React.useState<Education[]>([
@@ -276,8 +279,8 @@ export default function MyProfilePage() {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     router.push("/");
   };
 
@@ -314,12 +317,8 @@ export default function MyProfilePage() {
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        updateAvatar(result);
-      };
-      reader.readAsDataURL(file);
+      // TODO: Upload avatar to Supabase Storage
+      console.log("Avatar upload not implemented yet:", file.name);
     }
   };
 
@@ -514,8 +513,8 @@ export default function MyProfilePage() {
             <div className="relative group">
               <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl">
                 <img
-                  src={user?.avatar || "/placeholder-avatar.png"}
-                  alt={user?.name || "User"}
+                  src={avatarUrl}
+                  alt={displayName}
                   className="w-full h-full object-cover"
                 />
               </div>
@@ -537,7 +536,7 @@ export default function MyProfilePage() {
             {/* User Info */}
             <div className="flex-1 text-center md:text-left">
               <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                {user?.name}
+                {displayName}
               </h2>
               <p className="text-muted-foreground mb-4">{user?.email}</p>
 
@@ -606,17 +605,7 @@ export default function MyProfilePage() {
                   <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">Нэр</p>
-                    {isEditing ? (
-                      <Input
-                        value={profileData.firstName}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, firstName: e.target.value })
-                        }
-                        className="h-9 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="font-medium truncate">{profileData.firstName}</p>
-                    )}
+                    <p className="font-medium truncate">{profile?.first_name || "-"}</p>
                   </div>
                 </div>
 
@@ -624,17 +613,7 @@ export default function MyProfilePage() {
                   <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">Овог</p>
-                    {isEditing ? (
-                      <Input
-                        value={profileData.lastName}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, lastName: e.target.value })
-                        }
-                        className="h-9 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="font-medium truncate">{profileData.lastName}</p>
-                    )}
+                    <p className="font-medium truncate">{profile?.last_name || "-"}</p>
                   </div>
                 </div>
 
@@ -650,44 +629,7 @@ export default function MyProfilePage() {
                   <Phone className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-muted-foreground">Утас</p>
-                    {isEditing ? (
-                      <Input
-                        value={profileData.phone}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, phone: e.target.value })
-                        }
-                        className="h-9 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="font-medium truncate">{profileData.phone}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Cake className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Төрсөн огноо</p>
-                    {isEditing ? (
-                      <Input
-                        type="date"
-                        value={profileData.birthDate}
-                        onChange={(e) =>
-                          setProfileData({ ...profileData, birthDate: e.target.value })
-                        }
-                        className="h-9 text-sm mt-1"
-                      />
-                    ) : (
-                      <p className="font-medium">{formatBirthDate(profileData.birthDate)}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <Calendar className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Бүртгүүлсэн</p>
-                    <p className="font-medium">2023 оны 5-р сар</p>
+                    <p className="font-medium truncate">{profile?.phone_number || "-"}</p>
                   </div>
                 </div>
               </div>
