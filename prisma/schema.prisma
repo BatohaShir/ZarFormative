@@ -27,7 +27,12 @@ model profiles {
   is_deleted            Boolean                         @default(false)
   push_subscriptions    profiles_push_subscriptions[]
   notification_settings profiles_notification_settings?
+  educations            profiles_educations[]
+  work_experiences      profiles_work_experiences[]
 
+  @@index([is_deleted])
+  @@index([is_company])
+  @@index([created_at])
   @@map("profiles")
 }
 
@@ -66,4 +71,40 @@ model profiles_notification_settings {
   profile                profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("profiles_notification_settings")
+}
+
+model profiles_educations {
+  id             String    @id() @default(uuid()) @db.Uuid()
+  user_id        String    @db.Uuid()
+  degree         String
+  institution    String
+  field_of_study String?
+  start_date     DateTime
+  end_date       DateTime?
+  is_current     Boolean   @default(false)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @default(now())
+  user           profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([user_id, start_date(sort: Desc)])
+  @@map("profiles_educations")
+}
+
+model profiles_work_experiences {
+  id          String    @id() @default(uuid()) @db.Uuid()
+  user_id     String    @db.Uuid()
+  company     String
+  position    String
+  description String?
+  start_date  DateTime
+  end_date    DateTime?
+  is_current  Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now())
+  user        profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([user_id, start_date(sort: Desc)])
+  @@map("profiles_work_experiences")
 }

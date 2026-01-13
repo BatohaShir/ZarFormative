@@ -39,6 +39,13 @@ model profiles {
   // Relations
   push_subscriptions     profiles_push_subscriptions[]
   notification_settings  profiles_notification_settings?
+  educations             profiles_educations[]
+  work_experiences       profiles_work_experiences[]
+
+  // Indexes for query optimization
+  @@index([is_deleted]) // For filtering active profiles
+  @@index([is_company]) // For filtering by account type
+  @@index([created_at]) // For sorting by registration date
 
   @@map("profiles")
   @@auth()
@@ -113,4 +120,72 @@ model profiles_notification_settings {
 
   // Пользователь может управлять только своими настройками
   @@allow('all', auth() != null && auth().id == user_id)
+}
+
+// ============================================
+// Profiles Educations - образование пользователя
+// ============================================
+
+model profiles_educations {
+  id              String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+  degree          String    // Степень (Бакалавр, Магистр, Доктор и т.д.)
+  institution     String    // Название учебного заведения
+  field_of_study  String?   // Направление/специальность
+  start_date      DateTime  // Дата начала обучения
+  end_date        DateTime? // Дата окончания (null если ещё учится)
+  is_current      Boolean   @default(false) // Учится в данный момент
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @default(now())
+
+  // Relations
+  user            profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Indexes for query optimization
+  @@index([user_id]) // For fetching user's educations
+  @@index([user_id, start_date(sort: Desc)]) // For sorted queries by user
+
+  @@map("profiles_educations")
+
+  // Любой может читать образование
+  @@allow('read', true)
+
+  // Пользователь может управлять только своим образованием
+  @@allow('create', auth().id == user_id)
+  @@allow('update', auth().id == user_id)
+  @@allow('delete', auth().id == user_id)
+}
+
+// ============================================
+// Profiles Work Experiences - опыт работы пользователя
+// ============================================
+
+model profiles_work_experiences {
+  id              String    @id @default(uuid()) @db.Uuid
+  user_id         String    @db.Uuid
+  company         String    // Название компании
+  position        String    // Должность
+  description     String?   // Описание обязанностей (опционально)
+  start_date      DateTime  // Дата начала работы
+  end_date        DateTime? // Дата окончания (null если работает сейчас)
+  is_current      Boolean   @default(false) // Работает в данный момент
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @default(now())
+
+  // Relations
+  user            profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Indexes for query optimization
+  @@index([user_id]) // For fetching user's work experiences
+  @@index([user_id, start_date(sort: Desc)]) // For sorted queries by user
+
+  @@map("profiles_work_experiences")
+
+  // Любой может читать опыт работы
+  @@allow('read', true)
+
+  // Пользователь может управлять только своим опытом работы
+  @@allow('create', auth().id == user_id)
+  @@allow('update', auth().id == user_id)
+  @@allow('delete', auth().id == user_id)
 }

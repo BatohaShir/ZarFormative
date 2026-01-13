@@ -12,18 +12,12 @@ import { RequestsButton } from "@/components/requests-button";
 import {
   ChevronLeft,
   User,
-  LogOut,
-  Moon,
-  Sun,
   Star,
   ThumbsUp,
   ThumbsDown,
   Mail,
   Phone,
-  Cake,
-  Calendar,
   Pencil,
-  Save,
   GraduationCap,
   Briefcase,
   Plus,
@@ -33,8 +27,10 @@ import {
   Bell,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { useTheme } from "next-themes";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { EditProfileModal } from "@/components/edit-profile-modal";
+import { useEducations, type Education } from "@/hooks/use-educations";
+import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experiences";
 
 // Mock данные - потом будут из БД
 const SCHOOLS_DB = [
@@ -164,103 +160,77 @@ function AutocompleteInput({
   );
 }
 
-interface Education {
-  id: number;
-  school: string;
+interface NewEducationForm {
+  institution: string;
   degree: string;
-  startDate: string;
-  endDate: string;
-  isCurrent: boolean;
+  field_of_study: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
 }
 
-interface WorkExperience {
-  id: number;
+interface NewWorkExperienceForm {
   company: string;
   position: string;
-  startDate: string;
-  endDate: string;
-  isCurrent: boolean;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
 }
 
 export default function MyProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, user, profile, signOut } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { isAuthenticated, user, profile, signOut, uploadAvatar, displayName, avatarUrl } = useAuth();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
-  const [mounted, setMounted] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
 
-  // Profile editing state
-  const [isEditing, setIsEditing] = React.useState(false);
+  // Profile editing modal state
+  const [showEditProfileModal, setShowEditProfileModal] = React.useState(false);
 
-  // Get display name from profile or user email
-  const displayName = profile
-    ? profile.is_company
-      ? profile.company_name || "Компани"
-      : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
-    : user?.email?.split("@")[0] || "Хэрэглэгч";
+  // Education from database
+  const {
+    educations,
+    isLoading: isEducationsLoading,
+    createEducation,
+    updateEducation,
+    deleteEducation,
+    isCreating: isCreatingEducation,
+    isUpdating: isUpdatingEducation,
+    isDeleting: isDeletingEducation,
+  } = useEducations();
 
-  const avatarUrl = profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
-
-  // Education state
-  const [educations, setEducations] = React.useState<Education[]>([
-    {
-      id: 1,
-      school: "МУИС",
-      degree: "Компьютерийн ухаан, Бакалавр",
-      startDate: "2015-09",
-      endDate: "2019-06",
-      isCurrent: false,
-    },
-  ]);
   const [showAddEducation, setShowAddEducation] = React.useState(false);
-  const [editingEducationId, setEditingEducationId] = React.useState<
-    number | null
-  >(null);
-  const [newEducation, setNewEducation] = React.useState<Omit<Education, "id">>(
-    {
-      school: "",
-      degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
-    }
-  );
-
-  // Work experience state
-  const [workExperiences, setWorkExperiences] = React.useState<
-    WorkExperience[]
-  >([
-    {
-      id: 1,
-      company: "Голомт банк",
-      position: "Програм хангамжийн инженер",
-      startDate: "2021-03",
-      endDate: "",
-      isCurrent: true,
-    },
-    {
-      id: 2,
-      company: "Монгол Пост",
-      position: "IT мэргэжилтэн",
-      startDate: "2019-06",
-      endDate: "2021-02",
-      isCurrent: false,
-    },
-  ]);
-  const [showAddWork, setShowAddWork] = React.useState(false);
-  const [editingWorkId, setEditingWorkId] = React.useState<number | null>(null);
-  const [newWork, setNewWork] = React.useState<Omit<WorkExperience, "id">>({
-    company: "",
-    position: "",
-    startDate: "",
-    endDate: "",
-    isCurrent: false,
+  const [editingEducationId, setEditingEducationId] = React.useState<string | null>(null);
+  const [newEducation, setNewEducation] = React.useState<NewEducationForm>({
+    institution: "",
+    degree: "",
+    field_of_study: "",
+    start_date: "",
+    end_date: "",
+    is_current: false,
   });
 
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Work experience from database
+  const {
+    workExperiences,
+    isLoading: isWorkExperiencesLoading,
+    createWorkExperience,
+    updateWorkExperience,
+    deleteWorkExperience,
+    isCreating: isCreatingWork,
+    isUpdating: isUpdatingWork,
+    isDeleting: isDeletingWork,
+  } = useWorkExperiences();
+
+  const [showAddWork, setShowAddWork] = React.useState(false);
+  const [editingWorkId, setEditingWorkId] = React.useState<string | null>(null);
+  const [newWork, setNewWork] = React.useState<NewWorkExperienceForm>({
+    company: "",
+    position: "",
+    start_date: "",
+    end_date: "",
+    is_current: false,
+  });
 
   React.useEffect(() => {
     if (!isAuthenticated) {
@@ -283,10 +253,6 @@ export default function MyProfilePage() {
   const handleLogout = async () => {
     await signOut();
     router.push("/");
-  };
-
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   const formatWorkDate = (dateStr: string) => {
@@ -315,98 +281,117 @@ export default function MyProfilePage() {
     return `${year} оны ${parseInt(month)}-р сарын ${parseInt(day)}`;
   };
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // TODO: Upload avatar to Supabase Storage
-      console.log("Avatar upload not implemented yet:", file.name);
+      setIsUploadingAvatar(true);
+      try {
+        const { error } = await uploadAvatar(file);
+        if (error) {
+          console.error("Avatar upload error:", error);
+        }
+      } finally {
+        setIsUploadingAvatar(false);
+      }
     }
   };
 
   // Education handlers
-  const handleAddEducation = () => {
-    if (educations.length >= 5) return;
-    if (
-      !newEducation.school ||
-      !newEducation.degree ||
-      !newEducation.startDate
-    )
-      return;
-
-    setEducations([...educations, { ...newEducation, id: Date.now() }]);
+  const resetEducationForm = () => {
     setNewEducation({
-      school: "",
+      institution: "",
       degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+      field_of_study: "",
+      start_date: "",
+      end_date: "",
+      is_current: false,
     });
-    setShowAddEducation(false);
+  };
+
+  const handleAddEducation = async () => {
+    if (!newEducation.institution || !newEducation.degree || !newEducation.start_date) return;
+
+    const { error } = await createEducation({
+      degree: newEducation.degree,
+      institution: newEducation.institution,
+      field_of_study: newEducation.field_of_study || undefined,
+      start_date: new Date(newEducation.start_date),
+      end_date: newEducation.end_date ? new Date(newEducation.end_date) : undefined,
+      is_current: newEducation.is_current,
+    });
+
+    if (!error) {
+      resetEducationForm();
+      setShowAddEducation(false);
+    }
   };
 
   const handleEditEducation = (edu: Education) => {
     setEditingEducationId(edu.id);
     setNewEducation({
-      school: edu.school,
+      institution: edu.institution,
       degree: edu.degree,
-      startDate: edu.startDate,
-      endDate: edu.endDate,
-      isCurrent: edu.isCurrent,
+      field_of_study: edu.field_of_study || "",
+      start_date: edu.start_date ? new Date(edu.start_date).toISOString().slice(0, 7) : "",
+      end_date: edu.end_date ? new Date(edu.end_date).toISOString().slice(0, 7) : "",
+      is_current: edu.is_current,
     });
   };
 
-  const handleSaveEducation = () => {
-    if (
-      !newEducation.school ||
-      !newEducation.degree ||
-      !newEducation.startDate
-    )
-      return;
+  const handleSaveEducation = async () => {
+    if (!editingEducationId) return;
+    if (!newEducation.institution || !newEducation.degree || !newEducation.start_date) return;
 
-    setEducations(
-      educations.map((edu) =>
-        edu.id === editingEducationId ? { ...newEducation, id: edu.id } : edu
-      )
-    );
-    setEditingEducationId(null);
-    setNewEducation({
-      school: "",
-      degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+    const { error } = await updateEducation(editingEducationId, {
+      degree: newEducation.degree,
+      institution: newEducation.institution,
+      field_of_study: newEducation.field_of_study || undefined,
+      start_date: new Date(newEducation.start_date),
+      end_date: newEducation.end_date ? new Date(newEducation.end_date) : undefined,
+      is_current: newEducation.is_current,
     });
+
+    if (!error) {
+      setEditingEducationId(null);
+      resetEducationForm();
+    }
   };
 
   const handleCancelEditEducation = () => {
     setEditingEducationId(null);
-    setNewEducation({
-      school: "",
-      degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
-    });
+    resetEducationForm();
   };
 
-  const handleDeleteEducation = (id: number) => {
-    setEducations(educations.filter((e) => e.id !== id));
+  const handleDeleteEducation = async (id: string) => {
+    await deleteEducation(id);
   };
 
   // Work experience handlers
-  const handleAddWork = () => {
-    if (workExperiences.length >= 5) return;
-    if (!newWork.company || !newWork.position || !newWork.startDate) return;
-
-    setWorkExperiences([...workExperiences, { ...newWork, id: Date.now() }]);
+  const resetWorkForm = () => {
     setNewWork({
       company: "",
       position: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+      start_date: "",
+      end_date: "",
+      is_current: false,
     });
-    setShowAddWork(false);
+  };
+
+  const handleAddWork = async () => {
+    if (!newWork.company || !newWork.position || !newWork.start_date) return;
+
+    const { error } = await createWorkExperience({
+      company: newWork.company,
+      position: newWork.position,
+      start_date: new Date(newWork.start_date),
+      end_date: newWork.end_date ? new Date(newWork.end_date) : undefined,
+      is_current: newWork.is_current,
+    });
+
+    if (!error) {
+      resetWorkForm();
+      setShowAddWork(false);
+    }
   };
 
   const handleEditWork = (work: WorkExperience) => {
@@ -414,43 +399,37 @@ export default function MyProfilePage() {
     setNewWork({
       company: work.company,
       position: work.position,
-      startDate: work.startDate,
-      endDate: work.endDate,
-      isCurrent: work.isCurrent,
+      start_date: work.start_date ? new Date(work.start_date).toISOString().slice(0, 7) : "",
+      end_date: work.end_date ? new Date(work.end_date).toISOString().slice(0, 7) : "",
+      is_current: work.is_current,
     });
   };
 
-  const handleSaveWork = () => {
-    if (!newWork.company || !newWork.position || !newWork.startDate) return;
+  const handleSaveWork = async () => {
+    if (!editingWorkId) return;
+    if (!newWork.company || !newWork.position || !newWork.start_date) return;
 
-    setWorkExperiences(
-      workExperiences.map((work) =>
-        work.id === editingWorkId ? { ...newWork, id: work.id } : work
-      )
-    );
-    setEditingWorkId(null);
-    setNewWork({
-      company: "",
-      position: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+    const { error } = await updateWorkExperience(editingWorkId, {
+      company: newWork.company,
+      position: newWork.position,
+      start_date: new Date(newWork.start_date),
+      end_date: newWork.end_date ? new Date(newWork.end_date) : undefined,
+      is_current: newWork.is_current,
     });
+
+    if (!error) {
+      setEditingWorkId(null);
+      resetWorkForm();
+    }
   };
 
   const handleCancelEditWork = () => {
     setEditingWorkId(null);
-    setNewWork({
-      company: "",
-      position: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
-    });
+    resetWorkForm();
   };
 
-  const handleDeleteWork = (id: number) => {
-    setWorkExperiences(workExperiences.filter((w) => w.id !== id));
+  const handleDeleteWork = async (id: string) => {
+    await deleteWorkExperience(id);
   };
 
   if (!isAuthenticated) {
@@ -519,12 +498,18 @@ export default function MyProfilePage() {
                   className="w-full h-full object-cover"
                 />
               </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-              >
-                <Camera className="h-8 w-8 text-white" />
-              </button>
+              {isUploadingAvatar ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                  <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                >
+                  <Camera className="h-8 w-8 text-white" />
+                </button>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -563,29 +548,9 @@ export default function MyProfilePage() {
 
             {/* Quick Actions - Desktop */}
             <div className="hidden lg:flex flex-col gap-2">
-              {!isEditing ? (
-                <Button onClick={() => setIsEditing(true)} className="gap-2">
-                  <Pencil className="h-4 w-4" />
-                  Засварлах
-                </Button>
-              ) : (
-                <Button onClick={() => setIsEditing(false)} className="gap-2">
-                  <Save className="h-4 w-4" />
-                  Хадгалах
-                </Button>
-              )}
-              <Button variant="outline" onClick={toggleTheme} className="gap-2">
-                {mounted && theme === "dark" ? (
-                  <>
-                    <Sun className="h-4 w-4" />
-                    Цагаан горим
-                  </>
-                ) : (
-                  <>
-                    <Moon className="h-4 w-4" />
-                    Хар горим
-                  </>
-                )}
+              <Button onClick={() => setShowEditProfileModal(true)} className="gap-2">
+                <Pencil className="h-4 w-4" />
+                Засварлах
               </Button>
             </div>
           </div>
@@ -638,39 +603,12 @@ export default function MyProfilePage() {
 
             {/* Mobile Action Buttons */}
             <div className="lg:hidden space-y-2">
-              {!isEditing ? (
-                <Button
-                  className="w-full gap-2"
-                  onClick={() => setIsEditing(true)}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Засварлах
-                </Button>
-              ) : (
-                <Button
-                  className="w-full gap-2"
-                  onClick={() => setIsEditing(false)}
-                >
-                  <Save className="h-4 w-4" />
-                  Хадгалах
-                </Button>
-              )}
               <Button
-                variant="outline"
                 className="w-full gap-2"
-                onClick={toggleTheme}
+                onClick={() => setShowEditProfileModal(true)}
               >
-                {mounted && theme === "dark" ? (
-                  <>
-                    <Sun className="h-4 w-4" />
-                    Цагаан горим
-                  </>
-                ) : (
-                  <>
-                    <Moon className="h-4 w-4" />
-                    Хар горим
-                  </>
-                )}
+                <Pencil className="h-4 w-4" />
+                Засварлах
               </Button>
               <Button
                 variant="outline"
@@ -694,7 +632,7 @@ export default function MyProfilePage() {
                   <GraduationCap className="h-5 w-5 text-primary" />
                   Боловсрол
                 </h3>
-                {educations.length < 5 && !showAddEducation && (
+                {!showAddEducation && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -718,13 +656,7 @@ export default function MyProfilePage() {
                       className="h-8 w-8"
                       onClick={() => {
                         setShowAddEducation(false);
-                        setNewEducation({
-                          school: "",
-                          degree: "",
-                          startDate: "",
-                          endDate: "",
-                          isCurrent: false,
-                        });
+                        resetEducationForm();
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -732,9 +664,9 @@ export default function MyProfilePage() {
                   </div>
                   <AutocompleteInput
                     placeholder="Сургуулийн нэр"
-                    value={newEducation.school}
+                    value={newEducation.institution}
                     onChange={(value) =>
-                      setNewEducation({ ...newEducation, school: value })
+                      setNewEducation({ ...newEducation, institution: value })
                     }
                     suggestions={SCHOOLS_DB}
                     className="h-10"
@@ -748,6 +680,14 @@ export default function MyProfilePage() {
                     suggestions={DEGREES_DB}
                     className="h-10"
                   />
+                  <Input
+                    placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                    value={newEducation.field_of_study}
+                    onChange={(e) =>
+                      setNewEducation({ ...newEducation, field_of_study: e.target.value })
+                    }
+                    className="h-10"
+                  />
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs text-muted-foreground mb-1 block">
@@ -755,11 +695,11 @@ export default function MyProfilePage() {
                       </label>
                       <Input
                         type="month"
-                        value={newEducation.startDate}
+                        value={newEducation.start_date}
                         onChange={(e) =>
                           setNewEducation({
                             ...newEducation,
-                            startDate: e.target.value,
+                            start_date: e.target.value,
                           })
                         }
                         className="h-10"
@@ -771,14 +711,14 @@ export default function MyProfilePage() {
                       </label>
                       <Input
                         type="month"
-                        value={newEducation.endDate}
+                        value={newEducation.end_date}
                         onChange={(e) =>
                           setNewEducation({
                             ...newEducation,
-                            endDate: e.target.value,
+                            end_date: e.target.value,
                           })
                         }
-                        disabled={newEducation.isCurrent}
+                        disabled={newEducation.is_current}
                         className="h-10"
                       />
                     </div>
@@ -786,12 +726,12 @@ export default function MyProfilePage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={newEducation.isCurrent}
+                      checked={newEducation.is_current}
                       onChange={(e) =>
                         setNewEducation({
                           ...newEducation,
-                          isCurrent: e.target.checked,
-                          endDate: "",
+                          is_current: e.target.checked,
+                          end_date: "",
                         })
                       }
                       className="rounded"
@@ -802,25 +742,36 @@ export default function MyProfilePage() {
                     className="w-full"
                     onClick={handleAddEducation}
                     disabled={
-                      !newEducation.school ||
+                      isCreatingEducation ||
+                      !newEducation.institution ||
                       !newEducation.degree ||
-                      !newEducation.startDate
+                      !newEducation.start_date
                     }
                   >
-                    Хадгалах
+                    {isCreatingEducation ? "Хадгалж байна..." : "Хадгалах"}
                   </Button>
                 </div>
               )}
 
               {/* Education List */}
-              {educations.length === 0 && !showAddEducation ? (
+              {isEducationsLoading ? (
+                <div className="grid gap-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
+                      <div className="h-5 bg-muted rounded w-1/3 mb-2" />
+                      <div className="h-4 bg-muted rounded w-1/2 mb-1" />
+                      <div className="h-4 bg-muted rounded w-2/5 mt-2" />
+                    </div>
+                  ))}
+                </div>
+              ) : educations.length === 0 && !showAddEducation ? (
                 <p className="text-muted-foreground text-center py-8">
                   Боловсролын мэдээлэл нэмээгүй байна
                 </p>
               ) : (
                 <div className="grid gap-3">
                   {[...educations]
-                    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+                    .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                     .map((edu) =>
                       editingEducationId === edu.id ? (
                         <div
@@ -829,9 +780,9 @@ export default function MyProfilePage() {
                         >
                           <AutocompleteInput
                             placeholder="Сургуулийн нэр"
-                            value={newEducation.school}
+                            value={newEducation.institution}
                             onChange={(value) =>
-                              setNewEducation({ ...newEducation, school: value })
+                              setNewEducation({ ...newEducation, institution: value })
                             }
                             suggestions={SCHOOLS_DB}
                             className="h-10"
@@ -845,6 +796,14 @@ export default function MyProfilePage() {
                             suggestions={DEGREES_DB}
                             className="h-10"
                           />
+                          <Input
+                            placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                            value={newEducation.field_of_study}
+                            onChange={(e) =>
+                              setNewEducation({ ...newEducation, field_of_study: e.target.value })
+                            }
+                            className="h-10"
+                          />
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="text-xs text-muted-foreground mb-1 block">
@@ -852,11 +811,11 @@ export default function MyProfilePage() {
                               </label>
                               <Input
                                 type="month"
-                                value={newEducation.startDate}
+                                value={newEducation.start_date}
                                 onChange={(e) =>
                                   setNewEducation({
                                     ...newEducation,
-                                    startDate: e.target.value,
+                                    start_date: e.target.value,
                                   })
                                 }
                                 className="h-10"
@@ -868,14 +827,14 @@ export default function MyProfilePage() {
                               </label>
                               <Input
                                 type="month"
-                                value={newEducation.endDate}
+                                value={newEducation.end_date}
                                 onChange={(e) =>
                                   setNewEducation({
                                     ...newEducation,
-                                    endDate: e.target.value,
+                                    end_date: e.target.value,
                                   })
                                 }
-                                disabled={newEducation.isCurrent}
+                                disabled={newEducation.is_current}
                                 className="h-10"
                               />
                             </div>
@@ -883,12 +842,12 @@ export default function MyProfilePage() {
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={newEducation.isCurrent}
+                              checked={newEducation.is_current}
                               onChange={(e) =>
                                 setNewEducation({
                                   ...newEducation,
-                                  isCurrent: e.target.checked,
-                                  endDate: "",
+                                  is_current: e.target.checked,
+                                  end_date: "",
                                 })
                               }
                               className="rounded"
@@ -900,12 +859,13 @@ export default function MyProfilePage() {
                               className="flex-1"
                               onClick={handleSaveEducation}
                               disabled={
-                                !newEducation.school ||
+                                isUpdatingEducation ||
+                                !newEducation.institution ||
                                 !newEducation.degree ||
-                                !newEducation.startDate
+                                !newEducation.start_date
                               }
                             >
-                              Хадгалах
+                              {isUpdatingEducation ? "Хадгалж байна..." : "Хадгалах"}
                             </Button>
                             <Button
                               variant="outline"
@@ -923,13 +883,18 @@ export default function MyProfilePage() {
                           <div className="pr-20">
                             <p className="font-medium">{edu.degree}</p>
                             <p className="text-sm text-muted-foreground">
-                              {edu.school}
+                              {edu.institution}
                             </p>
+                            {edu.field_of_study && (
+                              <p className="text-sm text-muted-foreground">
+                                {edu.field_of_study}
+                              </p>
+                            )}
                             <p className="text-sm text-muted-foreground mt-1">
-                              {formatWorkDate(edu.startDate)} -{" "}
-                              {edu.isCurrent
+                              {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))} -{" "}
+                              {edu.is_current
                                 ? "Одоог хүртэл"
-                                : formatWorkDate(edu.endDate)}
+                                : edu.end_date ? formatWorkDate(new Date(edu.end_date).toISOString().slice(0, 7)) : ""}
                             </p>
                           </div>
                           <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -941,7 +906,8 @@ export default function MyProfilePage() {
                             </button>
                             <button
                               onClick={() => handleDeleteEducation(edu.id)}
-                              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500"
+                              disabled={isDeletingEducation}
+                              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -950,12 +916,6 @@ export default function MyProfilePage() {
                       )
                     )}
                 </div>
-              )}
-
-              {educations.length > 0 && (
-                <p className="text-xs text-muted-foreground text-center mt-4">
-                  {educations.length}/5 боловсрол
-                </p>
               )}
             </div>
 
@@ -966,7 +926,7 @@ export default function MyProfilePage() {
                   <Briefcase className="h-5 w-5 text-primary" />
                   Ажлын туршлага
                 </h3>
-                {workExperiences.length < 5 && !showAddWork && (
+                {!showAddWork && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -990,13 +950,7 @@ export default function MyProfilePage() {
                       className="h-8 w-8"
                       onClick={() => {
                         setShowAddWork(false);
-                        setNewWork({
-                          company: "",
-                          position: "",
-                          startDate: "",
-                          endDate: "",
-                          isCurrent: false,
-                        });
+                        resetWorkForm();
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -1025,9 +979,9 @@ export default function MyProfilePage() {
                       </label>
                       <Input
                         type="month"
-                        value={newWork.startDate}
+                        value={newWork.start_date}
                         onChange={(e) =>
-                          setNewWork({ ...newWork, startDate: e.target.value })
+                          setNewWork({ ...newWork, start_date: e.target.value })
                         }
                         className="h-10"
                       />
@@ -1038,11 +992,11 @@ export default function MyProfilePage() {
                       </label>
                       <Input
                         type="month"
-                        value={newWork.endDate}
+                        value={newWork.end_date}
                         onChange={(e) =>
-                          setNewWork({ ...newWork, endDate: e.target.value })
+                          setNewWork({ ...newWork, end_date: e.target.value })
                         }
-                        disabled={newWork.isCurrent}
+                        disabled={newWork.is_current}
                         className="h-10"
                       />
                     </div>
@@ -1050,12 +1004,12 @@ export default function MyProfilePage() {
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={newWork.isCurrent}
+                      checked={newWork.is_current}
                       onChange={(e) =>
                         setNewWork({
                           ...newWork,
-                          isCurrent: e.target.checked,
-                          endDate: "",
+                          is_current: e.target.checked,
+                          end_date: "",
                         })
                       }
                       className="rounded"
@@ -1066,23 +1020,36 @@ export default function MyProfilePage() {
                     className="w-full"
                     onClick={handleAddWork}
                     disabled={
-                      !newWork.company || !newWork.position || !newWork.startDate
+                      isCreatingWork ||
+                      !newWork.company ||
+                      !newWork.position ||
+                      !newWork.start_date
                     }
                   >
-                    Хадгалах
+                    {isCreatingWork ? "Хадгалж байна..." : "Хадгалах"}
                   </Button>
                 </div>
               )}
 
               {/* Work List */}
-              {workExperiences.length === 0 && !showAddWork ? (
+              {isWorkExperiencesLoading ? (
+                <div className="grid gap-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
+                      <div className="h-5 bg-muted rounded w-2/5 mb-2" />
+                      <div className="h-4 bg-muted rounded w-1/3 mb-1" />
+                      <div className="h-4 bg-muted rounded w-2/5 mt-2" />
+                    </div>
+                  ))}
+                </div>
+              ) : workExperiences.length === 0 && !showAddWork ? (
                 <p className="text-muted-foreground text-center py-8">
                   Ажлын туршлага нэмээгүй байна
                 </p>
               ) : (
                 <div className="grid gap-3">
                   {[...workExperiences]
-                    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+                    .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                     .map((work) =>
                       editingWorkId === work.id ? (
                         <div
@@ -1114,11 +1081,11 @@ export default function MyProfilePage() {
                               </label>
                               <Input
                                 type="month"
-                                value={newWork.startDate}
+                                value={newWork.start_date}
                                 onChange={(e) =>
                                   setNewWork({
                                     ...newWork,
-                                    startDate: e.target.value,
+                                    start_date: e.target.value,
                                   })
                                 }
                                 className="h-10"
@@ -1130,14 +1097,14 @@ export default function MyProfilePage() {
                               </label>
                               <Input
                                 type="month"
-                                value={newWork.endDate}
+                                value={newWork.end_date}
                                 onChange={(e) =>
                                   setNewWork({
                                     ...newWork,
-                                    endDate: e.target.value,
+                                    end_date: e.target.value,
                                   })
                                 }
-                                disabled={newWork.isCurrent}
+                                disabled={newWork.is_current}
                                 className="h-10"
                               />
                             </div>
@@ -1145,12 +1112,12 @@ export default function MyProfilePage() {
                           <label className="flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={newWork.isCurrent}
+                              checked={newWork.is_current}
                               onChange={(e) =>
                                 setNewWork({
                                   ...newWork,
-                                  isCurrent: e.target.checked,
-                                  endDate: "",
+                                  is_current: e.target.checked,
+                                  end_date: "",
                                 })
                               }
                               className="rounded"
@@ -1162,12 +1129,13 @@ export default function MyProfilePage() {
                               className="flex-1"
                               onClick={handleSaveWork}
                               disabled={
+                                isUpdatingWork ||
                                 !newWork.company ||
                                 !newWork.position ||
-                                !newWork.startDate
+                                !newWork.start_date
                               }
                             >
-                              Хадгалах
+                              {isUpdatingWork ? "Хадгалж байна..." : "Хадгалах"}
                             </Button>
                             <Button
                               variant="outline"
@@ -1188,10 +1156,10 @@ export default function MyProfilePage() {
                               {work.company}
                             </p>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {formatWorkDate(work.startDate)} -{" "}
-                              {work.isCurrent
+                              {formatWorkDate(new Date(work.start_date).toISOString().slice(0, 7))} -{" "}
+                              {work.is_current
                                 ? "Одоог хүртэл"
-                                : formatWorkDate(work.endDate)}
+                                : work.end_date ? formatWorkDate(new Date(work.end_date).toISOString().slice(0, 7)) : ""}
                             </p>
                           </div>
                           <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1203,7 +1171,8 @@ export default function MyProfilePage() {
                             </button>
                             <button
                               onClick={() => handleDeleteWork(work.id)}
-                              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500"
+                              disabled={isDeletingWork}
+                              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -1212,12 +1181,6 @@ export default function MyProfilePage() {
                       )
                     )}
                 </div>
-              )}
-
-              {workExperiences.length > 0 && (
-                <p className="text-xs text-muted-foreground text-center mt-4">
-                  {workExperiences.length}/5 ажлын туршлага
-                </p>
               )}
             </div>
           </div>
@@ -1229,6 +1192,12 @@ export default function MyProfilePage() {
           <p className="mt-1">© 2024 Бүх эрх хуулиар хамгаалагдсан</p>
         </div>
       </div>
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        open={showEditProfileModal}
+        onOpenChange={setShowEditProfileModal}
+      />
     </div>
   );
 }

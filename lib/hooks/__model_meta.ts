@@ -66,6 +66,18 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isOptional: true,
                     backLink: 'profile',
+                }, educations: {
+                    name: "educations",
+                    type: "profiles_educations",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
+                }, work_experiences: {
+                    name: "work_experiences",
+                    type: "profiles_work_experiences",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -215,10 +227,124 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        profiles_educations: {
+            name: 'profiles_educations', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'user',
+                }, degree: {
+                    name: "degree",
+                    type: "String",
+                }, institution: {
+                    name: "institution",
+                    type: "String",
+                }, field_of_study: {
+                    name: "field_of_study",
+                    type: "String",
+                    isOptional: true,
+                }, start_date: {
+                    name: "start_date",
+                    type: "DateTime",
+                }, end_date: {
+                    name: "end_date",
+                    type: "DateTime",
+                    isOptional: true,
+                }, is_current: {
+                    name: "is_current",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user: {
+                    name: "user",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'educations',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
+        profiles_work_experiences: {
+            name: 'profiles_work_experiences', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'user',
+                }, company: {
+                    name: "company",
+                    type: "String",
+                }, position: {
+                    name: "position",
+                    type: "String",
+                }, description: {
+                    name: "description",
+                    type: "String",
+                    isOptional: true,
+                }, start_date: {
+                    name: "start_date",
+                    type: "DateTime",
+                }, end_date: {
+                    name: "end_date",
+                    type: "DateTime",
+                    isOptional: true,
+                }, is_current: {
+                    name: "is_current",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user: {
+                    name: "user",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'work_experiences',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences'],
 
     },
     authModel: 'profiles'
