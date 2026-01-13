@@ -38,6 +38,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { formatPrice } from "@/lib/utils";
 
 const allServices = [
   {
@@ -253,13 +254,6 @@ function FiltersContent({
   setExperienceLevel: (level: ExperienceLevel) => void;
   onReset: () => void;
 }) {
-  const formatPrice = (value: number) => {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}сая`;
-    }
-    return `${(value / 1000).toFixed(0)}мян`;
-  };
-
   return (
     <div className="space-y-6">
       {/* Categories */}
@@ -437,43 +431,49 @@ function ServicesPageContent() {
     updateURL();
   }, [updateURL]);
 
-  const filteredServices = allServices.filter((service) => {
-    if (selectedCategories.length > 0 && !selectedCategories.includes(service.category)) {
-      return false;
-    }
-    if (service.rating < minRating) {
-      return false;
-    }
-    const servicePrice = parsePrice(service.price);
-    if (servicePrice < priceRange[0] || servicePrice > priceRange[1]) {
-      return false;
-    }
-    if (experienceLevel !== "any") {
-      const level = experienceLevels.find((l) => l.id === experienceLevel);
-      if (level) {
-        if (service.successful < level.min || service.successful >= level.max) {
-          return false;
+  // Мемоизированная фильтрация сервисов
+  const filteredServices = React.useMemo(() => {
+    return allServices.filter((service) => {
+      if (selectedCategories.length > 0 && !selectedCategories.includes(service.category)) {
+        return false;
+      }
+      if (service.rating < minRating) {
+        return false;
+      }
+      const servicePrice = parsePrice(service.price);
+      if (servicePrice < priceRange[0] || servicePrice > priceRange[1]) {
+        return false;
+      }
+      if (experienceLevel !== "any") {
+        const level = experienceLevels.find((l) => l.id === experienceLevel);
+        if (level) {
+          if (service.successful < level.min || service.successful >= level.max) {
+            return false;
+          }
         }
       }
-    }
-    return true;
-  });
+      return true;
+    });
+  }, [selectedCategories, minRating, priceRange, experienceLevel]);
 
-  const sortedServices = [...filteredServices].sort((a, b) => {
-    switch (sortBy) {
-      case "rating":
-        return b.rating - a.rating;
-      case "price_asc":
-        return parsePrice(a.price) - parsePrice(b.price);
-      case "price_desc":
-        return parsePrice(b.price) - parsePrice(a.price);
-      case "newest":
-        return b.id - a.id;
-      case "popular":
-      default:
-        return b.likes - a.likes;
-    }
-  });
+  // Мемоизированная сортировка
+  const sortedServices = React.useMemo(() => {
+    return [...filteredServices].sort((a, b) => {
+      switch (sortBy) {
+        case "rating":
+          return b.rating - a.rating;
+        case "price_asc":
+          return parsePrice(a.price) - parsePrice(b.price);
+        case "price_desc":
+          return parsePrice(b.price) - parsePrice(a.price);
+        case "newest":
+          return b.id - a.id;
+        case "popular":
+        default:
+          return b.likes - a.likes;
+      }
+    });
+  }, [filteredServices, sortBy]);
 
   const resetFilters = () => {
     setSelectedCategories([]);
@@ -488,13 +488,6 @@ function ServicesPageContent() {
     (priceRange[0] > 0 || priceRange[1] < 1000000 ? 1 : 0) +
     (minRating > 0 ? 1 : 0) +
     (experienceLevel !== "any" ? 1 : 0);
-
-  const formatPrice = (value: number) => {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}сая`;
-    }
-    return `${(value / 1000).toFixed(0)}мян`;
-  };
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">

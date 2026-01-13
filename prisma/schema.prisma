@@ -20,6 +20,7 @@ model profiles {
   phone_number          String?
   is_company            Boolean                         @default(false)
   avatar_url            String?
+  about                 String?
   created_at            DateTime                        @default(now())
   updated_at            DateTime                        @default(now())
   company_name          String?

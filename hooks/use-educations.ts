@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   useFindManyprofiles_educations,
   useCreateprofiles_educations,
   useUpdateprofiles_educations,
   useDeleteprofiles_educations,
 } from "@/lib/hooks/profiles-educations";
-import type { profiles_educations } from "@prisma/client";
-
-export type Education = profiles_educations;
+import { useAuth } from "./use-auth";
+// Тип для отображения - без created_at/updated_at (используем select в запросе)
+export type Education = {
+  id: string;
+  user_id: string;
+  degree: string;
+  institution: string;
+  field_of_study: string | null;
+  start_date: Date;
+  end_date: Date | null;
+  is_current: boolean;
+};
 
 export interface CreateEducationInput {
   degree: string;
@@ -31,20 +38,12 @@ export interface UpdateEducationInput {
 }
 
 export function useEducations(userId?: string) {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const supabase = createClient();
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id ?? null);
-    };
-    getUser();
-  }, [supabase]);
+  // Используем общий хук для auth - предотвращает дублирование запросов
+  const { userId: currentUserId } = useAuth();
 
   const targetUserId = userId || currentUserId;
 
-  // Fetch educations
+  // Fetch educations - optimized with select to reduce data transfer
   const {
     data: educations,
     isLoading,
@@ -54,6 +53,17 @@ export function useEducations(userId?: string) {
     {
       where: { user_id: targetUserId ?? "" },
       orderBy: { start_date: "desc" },
+      select: {
+        id: true,
+        user_id: true,
+        degree: true,
+        institution: true,
+        field_of_study: true,
+        start_date: true,
+        end_date: true,
+        is_current: true,
+        // Исключаем created_at и updated_at - не нужны для отображения
+      },
     },
     { enabled: !!targetUserId }
   );

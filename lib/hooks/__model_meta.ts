@@ -34,6 +34,10 @@ const metadata: ModelMeta = {
                     name: "avatar_url",
                     type: "String",
                     isOptional: true,
+                }, about: {
+                    name: "about",
+                    type: "String",
+                    isOptional: true,
                 }, created_at: {
                     name: "created_at",
                     type: "DateTime",

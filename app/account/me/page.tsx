@@ -25,7 +25,10 @@ import {
   Camera,
   X,
   Bell,
+  FileText,
+  Check,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { EditProfileModal } from "@/components/edit-profile-modal";
@@ -179,13 +182,25 @@ interface NewWorkExperienceForm {
 
 export default function MyProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, user, profile, signOut, uploadAvatar, displayName, avatarUrl } = useAuth();
+  const { isAuthenticated, user, profile, signOut, uploadAvatar, displayName, avatarUrl, updateProfile } = useAuth();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
 
   // Profile editing modal state
   const [showEditProfileModal, setShowEditProfileModal] = React.useState(false);
+
+  // About section state
+  const [isEditingAbout, setIsEditingAbout] = React.useState(false);
+  const [aboutText, setAboutText] = React.useState("");
+  const [isSavingAbout, setIsSavingAbout] = React.useState(false);
+
+  // Initialize about text when profile loads
+  React.useEffect(() => {
+    if (profile?.about !== undefined) {
+      setAboutText(profile.about || "");
+    }
+  }, [profile?.about]);
 
   // Education from database
   const {
@@ -432,6 +447,37 @@ export default function MyProfilePage() {
     await deleteWorkExperience(id);
   };
 
+  // About handlers
+  const handleSaveAbout = async () => {
+    setIsSavingAbout(true);
+    try {
+      const { error } = await updateProfile({ about: aboutText.trim() || null });
+      if (!error) {
+        setIsEditingAbout(false);
+      }
+    } finally {
+      setIsSavingAbout(false);
+    }
+  };
+
+  const handleDeleteAbout = async () => {
+    setIsSavingAbout(true);
+    try {
+      const { error } = await updateProfile({ about: null });
+      if (!error) {
+        setAboutText("");
+        setIsEditingAbout(false);
+      }
+    } finally {
+      setIsSavingAbout(false);
+    }
+  };
+
+  const handleCancelAbout = () => {
+    setAboutText(profile?.about || "");
+    setIsEditingAbout(false);
+  };
+
   if (!isAuthenticated) {
     return (
       <>
@@ -599,6 +645,97 @@ export default function MyProfilePage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* About Section */}
+            <div className="bg-card rounded-xl border p-4 md:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  О себе
+                </h3>
+                {!isEditingAbout && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => setIsEditingAbout(true)}
+                  >
+                    {profile?.about ? (
+                      <>
+                        <Pencil className="h-4 w-4" />
+                        Засварлах
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        Нэмэх
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+
+              {isEditingAbout ? (
+                <div className="space-y-3">
+                  <Textarea
+                    placeholder="Өөрийнхөө тухай бичнэ үү..."
+                    value={aboutText}
+                    onChange={(e) => setAboutText(e.target.value)}
+                    className="min-h-30 resize-none"
+                    maxLength={500}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {aboutText.length}/500
+                    </span>
+                    <div className="flex gap-2">
+                      {profile?.about && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDeleteAbout}
+                          disabled={isSavingAbout}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Устгах
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelAbout}
+                        disabled={isSavingAbout}
+                      >
+                        Болих
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveAbout}
+                        disabled={isSavingAbout || !aboutText.trim()}
+                      >
+                        {isSavingAbout ? (
+                          "Хадгалж байна..."
+                        ) : (
+                          <>
+                            <Check className="h-4 w-4 mr-1" />
+                            Хадгалах
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : profile?.about ? (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {profile.about}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Өөрийнхөө тухай мэдээлэл нэмээгүй байна
+                </p>
+              )}
             </div>
 
             {/* Mobile Action Buttons */}
@@ -1184,12 +1321,6 @@ export default function MyProfilePage() {
               )}
             </div>
           </div>
-        </div>
-
-        {/* App Info */}
-        <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-          <p>Uilchilgee.mn v1.0.0</p>
-          <p className="mt-1">© 2024 Бүх эрх хуулиар хамгаалагдсан</p>
         </div>
       </div>
 

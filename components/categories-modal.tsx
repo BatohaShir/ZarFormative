@@ -29,19 +29,24 @@ export function CategoriesModal({ onSelectCategory, onSelectSubcategory, trigger
   const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedCategory, setSelectedCategory] = React.useState<Category | null>(null);
 
-  const filteredCategories = allCategories.filter(
-    (cat) =>
-      cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cat.subcategories?.some((sub) =>
-        sub.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-  );
+  // Мемоизированная фильтрация категорий
+  const filteredCategories = React.useMemo(() => {
+    if (!searchQuery.trim()) return allCategories;
+    const lowerQuery = searchQuery.toLowerCase();
+    return allCategories.filter(
+      (cat) =>
+        cat.name.toLowerCase().includes(lowerQuery) ||
+        cat.subcategories?.some((sub) =>
+          sub.toLowerCase().includes(lowerQuery)
+        )
+    );
+  }, [searchQuery]);
 
-  const handleSelectCategory = (category: Category) => {
+  const handleSelectCategory = React.useCallback((category: Category) => {
     setSelectedCategory(category);
-  };
+  }, []);
 
-  const handleSelectSubcategory = (subcategory: string) => {
+  const handleSelectSubcategory = React.useCallback((subcategory: string) => {
     if (selectedCategory) {
       if (onSelectSubcategory) {
         onSelectSubcategory(selectedCategory, subcategory);
@@ -51,9 +56,9 @@ export function CategoriesModal({ onSelectCategory, onSelectSubcategory, trigger
       setOpen(false);
       setSelectedCategory(null);
     }
-  };
+  }, [selectedCategory, onSelectSubcategory, router]);
 
-  const handleSelectWholeCategory = () => {
+  const handleSelectWholeCategory = React.useCallback(() => {
     if (selectedCategory) {
       if (onSelectCategory) {
         onSelectCategory(selectedCategory);
@@ -63,19 +68,19 @@ export function CategoriesModal({ onSelectCategory, onSelectSubcategory, trigger
       setOpen(false);
       setSelectedCategory(null);
     }
-  };
+  }, [selectedCategory, onSelectCategory, router]);
 
-  const handleBack = () => {
+  const handleBack = React.useCallback(() => {
     setSelectedCategory(null);
-  };
+  }, []);
 
-  const handleOpenChange = (isOpen: boolean) => {
+  const handleOpenChange = React.useCallback((isOpen: boolean) => {
     setOpen(isOpen);
     if (!isOpen) {
       setSelectedCategory(null);
       setSearchQuery("");
     }
-  };
+  }, []);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

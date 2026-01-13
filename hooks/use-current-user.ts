@@ -1,43 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import * as React from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFindUniqueprofiles, useUpdateprofiles } from "@/lib/hooks/profiles";
-import type { User } from "@supabase/supabase-js";
-import type { profiles } from "@prisma/client";
-
-export type Profile = profiles;
+import { useAuth, clearAuthCache } from "./use-auth";
+// Тип для отображения - без created_at/updated_at (используем select в запросе)
+export type Profile = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone_number: string | null;
+  is_company: boolean;
+  avatar_url: string | null;
+  about: string | null;
+  company_name: string | null;
+  registration_number: string | null;
+  is_deleted: boolean;
+};
 
 export function useCurrentUser() {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  // Используем общий хук для auth - предотвращает дублирование запросов
+  const { user, isLoading: isAuthLoading } = useAuth();
   const supabase = createClient();
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setIsAuthLoading(false);
-    };
-
-    getUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setIsAuthLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase]);
-
-  // Fetch profile using ZenStack hook
+  // Fetch profile using ZenStack hook - optimized with select
   const {
     data: profile,
     isLoading: isProfileLoading,
     error: profileError,
     refetch: refetchProfile,
   } = useFindUniqueprofiles(
-    { where: { id: user?.id ?? "" } },
+    {
+      where: { id: user?.id ?? "" },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        phone_number: true,
+        is_company: true,
+        avatar_url: true,
+        about: true,
+        company_name: true,
+        registration_number: true,
+        is_deleted: true,
+        // Исключаем created_at и updated_at - не нужны для отображения
+      },
+    },
     { enabled: !!user?.id }
   );
 
@@ -92,7 +100,7 @@ export function useCurrentUser() {
   // Sign out
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
+    clearAuthCache(); // Очищаем кэш auth при выходе
   };
 
   // Sign in
@@ -125,15 +133,23 @@ export function useCurrentUser() {
   const isLoading = isAuthLoading || isProfileLoading;
   const isAuthenticated = !!user;
 
-  // Display name helper
-  const displayName = profile
-    ? profile.is_company
-      ? profile.company_name || "Компани"
-      : `${profile.first_name?.[0] || ""}. ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
-    : user?.email?.split("@")[0] || "Хэрэглэгч";
+  // Мемоизированное display name
+  const displayName = React.useMemo(() => {
+    if (profile) {
+      if (profile.is_company) {
+        return profile.company_name || "Компани";
+      }
+      const name = `${profile.first_name?.[0] || ""}. ${profile.last_name || ""}`.trim();
+      return name || "Хэрэглэгч";
+    }
+    return user?.email?.split("@")[0] || "Хэрэглэгч";
+  }, [profile, user?.email]);
 
-  // Avatar URL helper
-  const avatarUrl = profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+  // Мемоизированный avatar URL
+  const avatarUrl = React.useMemo(() => {
+    return profile?.avatar_url ||
+      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+  }, [profile?.avatar_url, displayName]);
 
   return {
     user,

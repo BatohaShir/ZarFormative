@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Search, Star, ThumbsUp, ThumbsDown } from "lucide-react";
 import Link from "next/link";
@@ -23,26 +24,29 @@ interface SearchInputProps {
   className?: string;
 }
 
-export function SearchInput({ services, className }: SearchInputProps) {
+export const SearchInput = React.memo(function SearchInput({
+  services,
+  className,
+}: SearchInputProps) {
   const [query, setQuery] = React.useState("");
   const [isOpen, setIsOpen] = React.useState(false);
-  const [results, setResults] = React.useState<Service[]>([]);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
-  React.useEffect(() => {
-    if (query.trim().length > 0) {
-      const filtered = services.filter(
-        (service) =>
-          service.title.toLowerCase().includes(query.toLowerCase()) ||
-          service.description.toLowerCase().includes(query.toLowerCase())
-      );
-      setResults(filtered);
-      setIsOpen(true);
-    } else {
-      setResults([]);
-      setIsOpen(false);
-    }
+  // Мемоизированная фильтрация
+  const results = React.useMemo(() => {
+    if (query.trim().length === 0) return [];
+    const lowerQuery = query.toLowerCase();
+    return services.filter(
+      (service) =>
+        service.title.toLowerCase().includes(lowerQuery) ||
+        service.description.toLowerCase().includes(lowerQuery)
+    );
   }, [query, services]);
+
+  // Открывать dropdown при наличии результатов
+  React.useEffect(() => {
+    setIsOpen(query.trim().length > 0 && results.length > 0);
+  }, [query, results.length]);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -58,6 +62,11 @@ export function SearchInput({ services, className }: SearchInputProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleResultClick = React.useCallback(() => {
+    setIsOpen(false);
+    setQuery("");
+  }, []);
+
   return (
     <div ref={containerRef} className={`relative ${className || ""}`}>
       <div className="relative">
@@ -67,7 +76,7 @@ export function SearchInput({ services, className }: SearchInputProps) {
           className="pl-10"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query.trim().length > 0 && setIsOpen(true)}
+          onFocus={() => query.trim().length > 0 && results.length > 0 && setIsOpen(true)}
         />
       </div>
 
@@ -77,17 +86,18 @@ export function SearchInput({ services, className }: SearchInputProps) {
             <Link
               key={service.id}
               href={`/services/${service.id}`}
-              onClick={() => {
-                setIsOpen(false);
-                setQuery("");
-              }}
+              onClick={handleResultClick}
               className="flex items-center gap-3 px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
             >
-              <img
-                src={service.image}
-                alt={service.title}
-                className="w-10 h-10 md:w-12 md:h-12 rounded-lg object-cover shrink-0"
-              />
+              <div className="relative w-10 h-10 md:w-12 md:h-12 rounded-lg overflow-hidden shrink-0">
+                <Image
+                  src={service.image}
+                  alt={service.title}
+                  fill
+                  sizes="48px"
+                  className="object-cover"
+                />
+              </div>
               <div className="flex-1 min-w-0 text-left flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -107,11 +117,15 @@ export function SearchInput({ services, className }: SearchInputProps) {
                 </p>
                 {service.provider && service.providerAvatar && (
                   <div className="flex items-center gap-3 shrink-0">
-                    <img
-                      src={service.providerAvatar}
-                      alt={service.provider}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
+                    <div className="relative w-8 h-8 rounded-full overflow-hidden">
+                      <Image
+                        src={service.providerAvatar}
+                        alt={service.provider}
+                        fill
+                        sizes="32px"
+                        className="object-cover"
+                      />
+                    </div>
                     <span className="text-xs text-muted-foreground hidden md:block">
                       {service.provider}
                     </span>
@@ -150,4 +164,4 @@ export function SearchInput({ services, className }: SearchInputProps) {
       )}
     </div>
   );
-}
+});

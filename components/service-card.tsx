@@ -1,7 +1,9 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { Star, ThumbsUp, ThumbsDown, Heart } from "lucide-react";
+import Image from "next/image";
+import { Star, ThumbsUp, ThumbsDown, Heart, MapPin } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
 
 interface ServiceCardProps {
@@ -22,15 +24,20 @@ interface ServiceCardProps {
   };
 }
 
-export function ServiceCard({ service }: ServiceCardProps) {
+export const ServiceCard = React.memo(function ServiceCard({
+  service,
+}: ServiceCardProps) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const isLiked = isFavorite(service.id);
 
-  const handleLike = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleFavorite(service.id);
-  };
+  const handleLike = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavorite(service.id);
+    },
+    [toggleFavorite, service.id]
+  );
 
   return (
     <Link
@@ -39,10 +46,12 @@ export function ServiceCard({ service }: ServiceCardProps) {
     >
       {/* Image */}
       <div className="aspect-4/3 relative overflow-hidden">
-        <img
+        <Image
           src={service.image}
           alt={service.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
         <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
@@ -80,10 +89,12 @@ export function ServiceCard({ service }: ServiceCardProps) {
         {/* Provider - stack on mobile */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 gap-1.5 sm:gap-2">
           <div className="flex items-center gap-1.5 md:gap-2">
-            <img
+            <Image
               src={service.providerAvatar}
               alt={service.provider}
-              className="w-4 h-4 md:w-5 md:h-5 rounded-full object-cover"
+              width={20}
+              height={20}
+              className="rounded-full object-cover w-4 h-4 md:w-5 md:h-5"
             />
             <span className="text-[10px] md:text-xs text-primary font-medium line-clamp-1">
               {service.provider}
@@ -109,28 +120,10 @@ export function ServiceCard({ service }: ServiceCardProps) {
           </div>
         </div>
         <div className="flex items-center gap-1 mt-1.5 md:mt-2 text-muted-foreground">
-          <svg
-            className="w-2.5 h-2.5 md:w-3 md:h-3"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-          </svg>
+          <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
           <span className="text-[10px] md:text-[11px]">{service.city}</span>
         </div>
       </div>
     </Link>
   );
-}
+});

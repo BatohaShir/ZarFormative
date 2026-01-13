@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   useFindManyprofiles_work_experiences,
   useCreateprofiles_work_experiences,
   useUpdateprofiles_work_experiences,
   useDeleteprofiles_work_experiences,
 } from "@/lib/hooks/profiles-work-experiences";
-import type { profiles_work_experiences } from "@prisma/client";
-
-export type WorkExperience = profiles_work_experiences;
+import { useAuth } from "./use-auth";
+// Тип для отображения - без created_at/updated_at (используем select в запросе)
+export type WorkExperience = {
+  id: string;
+  user_id: string;
+  company: string;
+  position: string;
+  description: string | null;
+  start_date: Date;
+  end_date: Date | null;
+  is_current: boolean;
+};
 
 export interface CreateWorkExperienceInput {
   company: string;
@@ -31,20 +38,12 @@ export interface UpdateWorkExperienceInput {
 }
 
 export function useWorkExperiences(userId?: string) {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const supabase = createClient();
-
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id ?? null);
-    };
-    getUser();
-  }, [supabase]);
+  // Используем общий хук для auth - предотвращает дублирование запросов
+  const { userId: currentUserId } = useAuth();
 
   const targetUserId = userId || currentUserId;
 
-  // Fetch work experiences
+  // Fetch work experiences - optimized with select to reduce data transfer
   const {
     data: workExperiences,
     isLoading,
@@ -54,6 +53,17 @@ export function useWorkExperiences(userId?: string) {
     {
       where: { user_id: targetUserId ?? "" },
       orderBy: { start_date: "desc" },
+      select: {
+        id: true,
+        user_id: true,
+        company: true,
+        position: true,
+        description: true,
+        start_date: true,
+        end_date: true,
+        is_current: true,
+        // Исключаем created_at и updated_at - не нужны для отображения
+      },
     },
     { enabled: !!targetUserId }
   );
