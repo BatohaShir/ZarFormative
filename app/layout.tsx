@@ -5,6 +5,7 @@ import { FavoritesProvider } from "@/contexts/favorites-context";
 import { AuthProvider } from "@/contexts/auth-context";
 import { MessagesProvider } from "@/contexts/messages-context";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
+import { QueryProvider } from "@/providers/query-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,21 +33,23 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <FavoritesProvider>
-              <MessagesProvider>
-                {children}
-                <MobileBottomNav />
-              </MessagesProvider>
-            </FavoritesProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <AuthProvider>
+              <FavoritesProvider>
+                <MessagesProvider>
+                  {children}
+                  <MobileBottomNav />
+                </MessagesProvider>
+              </FavoritesProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );
