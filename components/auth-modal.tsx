@@ -18,7 +18,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Phone, Mail, User, Lock, Eye, EyeOff, LogOut, UserCircle, Star, ThumbsUp, ThumbsDown, Calendar, Pencil, Save, Briefcase, Plus, Trash2, GraduationCap, Cake } from "lucide-react";
+import { Phone, Mail, User, Lock, Eye, EyeOff, LogOut, UserCircle, Building2, Star, ThumbsUp, ThumbsDown, Calendar, Pencil, Save, Briefcase, Plus, Trash2, GraduationCap, Cake } from "lucide-react";
+import Link from "next/link";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
 
 // Mock данные - потом будут из БД
@@ -171,29 +174,6 @@ function AutocompleteInput({ value, onChange, suggestions, placeholder, classNam
   );
 }
 
-function GoogleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24">
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-      />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      />
-    </svg>
-  );
-}
-
 interface AuthModalProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -216,6 +196,19 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
 
+  // Registration form state
+  const [registerUserType, setRegisterUserType] = React.useState<"individual" | "company">("individual");
+  const [regFirstName, setRegFirstName] = React.useState("");
+  const [regLastName, setRegLastName] = React.useState("");
+  const [regCompanyName, setRegCompanyName] = React.useState("");
+  const [regRegistrationNumber, setRegRegistrationNumber] = React.useState("");
+  const [regPhone, setRegPhone] = React.useState("");
+  const [regEmail, setRegEmail] = React.useState("");
+  const [regPassword, setRegPassword] = React.useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = React.useState("");
+  const [regTermsAccepted, setRegTermsAccepted] = React.useState(false);
+  const [regErrors, setRegErrors] = React.useState<Record<string, string>>({});
+
   const resetState = () => {
     setPhoneStep("phone");
     setShowPassword(false);
@@ -223,6 +216,110 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     setEmail("");
     setPassword("");
     setError("");
+    // Reset registration form
+    setRegisterUserType("individual");
+    setRegFirstName("");
+    setRegLastName("");
+    setRegCompanyName("");
+    setRegRegistrationNumber("");
+    setRegPhone("");
+    setRegEmail("");
+    setRegPassword("");
+    setRegConfirmPassword("");
+    setRegTermsAccepted(false);
+    setRegErrors({});
+  };
+
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    const phoneRegex = /^[0-9]{8}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ""));
+  };
+
+  const validateRegisterForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (registerUserType === "individual") {
+      if (!regFirstName.trim()) {
+        newErrors.firstName = "Нэрээ оруулна уу";
+      }
+      if (!regLastName.trim()) {
+        newErrors.lastName = "Овгоо оруулна уу";
+      }
+    } else {
+      if (!regCompanyName.trim()) {
+        newErrors.companyName = "Компанийн нэрийг оруулна уу";
+      }
+      if (!regRegistrationNumber.trim()) {
+        newErrors.registrationNumber = "Регистрийн дугаарыг оруулна уу";
+      }
+    }
+
+    if (!regPhone.trim()) {
+      newErrors.phone = "Утасны дугаараа оруулна уу";
+    } else if (!validatePhone(regPhone)) {
+      newErrors.phone = "Утасны дугаар 8 оронтой байх ёстой";
+    }
+
+    if (!regEmail.trim()) {
+      newErrors.email = "И-мэйл хаягаа оруулна уу";
+    } else if (!validateEmail(regEmail)) {
+      newErrors.email = "И-мэйл хаяг буруу байна";
+    }
+
+    if (!regPassword.trim()) {
+      newErrors.password = "Нууц үгээ оруулна уу";
+    } else if (regPassword.length < 6) {
+      newErrors.password = "Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой";
+    }
+
+    if (!regConfirmPassword.trim()) {
+      newErrors.confirmPassword = "Нууц үгээ давтан оруулна уу";
+    } else if (regPassword !== regConfirmPassword) {
+      newErrors.confirmPassword = "Нууц үг таарахгүй байна";
+    }
+
+    if (!regTermsAccepted) {
+      newErrors.terms = "Үйлчилгээний нөхцлийг зөвшөөрнө үү";
+    }
+
+    setRegErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleRegister = async () => {
+    if (!validateRegisterForm()) {
+      return;
+    }
+
+    // TODO: API call for registration
+    console.log("Registration data:", {
+      userType: registerUserType,
+      ...(registerUserType === "individual"
+        ? { firstName: regFirstName, lastName: regLastName }
+        : { companyName: regCompanyName, registrationNumber: regRegistrationNumber }),
+      email: regEmail,
+      phone: regPhone,
+      password: regPassword,
+    });
+
+    // For now, just close the modal
+    setOpen(false);
+    resetState();
+  };
+
+  const clearRegError = (field: string) => {
+    if (regErrors[field]) {
+      setRegErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
   };
 
   const handleLogin = () => {
@@ -498,9 +595,11 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                 <p className="text-xs text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
-            <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => setProfileOpen(true)}>
-              <UserCircle className="h-4 w-4" />
-              Миний профайл
+            <DropdownMenuItem className="gap-2 cursor-pointer" asChild>
+              <Link href="/account/me">
+                <UserCircle className="h-4 w-4" />
+                Миний профайл
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -1135,23 +1234,6 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
 
           {/* Login Tab */}
           <TabsContent value="login" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-            {/* Google Login */}
-            <Button variant="outline" className="w-full gap-2 h-9 sm:h-10 text-xs sm:text-sm">
-              <GoogleIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-              Google-ээр нэвтрэх
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-[10px] sm:text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  эсвэл
-                </span>
-              </div>
-            </div>
-
             {/* Phone Login */}
             <div className="space-y-2 sm:space-y-3">
               {phoneStep === "phone" ? (
@@ -1276,72 +1358,261 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
 
           {/* Register Tab */}
           <TabsContent value="register" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-            {/* Registration Form */}
-            <div className="space-y-2 sm:space-y-3">
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                <Input placeholder="Нэр" className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm" />
-              </div>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                <Input type="tel" placeholder="Утасны дугаар" className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm" />
-              </div>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                <Input type="email" placeholder="Имэйл" className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm" />
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                <Input
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Нууц үг"
-                  className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  )}
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                <Input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Нууц үг давтах"
-                  className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  ) : (
-                    <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  )}
-                </button>
-              </div>
-              <Button className="w-full h-9 sm:h-10 text-sm">Бүртгүүлэх</Button>
+            {/* User Type Selection */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setRegisterUserType("individual");
+                  setRegErrors({});
+                }}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                  registerUserType === "individual"
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                Хувь хүн
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRegisterUserType("company");
+                  setRegErrors({});
+                }}
+                className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs sm:text-sm font-medium transition-all ${
+                  registerUserType === "company"
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                Байгууллага
+              </button>
             </div>
 
-            <p className="text-[10px] sm:text-xs text-center text-muted-foreground">
-              Бүртгүүлснээр та манай{" "}
-              <a href="#" className="text-primary hover:underline">
-                үйлчилгээний нөхцөл
-              </a>{" "}
-              болон{" "}
-              <a href="#" className="text-primary hover:underline">
-                нууцлалын бодлого
-              </a>
-              -г зөвшөөрч байна.
-            </p>
+            {/* Registration Form */}
+            <div className="space-y-2 sm:space-y-3">
+              {/* Individual fields */}
+              {registerUserType === "individual" && (
+                <>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Нэр"
+                        className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                        value={regFirstName}
+                        onChange={(e) => {
+                          setRegFirstName(e.target.value);
+                          clearRegError("firstName");
+                        }}
+                        aria-invalid={!!regErrors.firstName}
+                      />
+                    </div>
+                    {regErrors.firstName && (
+                      <p className="text-destructive text-xs pl-1">{regErrors.firstName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Овог"
+                        className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                        value={regLastName}
+                        onChange={(e) => {
+                          setRegLastName(e.target.value);
+                          clearRegError("lastName");
+                        }}
+                        aria-invalid={!!regErrors.lastName}
+                      />
+                    </div>
+                    {regErrors.lastName && (
+                      <p className="text-destructive text-xs pl-1">{regErrors.lastName}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Company fields */}
+              {registerUserType === "company" && (
+                <>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Компанийн нэр"
+                        className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                        value={regCompanyName}
+                        onChange={(e) => {
+                          setRegCompanyName(e.target.value);
+                          clearRegError("companyName");
+                        }}
+                        aria-invalid={!!regErrors.companyName}
+                      />
+                    </div>
+                    {regErrors.companyName && (
+                      <p className="text-destructive text-xs pl-1">{regErrors.companyName}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Регистрийн дугаар"
+                        className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                        value={regRegistrationNumber}
+                        onChange={(e) => {
+                          setRegRegistrationNumber(e.target.value);
+                          clearRegError("registrationNumber");
+                        }}
+                        aria-invalid={!!regErrors.registrationNumber}
+                      />
+                    </div>
+                    {regErrors.registrationNumber && (
+                      <p className="text-destructive text-xs pl-1">{regErrors.registrationNumber}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Common fields */}
+              <div className="space-y-1">
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                  <Input
+                    type="tel"
+                    placeholder="Утасны дугаар"
+                    className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                    value={regPhone}
+                    onChange={(e) => {
+                      setRegPhone(e.target.value);
+                      clearRegError("phone");
+                    }}
+                    aria-invalid={!!regErrors.phone}
+                  />
+                </div>
+                {regErrors.phone && (
+                  <p className="text-destructive text-xs pl-1">{regErrors.phone}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="Имэйл"
+                    className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
+                    value={regEmail}
+                    onChange={(e) => {
+                      setRegEmail(e.target.value);
+                      clearRegError("email");
+                    }}
+                    aria-invalid={!!regErrors.email}
+                  />
+                </div>
+                {regErrors.email && (
+                  <p className="text-destructive text-xs pl-1">{regErrors.email}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Нууц үг"
+                    className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
+                    value={regPassword}
+                    onChange={(e) => {
+                      setRegPassword(e.target.value);
+                      clearRegError("password");
+                    }}
+                    aria-invalid={!!regErrors.password}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    )}
+                  </button>
+                </div>
+                {regErrors.password && (
+                  <p className="text-destructive text-xs pl-1">{regErrors.password}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Нууц үг давтах"
+                    className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
+                    value={regConfirmPassword}
+                    onChange={(e) => {
+                      setRegConfirmPassword(e.target.value);
+                      clearRegError("confirmPassword");
+                    }}
+                    aria-invalid={!!regErrors.confirmPassword}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                    )}
+                  </button>
+                </div>
+                {regErrors.confirmPassword && (
+                  <p className="text-destructive text-xs pl-1">{regErrors.confirmPassword}</p>
+                )}
+              </div>
+
+              {/* Terms checkbox */}
+              <div className="space-y-1">
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="terms"
+                    checked={regTermsAccepted}
+                    onCheckedChange={(checked) => {
+                      setRegTermsAccepted(checked as boolean);
+                      clearRegError("terms");
+                    }}
+                    className="mt-0.5"
+                  />
+                  <Label
+                    htmlFor="terms"
+                    className="text-[10px] sm:text-xs font-normal leading-tight cursor-pointer text-muted-foreground"
+                  >
+                    <a href="#" className="text-primary hover:underline">
+                      Үйлчилгээний нөхцөл
+                    </a>{" "}
+                    болон{" "}
+                    <a href="#" className="text-primary hover:underline">
+                      нууцлалын бодлого
+                    </a>
+                    -г зөвшөөрч байна.
+                  </Label>
+                </div>
+                {regErrors.terms && (
+                  <p className="text-destructive text-xs pl-1">{regErrors.terms}</p>
+                )}
+              </div>
+
+              <Button className="w-full h-9 sm:h-10 text-sm" onClick={handleRegister}>
+                Бүртгүүлэх
+              </Button>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>

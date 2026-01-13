@@ -20,6 +20,9 @@ import {
   Briefcase,
   GraduationCap,
   Clock,
+  MessageCircle,
+  Phone,
+  Share2,
 } from "lucide-react";
 
 // Mock provider data
@@ -36,6 +39,7 @@ const providers: Record<string, {
   likes: number;
   location: string;
   bio: string;
+  phone?: string;
   workExperience: {
     id: number;
     company: string;
@@ -71,6 +75,7 @@ const providers: Record<string, {
     failedServices: 3,
     likes: 892,
     location: "Улаанбаатар",
+    phone: "+976 9911 2233",
     bio: "Бид 10 жилийн туршлагатай мэргэжлийн засварын баг юм. Орон сууц, оффис, арилжааны барилгын засвар үйлчилгээг чанартай, хурдан гүйцэтгэнэ.",
     workExperience: [
       {
@@ -396,18 +401,18 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-        <div className="container mx-auto px-2 md:px-4 py-2 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-1 md:gap-4">
+      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
+        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-4">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 md:h-10 md:w-10"
+              className="h-8 w-8 md:h-10 md:w-10"
               onClick={() => router.back()}
             >
               <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
-            <Link href="/" className="hidden sm:block">
+            <Link href="/">
               <h1 className="text-lg md:text-2xl font-bold">
                 <span className="text-[#c4272f]">Uilc</span>
                 <span className="text-[#015197]">hilge</span>
@@ -425,179 +430,242 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
         </div>
       </header>
 
-      <main className="container mx-auto px-2 md:px-4 py-2 md:py-6 pb-4">
-        <div className="max-w-4xl mx-auto space-y-2 md:space-y-6">
-          {/* Profile Header */}
-          <div className="border rounded-lg md:rounded-2xl p-2.5 md:p-6 space-y-2 md:space-y-4">
-            <div className="flex items-center gap-2.5 md:gap-4">
-              <div className="relative shrink-0">
+      <div className="container mx-auto px-4 py-6 md:py-8">
+        {/* Profile Header - Full Width with Gradient */}
+        <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl p-6 md:p-8 mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+            {/* Avatar */}
+            <div className="relative">
+              <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl">
                 <img
                   src={provider.avatar}
                   alt={provider.name}
-                  className="w-14 h-14 md:w-32 md:h-32 rounded-full object-cover"
+                  className="w-full h-full object-cover"
                 />
-                {provider.verified && (
-                  <div className="absolute -bottom-0.5 -right-0.5 md:bottom-1 md:right-1 bg-blue-500 rounded-full p-0.5 md:p-1.5">
-                    <CheckCircle className="h-2.5 w-2.5 md:h-4 md:w-4 text-white" />
-                  </div>
-                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-sm md:text-2xl font-bold truncate">{provider.name}</h1>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] md:text-sm text-muted-foreground mt-0.5">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3 md:h-4 md:w-4" />
-                    {provider.location}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Star className="h-3 w-3 md:h-4 md:w-4 fill-yellow-400 text-yellow-400" />
-                    <span className="font-medium text-foreground">{provider.rating}</span>
-                    <span>({provider.reviews})</span>
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 md:h-4 md:w-4" />
-                    {provider.memberSince} оноос
-                  </span>
+              {provider.verified && (
+                <div className="absolute bottom-2 right-2 bg-blue-500 rounded-full p-1.5 md:p-2 ring-2 ring-white dark:ring-gray-800">
+                  <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-white" />
+                </div>
+              )}
+            </div>
+
+            {/* User Info */}
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
+                {provider.name}
+              </h2>
+              <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-muted-foreground mb-4">
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {provider.location}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="font-semibold text-foreground">{provider.rating}</span>
+                  <span>({provider.reviews} сэтгэгдэл)</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  {provider.memberSince} оноос
+                </span>
+              </div>
+
+              {/* Stats - Horizontal Pills */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-4">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
+                  <Star className="h-5 w-5 text-yellow-500 fill-current" />
+                  <span className="font-bold text-lg">{provider.rating}</span>
+                  <span className="text-sm text-muted-foreground">Үнэлгээ</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
+                  <ThumbsUp className="h-5 w-5 text-green-500" />
+                  <span className="font-bold text-lg">{provider.successfulServices}</span>
+                  <span className="text-sm text-muted-foreground">Амжилттай</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
+                  <Heart className="h-5 w-5 text-pink-500 fill-current" />
+                  <span className="font-bold text-lg">{provider.likes}</span>
+                  <span className="text-sm text-muted-foreground">Лайк</span>
                 </div>
               </div>
             </div>
 
-            {/* Bio */}
-            <p className="text-[11px] md:text-base text-muted-foreground line-clamp-2 md:line-clamp-none">{provider.bio}</p>
+            {/* Action Buttons - Desktop */}
+            <div className="hidden lg:flex flex-col gap-2">
+              <Button className="gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Мессеж бичих
+              </Button>
+              <Button variant="outline" className="gap-2">
+                <Phone className="h-4 w-4" />
+                Залгах
+              </Button>
+              <Button variant="outline" className="gap-2">
+                <Share2 className="h-4 w-4" />
+                Хуваалцах
+              </Button>
+            </div>
+          </div>
+        </div>
 
-            {/* Stats - more compact on mobile */}
-            <div className="flex items-center justify-between gap-1 md:grid md:grid-cols-3 md:gap-4">
-              <div className="flex-1 text-center py-1.5 px-1 md:p-3 bg-green-50 dark:bg-green-950/30 rounded-md md:rounded-lg">
-                <div className="flex items-center justify-center gap-0.5 text-green-600 dark:text-green-400">
-                  <ThumbsUp className="h-3 w-3 md:h-4 md:w-4" />
-                  <span className="font-bold text-xs md:text-lg">{provider.successfulServices}</span>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+          {/* Left Column - About & Contact */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* About Card */}
+            <div className="bg-card rounded-xl border p-4 md:p-6">
+              <h3 className="font-semibold text-lg mb-4">Тухай</h3>
+              <p className="text-muted-foreground leading-relaxed">{provider.bio}</p>
+            </div>
+
+            {/* Stats Card */}
+            <div className="bg-card rounded-xl border p-4 md:p-6">
+              <h3 className="font-semibold text-lg mb-4">Статистик</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Амжилттай үйлчилгээ</span>
+                  <span className="font-semibold text-green-600">{provider.successfulServices}</span>
                 </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">Амжилттай</p>
-              </div>
-              <div className="flex-1 text-center py-1.5 px-1 md:p-3 bg-red-50 dark:bg-red-950/30 rounded-md md:rounded-lg">
-                <div className="flex items-center justify-center gap-0.5 text-red-600 dark:text-red-400">
-                  <ThumbsDown className="h-3 w-3 md:h-4 md:w-4" />
-                  <span className="font-bold text-xs md:text-lg">{provider.failedServices}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Амжилтгүй</span>
+                  <span className="font-semibold text-red-600">{provider.failedServices}</span>
                 </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">Амжилтгүй</p>
-              </div>
-              <div className="flex-1 text-center py-1.5 px-1 md:p-3 bg-pink-50 dark:bg-pink-950/30 rounded-md md:rounded-lg">
-                <div className="flex items-center justify-center gap-0.5 text-pink-600 dark:text-pink-400">
-                  <Heart className="h-3 w-3 md:h-4 md:w-4 fill-current" />
-                  <span className="font-bold text-xs md:text-lg">{provider.likes}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Амжилтын хувь</span>
+                  <span className="font-semibold text-green-600">{successRate}%</span>
                 </div>
-                <p className="text-[9px] md:text-xs text-muted-foreground">Лайк</p>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all"
+                    style={{ width: `${successRate}%` }}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Success Rate - inline on mobile */}
-            <div className="flex items-center gap-2 md:block">
-              <span className="text-[10px] md:text-sm text-muted-foreground whitespace-nowrap">Амжилт:</span>
-              <div className="flex-1 h-1.5 md:h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-green-500 rounded-full"
-                  style={{ width: `${successRate}%` }}
-                />
-              </div>
-              <span className="text-[10px] md:text-sm font-semibold text-green-600">{successRate}%</span>
+            {/* Mobile Action Buttons */}
+            <div className="lg:hidden space-y-2">
+              <Button className="w-full gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Мессеж бичих
+              </Button>
+              <Button variant="outline" className="w-full gap-2">
+                <Phone className="h-4 w-4" />
+                Залгах
+              </Button>
+              <Button variant="outline" className="w-full gap-2">
+                <Share2 className="h-4 w-4" />
+                Хуваалцах
+              </Button>
             </div>
           </div>
 
-          {/* Education & Work Experience - side by side on mobile if both exist */}
-          {(provider.education.length > 0 || provider.workExperience.length > 0) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-6">
-              {/* Education */}
-              {provider.education.length > 0 && (
-                <div className="border rounded-lg md:rounded-2xl p-2 md:p-6 space-y-1.5 md:space-y-4">
-                  <h2 className="text-xs md:text-lg font-semibold flex items-center gap-1 md:gap-2">
-                    <GraduationCap className="h-3.5 w-3.5 md:h-5 md:w-5" />
-                    Боловсрол
-                  </h2>
-                  <div className="space-y-1.5 md:space-y-4">
-                    {provider.education.map((edu) => (
-                      <div key={edu.id} className="flex gap-1.5 md:gap-4">
-                        <div className="hidden md:flex w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-950/50 items-center justify-center shrink-0">
-                          <GraduationCap className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-medium text-[11px] md:text-base truncate">{edu.school}</h3>
-                          <p className="text-[10px] md:text-sm text-muted-foreground truncate">{edu.degree}</p>
-                          <p className="text-[9px] md:text-xs text-muted-foreground">
-                            {edu.startDate} - {edu.endDate}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Work Experience */}
-              {provider.workExperience.length > 0 && (
-                <div className="border rounded-lg md:rounded-2xl p-2 md:p-6 space-y-1.5 md:space-y-4">
-                  <h2 className="text-xs md:text-lg font-semibold flex items-center gap-1 md:gap-2">
-                    <Briefcase className="h-3.5 w-3.5 md:h-5 md:w-5" />
-                    Туршлага
-                  </h2>
-                  <div className="space-y-1.5 md:space-y-4">
-                    {provider.workExperience.slice(0, 2).map((work) => (
-                      <div key={work.id} className="flex gap-1.5 md:gap-4">
-                        <div className="hidden md:flex w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-950/50 items-center justify-center shrink-0">
-                          <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-medium text-[11px] md:text-base truncate">{work.position}</h3>
-                          <p className="text-[10px] md:text-sm text-muted-foreground truncate">{work.company}</p>
-                          <p className="text-[9px] md:text-xs text-muted-foreground">
-                            {work.startDate} - {work.endDate}
-                          </p>
-                          {work.description && (
-                            <p className="hidden md:block text-sm text-muted-foreground mt-1">{work.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    {provider.workExperience.length > 2 && (
-                      <p className="text-[10px] md:text-xs text-muted-foreground">
-                        +{provider.workExperience.length - 2} бусад
+          {/* Right Column - Education, Work & Services */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Education */}
+            {provider.education.length > 0 && (
+              <div className="bg-card rounded-xl border p-4 md:p-6">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                  Боловсрол
+                </h3>
+                <div className="grid gap-3">
+                  {provider.education.map((edu) => (
+                    <div
+                      key={edu.id}
+                      className="p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <p className="font-medium">{edu.degree}</p>
+                      <p className="text-sm text-muted-foreground">{edu.school}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {edu.startDate} - {edu.endDate}
                       </p>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Services */}
-          {provider.services.length > 0 && (
-            <div className="border rounded-lg md:rounded-2xl p-2 md:p-6 space-y-1.5 md:space-y-4">
-              <h2 className="text-xs md:text-lg font-semibold">Үйлчилгээнүүд</h2>
-              <div className="grid gap-1.5 md:gap-4">
-                {provider.services.map((service) => (
-                  <Link key={service.id} href={`/services/${service.id}`}>
-                    <div className="flex gap-2 md:gap-4 p-1.5 md:p-3 border rounded-md md:rounded-xl hover:bg-muted/50 transition-colors cursor-pointer">
-                      <img
-                        src={service.image}
-                        alt={service.title}
-                        className="w-12 h-12 md:w-24 md:h-24 rounded-md md:rounded-lg object-cover shrink-0"
-                      />
-                      <div className="flex-1 min-w-0 flex flex-col justify-center">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] md:text-xs px-1 md:px-2 py-0.5 bg-muted rounded-full shrink-0">
+            {/* Work Experience */}
+            {provider.workExperience.length > 0 && (
+              <div className="bg-card rounded-xl border p-4 md:p-6">
+                <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
+                  <Briefcase className="h-5 w-5 text-primary" />
+                  Ажлын туршлага
+                </h3>
+                <div className="grid gap-3">
+                  {provider.workExperience.map((work) => (
+                    <div
+                      key={work.id}
+                      className="p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <p className="font-medium">{work.position}</p>
+                      <p className="text-sm text-muted-foreground">{work.company}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {work.startDate} - {work.endDate}
+                      </p>
+                      {work.description && (
+                        <p className="text-sm text-muted-foreground mt-2">{work.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Services */}
+            {provider.services.length > 0 && (
+              <div className="bg-card rounded-xl border p-4 md:p-6">
+                <h3 className="font-semibold text-lg mb-4">Үйлчилгээнүүд</h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {provider.services.map((service) => (
+                    <Link key={service.id} href={`/services/${service.id}`}>
+                      <div className="group border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
+                        <div className="aspect-video overflow-hidden">
+                          <img
+                            src={service.image}
+                            alt={service.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        </div>
+                        <div className="p-4">
+                          <span className="text-xs px-2 py-1 bg-muted rounded-full">
                             {service.category}
                           </span>
-                          <h3 className="font-medium text-[11px] md:text-base truncate">{service.title}</h3>
+                          <h4 className="font-medium mt-2">{service.title}</h4>
+                          <p className="text-primary font-bold text-lg mt-1">{service.price}</p>
                         </div>
-                        <p className="text-primary font-bold text-xs md:text-base mt-0.5">{service.price}</p>
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Reviews Placeholder */}
+            <div className="bg-card rounded-xl border p-4 md:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-lg flex items-center gap-2">
+                  <Star className="h-5 w-5 text-primary" />
+                  Сэтгэгдэлүүд
+                </h3>
+                <span className="text-sm text-muted-foreground">{provider.reviews} сэтгэгдэл</span>
+              </div>
+              <div className="text-center py-8 text-muted-foreground">
+                <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>Сэтгэгдэл удахгүй нэмэгдэнэ</p>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </main>
+
+        {/* Footer Info */}
+        <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
+          <p>Uilchilgee.mn v1.0.0</p>
+          <p className="mt-1">© 2024 Бүх эрх хуулиар хамгаалагдсан</p>
+        </div>
+      </div>
     </div>
   );
 }
