@@ -13,7 +13,8 @@ import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import { ServiceRequestModal } from "@/components/service-request-modal";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
-import { ChevronLeft, MapPin, Share2, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass } from "lucide-react";
+import { ChevronLeft, MapPin, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass } from "lucide-react";
+import { SocialShareButtons } from "@/components/social-share-buttons";
 
 const services: Record<string, {
   id: number;
@@ -424,26 +425,6 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
     setExpiresAt(newExpiresAt);
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: service?.title || "Үйлчилгээ",
-      text: service?.description || "",
-      url: window.location.href,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        // User cancelled or error
-      }
-    } else {
-      // Fallback: copy to clipboard
-      await navigator.clipboard.writeText(window.location.href);
-      alert("Холбоос хуулагдлаа!");
-    }
-  };
-
   const handleSave = () => {
     if (service) {
       toggleFavorite(service.id);
@@ -513,10 +494,11 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
 
             {/* Share & Like Buttons */}
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={handleShare}>
-                <Share2 className="h-4 w-4 mr-2" />
-                Хуваалцах
-              </Button>
+              <SocialShareButtons
+                title={service.title}
+                description={service.description}
+                className="flex-1 sm:flex-none"
+              />
               <Button
                 variant="outline"
                 size="sm"
