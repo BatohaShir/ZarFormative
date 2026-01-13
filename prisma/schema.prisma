@@ -14,17 +14,56 @@ generator client {
 }
 
 model profiles {
-  id                  String   @id() @db.Uuid()
-  first_name          String?
-  last_name           String?
-  phone_number        String?
-  is_company          Boolean  @default(false)
-  avatar_url          String?
-  created_at          DateTime @default(now())
-  updated_at          DateTime @default(now())
-  company_name        String?
-  registration_number String?
-  is_deleted          Boolean  @default(false)
+  id                    String                          @id() @db.Uuid()
+  first_name            String?
+  last_name             String?
+  phone_number          String?
+  is_company            Boolean                         @default(false)
+  avatar_url            String?
+  created_at            DateTime                        @default(now())
+  updated_at            DateTime                        @default(now())
+  company_name          String?
+  registration_number   String?
+  is_deleted            Boolean                         @default(false)
+  push_subscriptions    profiles_push_subscriptions[]
+  notification_settings profiles_notification_settings?
 
   @@map("profiles")
+}
+
+model profiles_push_subscriptions {
+  id         String    @id() @default(uuid()) @db.Uuid()
+  user_id    String    @db.Uuid()
+  endpoint   String
+  p256dh     String?
+  auth       String?
+  expires_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  profile    profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, endpoint])
+  @@map("profiles_push_subscriptions")
+}
+
+model profiles_notification_settings {
+  id                     String   @id() @default(uuid()) @db.Uuid()
+  user_id                String   @unique() @db.Uuid()
+  push_enabled           Boolean  @default(false)
+  push_new_requests      Boolean  @default(true)
+  push_new_messages      Boolean  @default(true)
+  push_status_changes    Boolean  @default(true)
+  email_enabled          Boolean  @default(true)
+  email_new_requests     Boolean  @default(true)
+  email_new_messages     Boolean  @default(true)
+  email_digest           Boolean  @default(true)
+  email_digest_frequency String   @default("daily")
+  quiet_hours_enabled    Boolean  @default(false)
+  quiet_hours_start      String   @default("22:00")
+  quiet_hours_end        String   @default("08:00")
+  created_at             DateTime @default(now())
+  updated_at             DateTime @default(now())
+  profile                profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("profiles_notification_settings")
 }

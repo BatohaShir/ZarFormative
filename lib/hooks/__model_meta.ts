@@ -54,6 +54,18 @@ const metadata: ModelMeta = {
                     name: "is_deleted",
                     type: "Boolean",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, push_subscriptions: {
+                    name: "push_subscriptions",
+                    type: "profiles_push_subscriptions",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'profile',
+                }, notification_settings: {
+                    name: "notification_settings",
+                    type: "profiles_notification_settings",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'profile',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -62,9 +74,151 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        profiles_push_subscriptions: {
+            name: 'profiles_push_subscriptions', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'profile',
+                }, endpoint: {
+                    name: "endpoint",
+                    type: "String",
+                }, p256dh: {
+                    name: "p256dh",
+                    type: "String",
+                    isOptional: true,
+                }, auth: {
+                    name: "auth",
+                    type: "String",
+                    isOptional: true,
+                }, expires_at: {
+                    name: "expires_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, profile: {
+                    name: "profile",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'push_subscriptions',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, user_id_endpoint: {
+                    name: "user_id_endpoint",
+                    fields: ["user_id", "endpoint"]
+                },
+            },
+        },
+        profiles_notification_settings: {
+            name: 'profiles_notification_settings', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'profile',
+                }, push_enabled: {
+                    name: "push_enabled",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, push_new_requests: {
+                    name: "push_new_requests",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, push_new_messages: {
+                    name: "push_new_messages",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, push_status_changes: {
+                    name: "push_status_changes",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, email_enabled: {
+                    name: "email_enabled",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, email_new_requests: {
+                    name: "email_new_requests",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, email_new_messages: {
+                    name: "email_new_messages",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, email_digest: {
+                    name: "email_digest",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, email_digest_frequency: {
+                    name: "email_digest_frequency",
+                    type: "String",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "daily" }] }],
+                }, quiet_hours_enabled: {
+                    name: "quiet_hours_enabled",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, quiet_hours_start: {
+                    name: "quiet_hours_start",
+                    type: "String",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "22:00" }] }],
+                }, quiet_hours_end: {
+                    name: "quiet_hours_end",
+                    type: "String",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "08:00" }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, profile: {
+                    name: "profile",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'notification_settings',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, user_id: {
+                    name: "user_id",
+                    fields: ["user_id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings'],
 
     },
     authModel: 'profiles'

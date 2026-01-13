@@ -30,6 +30,7 @@ import {
   Trash2,
   Camera,
   X,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useTheme } from "next-themes";
@@ -670,6 +671,16 @@ export default function MyProfilePage() {
                     Хар горим
                   </>
                 )}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                asChild
+              >
+                <Link href="/account/notifications">
+                  <Bell className="h-4 w-4" />
+                  Мэдэгдлийн тохиргоо
+                </Link>
               </Button>
             </div>
           </div>

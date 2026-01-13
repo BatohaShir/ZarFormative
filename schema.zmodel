@@ -36,6 +36,10 @@ model profiles {
   registration_number String?
   is_deleted          Boolean  @default(false)
 
+  // Relations
+  push_subscriptions     profiles_push_subscriptions[]
+  notification_settings  profiles_notification_settings?
+
   @@map("profiles")
   @@auth()
 
@@ -47,4 +51,66 @@ model profiles {
 
   // Создание через триггер Supabase
   @@allow('create', true)
+}
+
+// ============================================
+// Push Subscriptions - Web Push подписки
+// ============================================
+
+model profiles_push_subscriptions {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  endpoint   String    // Push endpoint URL
+  p256dh     String?   // Public key for encryption
+  auth       String?   // Auth secret
+  expires_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+
+  // Relations
+  profile    profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, endpoint])
+  @@map("profiles_push_subscriptions")
+
+  // Пользователь может управлять только своими подписками
+  @@allow('all', auth() != null && auth().id == user_id)
+}
+
+// ============================================
+// Notification Settings - Настройки уведомлений
+// ============================================
+
+model profiles_notification_settings {
+  id                     String   @id @default(uuid()) @db.Uuid
+  user_id                String   @unique @db.Uuid
+
+  // Push notifications
+  push_enabled           Boolean  @default(false)
+  push_new_requests      Boolean  @default(true)
+  push_new_messages      Boolean  @default(true)
+  push_status_changes    Boolean  @default(true)
+
+  // Email notifications
+  email_enabled          Boolean  @default(true)
+  email_new_requests     Boolean  @default(true)
+  email_new_messages     Boolean  @default(true)
+  email_digest           Boolean  @default(true)
+  email_digest_frequency String   @default("daily") // daily, weekly, never
+
+  // Quiet hours
+  quiet_hours_enabled    Boolean  @default(false)
+  quiet_hours_start      String   @default("22:00")
+  quiet_hours_end        String   @default("08:00")
+
+  created_at             DateTime @default(now())
+  updated_at             DateTime @default(now())
+
+  // Relations
+  profile                profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("profiles_notification_settings")
+
+  // Пользователь может управлять только своими настройками
+  @@allow('all', auth() != null && auth().id == user_id)
 }
