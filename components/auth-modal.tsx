@@ -23,6 +23,8 @@ import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth-context";
+import { useEducations, type Education } from "@/hooks/use-educations";
+import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experiences";
 
 // Mock данные - потом будут из БД
 const SCHOOLS_DB = [
@@ -180,8 +182,9 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
-  const { user, profile, signIn, signUp, signOut, isAuthenticated, isLoading } = useAuth();
+  const { user, profile, signIn, signUp, signOut, isAuthenticated, isLoading, uploadAvatar, displayName, avatarUrl } = useAuth();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -364,152 +367,164 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
 
   const [profileOpen, setProfileOpen] = React.useState(false);
 
-  interface Education {
-    id: number;
-    school: string;
+  // Education from database
+  const {
+    educations,
+    isLoading: isEducationsLoading,
+    createEducation,
+    updateEducation,
+    deleteEducation,
+    isCreating: isCreatingEducation,
+    isUpdating: isUpdatingEducation,
+    isDeleting: isDeletingEducation,
+  } = useEducations();
+
+  interface NewEducationForm {
+    institution: string;
     degree: string;
-    startDate: string;
-    endDate: string;
-    isCurrent: boolean;
+    field_of_study: string;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
   }
 
-  const [educations, setEducations] = React.useState<Education[]>([
-    {
-      id: 1,
-      school: "МУИС",
-      degree: "Компьютерийн ухаан, Бакалавр",
-      startDate: "2015-09",
-      endDate: "2019-06",
-      isCurrent: false,
-    },
-  ]);
-
   const [showAddEducation, setShowAddEducation] = React.useState(false);
-  const [editingEducationId, setEditingEducationId] = React.useState<number | null>(null);
-  const [newEducation, setNewEducation] = React.useState<Omit<Education, "id">>({
-    school: "",
+  const [editingEducationId, setEditingEducationId] = React.useState<string | null>(null);
+  const [newEducation, setNewEducation] = React.useState<NewEducationForm>({
+    institution: "",
     degree: "",
-    startDate: "",
-    endDate: "",
-    isCurrent: false,
+    field_of_study: "",
+    start_date: "",
+    end_date: "",
+    is_current: false,
   });
 
-  const handleAddEducation = () => {
-    if (educations.length >= 5) return;
-    if (!newEducation.school || !newEducation.degree || !newEducation.startDate) return;
-
-    setEducations([
-      ...educations,
-      { ...newEducation, id: Date.now() },
-    ]);
+  const resetEducationForm = () => {
     setNewEducation({
-      school: "",
+      institution: "",
       degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+      field_of_study: "",
+      start_date: "",
+      end_date: "",
+      is_current: false,
     });
-    setShowAddEducation(false);
+  };
+
+  const handleAddEducation = async () => {
+    if (educations.length >= 5) return;
+    if (!newEducation.institution || !newEducation.degree || !newEducation.start_date) return;
+
+    const { error } = await createEducation({
+      degree: newEducation.degree,
+      institution: newEducation.institution,
+      field_of_study: newEducation.field_of_study || undefined,
+      start_date: new Date(newEducation.start_date),
+      end_date: newEducation.end_date ? new Date(newEducation.end_date) : undefined,
+      is_current: newEducation.is_current,
+    });
+
+    if (!error) {
+      resetEducationForm();
+      setShowAddEducation(false);
+    }
   };
 
   const handleEditEducation = (edu: Education) => {
     setEditingEducationId(edu.id);
     setNewEducation({
-      school: edu.school,
+      institution: edu.institution,
       degree: edu.degree,
-      startDate: edu.startDate,
-      endDate: edu.endDate,
-      isCurrent: edu.isCurrent,
+      field_of_study: edu.field_of_study || "",
+      start_date: edu.start_date ? new Date(edu.start_date).toISOString().slice(0, 7) : "",
+      end_date: edu.end_date ? new Date(edu.end_date).toISOString().slice(0, 7) : "",
+      is_current: edu.is_current,
     });
   };
 
-  const handleSaveEducation = () => {
-    if (!newEducation.school || !newEducation.degree || !newEducation.startDate) return;
+  const handleSaveEducation = async () => {
+    if (!editingEducationId) return;
+    if (!newEducation.institution || !newEducation.degree || !newEducation.start_date) return;
 
-    setEducations(educations.map((edu) =>
-      edu.id === editingEducationId
-        ? { ...newEducation, id: edu.id }
-        : edu
-    ));
-    setEditingEducationId(null);
-    setNewEducation({
-      school: "",
-      degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+    const { error } = await updateEducation(editingEducationId, {
+      degree: newEducation.degree,
+      institution: newEducation.institution,
+      field_of_study: newEducation.field_of_study || undefined,
+      start_date: new Date(newEducation.start_date),
+      end_date: newEducation.end_date ? new Date(newEducation.end_date) : undefined,
+      is_current: newEducation.is_current,
     });
+
+    if (!error) {
+      setEditingEducationId(null);
+      resetEducationForm();
+    }
   };
 
   const handleCancelEditEducation = () => {
     setEditingEducationId(null);
-    setNewEducation({
-      school: "",
-      degree: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
-    });
+    resetEducationForm();
   };
 
-  const handleDeleteEducation = (id: number) => {
-    setEducations(educations.filter((e) => e.id !== id));
+  const handleDeleteEducation = async (id: string) => {
+    await deleteEducation(id);
   };
 
-  interface WorkExperience {
-    id: number;
+  // Work experience from database
+  interface NewWorkExperienceForm {
     company: string;
     position: string;
-    startDate: string;
-    endDate: string;
-    isCurrent: boolean;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
   }
 
-  const [workExperiences, setWorkExperiences] = React.useState<WorkExperience[]>([
-    {
-      id: 1,
-      company: "Голомт банк",
-      position: "Програм хангамжийн инженер",
-      startDate: "2021-03",
-      endDate: "",
-      isCurrent: true,
-    },
-    {
-      id: 2,
-      company: "Монгол Пост",
-      position: "IT мэргэжилтэн",
-      startDate: "2019-06",
-      endDate: "2021-02",
-      isCurrent: false,
-    },
-  ]);
+  const {
+    workExperiences,
+    isLoading: isWorkExperiencesLoading,
+    createWorkExperience,
+    updateWorkExperience,
+    deleteWorkExperience,
+    isCreating: isCreatingWork,
+    isUpdating: isUpdatingWork,
+    isDeleting: isDeletingWork,
+  } = useWorkExperiences();
 
   const [showAddWork, setShowAddWork] = React.useState(false);
-  const [editingWorkId, setEditingWorkId] = React.useState<number | null>(null);
-  const [newWork, setNewWork] = React.useState<Omit<WorkExperience, "id">>({
+  const [editingWorkId, setEditingWorkId] = React.useState<string | null>(null);
+  const [newWork, setNewWork] = React.useState<NewWorkExperienceForm>({
     company: "",
     position: "",
-    startDate: "",
-    endDate: "",
-    isCurrent: false,
+    start_date: "",
+    end_date: "",
+    is_current: false,
   });
 
-  const handleAddWork = () => {
-    if (workExperiences.length >= 5) return;
-    if (!newWork.company || !newWork.position || !newWork.startDate) return;
-
-    setWorkExperiences([
-      ...workExperiences,
-      { ...newWork, id: Date.now() },
-    ]);
+  const resetWorkForm = () => {
     setNewWork({
       company: "",
       position: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+      start_date: "",
+      end_date: "",
+      is_current: false,
     });
-    setShowAddWork(false);
+  };
+
+  const handleAddWork = async () => {
+    if (workExperiences.length >= 5) return;
+    if (!newWork.company || !newWork.position || !newWork.start_date) return;
+
+    const { error } = await createWorkExperience({
+      company: newWork.company,
+      position: newWork.position,
+      start_date: new Date(newWork.start_date),
+      end_date: newWork.end_date ? new Date(newWork.end_date) : undefined,
+      is_current: newWork.is_current,
+    });
+
+    if (!error) {
+      resetWorkForm();
+      setShowAddWork(false);
+    }
   };
 
   const handleEditWork = (work: WorkExperience) => {
@@ -517,43 +532,37 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     setNewWork({
       company: work.company,
       position: work.position,
-      startDate: work.startDate,
-      endDate: work.endDate,
-      isCurrent: work.isCurrent,
+      start_date: work.start_date ? new Date(work.start_date).toISOString().slice(0, 7) : "",
+      end_date: work.end_date ? new Date(work.end_date).toISOString().slice(0, 7) : "",
+      is_current: work.is_current,
     });
   };
 
-  const handleSaveWork = () => {
-    if (!newWork.company || !newWork.position || !newWork.startDate) return;
+  const handleSaveWork = async () => {
+    if (!editingWorkId) return;
+    if (!newWork.company || !newWork.position || !newWork.start_date) return;
 
-    setWorkExperiences(workExperiences.map((work) =>
-      work.id === editingWorkId
-        ? { ...newWork, id: work.id }
-        : work
-    ));
-    setEditingWorkId(null);
-    setNewWork({
-      company: "",
-      position: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
+    const { error } = await updateWorkExperience(editingWorkId, {
+      company: newWork.company,
+      position: newWork.position,
+      start_date: new Date(newWork.start_date),
+      end_date: newWork.end_date ? new Date(newWork.end_date) : undefined,
+      is_current: newWork.is_current,
     });
+
+    if (!error) {
+      setEditingWorkId(null);
+      resetWorkForm();
+    }
   };
 
   const handleCancelEditWork = () => {
     setEditingWorkId(null);
-    setNewWork({
-      company: "",
-      position: "",
-      startDate: "",
-      endDate: "",
-      isCurrent: false,
-    });
+    resetWorkForm();
   };
 
-  const handleDeleteWork = (id: number) => {
-    setWorkExperiences(workExperiences.filter((w) => w.id !== id));
+  const handleDeleteWork = async (id: string) => {
+    await deleteWorkExperience(id);
   };
 
   const formatWorkDate = (dateStr: string) => {
@@ -569,22 +578,20 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     return `${year} оны ${parseInt(month)}-р сарын ${parseInt(day)}`;
   };
 
-  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // TODO: Upload avatar to Supabase Storage
-      console.log("Avatar upload not implemented yet:", file.name);
+      setIsUploadingAvatar(true);
+      try {
+        const { error } = await uploadAvatar(file);
+        if (error) {
+          console.error("Avatar upload error:", error);
+        }
+      } finally {
+        setIsUploadingAvatar(false);
+      }
     }
   };
-
-  // Get display name from profile or user email
-  const displayName = profile
-    ? profile.is_company
-      ? profile.company_name || "Компани"
-      : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
-    : user?.email?.split("@")[0] || "Хэрэглэгч";
-
-  const avatarUrl = profile?.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
 
   // If user is authenticated, show user menu
   if (isAuthenticated && user) {
@@ -651,12 +658,18 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                     alt={displayName}
                     className="w-24 h-24 rounded-full object-cover border-[3px] border-blue-500"
                   />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-0 right-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors border-2 border-background"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
+                  {isUploadingAvatar ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
+                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors border-2 border-background"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -771,8 +784,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   <div className="p-3 border rounded-lg space-y-3 bg-muted/20">
                     <AutocompleteInput
                       placeholder="Сургуулийн нэр"
-                      value={newEducation.school}
-                      onChange={(value) => setNewEducation({ ...newEducation, school: value })}
+                      value={newEducation.institution}
+                      onChange={(value) => setNewEducation({ ...newEducation, institution: value })}
                       suggestions={SCHOOLS_DB}
                       className="h-9 text-sm"
                     />
@@ -783,13 +796,19 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                       suggestions={DEGREES_DB}
                       className="h-9 text-sm"
                     />
+                    <Input
+                      placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                      value={newEducation.field_of_study}
+                      onChange={(e) => setNewEducation({ ...newEducation, field_of_study: e.target.value })}
+                      className="h-9 text-sm"
+                    />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
                         <Input
                           type="month"
-                          value={newEducation.startDate}
-                          onChange={(e) => setNewEducation({ ...newEducation, startDate: e.target.value })}
+                          value={newEducation.start_date}
+                          onChange={(e) => setNewEducation({ ...newEducation, start_date: e.target.value })}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -797,9 +816,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         <label className="text-xs text-muted-foreground mb-1 block">Төгссөн</label>
                         <Input
                           type="month"
-                          value={newEducation.endDate}
-                          onChange={(e) => setNewEducation({ ...newEducation, endDate: e.target.value })}
-                          disabled={newEducation.isCurrent}
+                          value={newEducation.end_date}
+                          onChange={(e) => setNewEducation({ ...newEducation, end_date: e.target.value })}
+                          disabled={newEducation.is_current}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -807,8 +826,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={newEducation.isCurrent}
-                        onChange={(e) => setNewEducation({ ...newEducation, isCurrent: e.target.checked, endDate: "" })}
+                        checked={newEducation.is_current}
+                        onChange={(e) => setNewEducation({ ...newEducation, is_current: e.target.checked, end_date: "" })}
                         className="rounded"
                       />
                       Одоо суралцаж байгаа
@@ -818,9 +837,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         size="sm"
                         className="flex-1 h-8 text-xs"
                         onClick={handleAddEducation}
-                        disabled={!newEducation.school || !newEducation.degree || !newEducation.startDate}
+                        disabled={isCreatingEducation || !newEducation.institution || !newEducation.degree || !newEducation.start_date}
                       >
-                        Хадгалах
+                        {isCreatingEducation ? "Хадгалж байна..." : "Хадгалах"}
                       </Button>
                       <Button
                         variant="outline"
@@ -828,7 +847,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         className="h-8 text-xs"
                         onClick={() => {
                           setShowAddEducation(false);
-                          setNewEducation({ school: "", degree: "", startDate: "", endDate: "", isCurrent: false });
+                          resetEducationForm();
                         }}
                       >
                         Болих
@@ -838,7 +857,11 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                 )}
 
                 {/* Education List */}
-                {educations.length === 0 && !showAddEducation ? (
+                {isEducationsLoading ? (
+                  <div className="text-center py-4">
+                    <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                  </div>
+                ) : educations.length === 0 && !showAddEducation ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Боловсролын мэдээлэл нэмээгүй байна
                   </p>
@@ -846,14 +869,14 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   <div className="space-y-2">
                     {[...educations].sort((a, b) => {
                       // Sort by start date descending (newest first)
-                      return b.startDate.localeCompare(a.startDate);
+                      return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
                     }).map((edu) => (
                       editingEducationId === edu.id ? (
                         <div key={edu.id} className="p-3 border rounded-lg space-y-3 bg-muted/20">
                           <AutocompleteInput
                             placeholder="Сургуулийн нэр"
-                            value={newEducation.school}
-                            onChange={(value) => setNewEducation({ ...newEducation, school: value })}
+                            value={newEducation.institution}
+                            onChange={(value) => setNewEducation({ ...newEducation, institution: value })}
                             suggestions={SCHOOLS_DB}
                             className="h-9 text-sm"
                           />
@@ -864,13 +887,19 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                             suggestions={DEGREES_DB}
                             className="h-9 text-sm"
                           />
+                          <Input
+                            placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                            value={newEducation.field_of_study}
+                            onChange={(e) => setNewEducation({ ...newEducation, field_of_study: e.target.value })}
+                            className="h-9 text-sm"
+                          />
                           <div className="grid grid-cols-2 gap-2">
                             <div>
                               <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
                               <Input
                                 type="month"
-                                value={newEducation.startDate}
-                                onChange={(e) => setNewEducation({ ...newEducation, startDate: e.target.value })}
+                                value={newEducation.start_date}
+                                onChange={(e) => setNewEducation({ ...newEducation, start_date: e.target.value })}
                                 className="h-9 text-sm"
                               />
                             </div>
@@ -878,9 +907,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                               <label className="text-xs text-muted-foreground mb-1 block">Төгссөн</label>
                               <Input
                                 type="month"
-                                value={newEducation.endDate}
-                                onChange={(e) => setNewEducation({ ...newEducation, endDate: e.target.value })}
-                                disabled={newEducation.isCurrent}
+                                value={newEducation.end_date}
+                                onChange={(e) => setNewEducation({ ...newEducation, end_date: e.target.value })}
+                                disabled={newEducation.is_current}
                                 className="h-9 text-sm"
                               />
                             </div>
@@ -888,8 +917,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                           <label className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={newEducation.isCurrent}
-                              onChange={(e) => setNewEducation({ ...newEducation, isCurrent: e.target.checked, endDate: "" })}
+                              checked={newEducation.is_current}
+                              onChange={(e) => setNewEducation({ ...newEducation, is_current: e.target.checked, end_date: "" })}
                               className="rounded"
                             />
                             Одоо суралцаж байгаа
@@ -899,9 +928,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                               size="sm"
                               className="flex-1 h-8 text-xs"
                               onClick={handleSaveEducation}
-                              disabled={!newEducation.school || !newEducation.degree || !newEducation.startDate}
+                              disabled={isUpdatingEducation || !newEducation.institution || !newEducation.degree || !newEducation.start_date}
                             >
-                              Хадгалах
+                              {isUpdatingEducation ? "Хадгалж байна..." : "Хадгалах"}
                             </Button>
                             <Button
                               variant="outline"
@@ -921,9 +950,12 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         >
                           <div className="pr-16">
                             <p className="font-medium text-sm">{edu.degree}</p>
-                            <p className="text-xs text-muted-foreground">{edu.school}</p>
+                            <p className="text-xs text-muted-foreground">{edu.institution}</p>
+                            {edu.field_of_study && (
+                              <p className="text-xs text-muted-foreground">{edu.field_of_study}</p>
+                            )}
                             <p className="text-xs text-muted-foreground mt-1">
-                              {formatWorkDate(edu.startDate)} - {edu.isCurrent ? "Одоог хүртэл" : formatWorkDate(edu.endDate)}
+                              {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))} - {edu.is_current ? "Одоог хүртэл" : edu.end_date ? formatWorkDate(new Date(edu.end_date).toISOString().slice(0, 7)) : ""}
                             </p>
                           </div>
                           <div className="absolute top-3 right-3 flex gap-1">
@@ -935,7 +967,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDeleteEducation(edu.id); }}
-                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 transition-opacity"
+                              disabled={isDeletingEducation}
+                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 transition-opacity disabled:opacity-50"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -995,8 +1028,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
                         <Input
                           type="month"
-                          value={newWork.startDate}
-                          onChange={(e) => setNewWork({ ...newWork, startDate: e.target.value })}
+                          value={newWork.start_date}
+                          onChange={(e) => setNewWork({ ...newWork, start_date: e.target.value })}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -1004,9 +1037,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         <label className="text-xs text-muted-foreground mb-1 block">Дууссан</label>
                         <Input
                           type="month"
-                          value={newWork.endDate}
-                          onChange={(e) => setNewWork({ ...newWork, endDate: e.target.value })}
-                          disabled={newWork.isCurrent}
+                          value={newWork.end_date}
+                          onChange={(e) => setNewWork({ ...newWork, end_date: e.target.value })}
+                          disabled={newWork.is_current}
                           className="h-9 text-sm"
                         />
                       </div>
@@ -1014,8 +1047,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={newWork.isCurrent}
-                        onChange={(e) => setNewWork({ ...newWork, isCurrent: e.target.checked, endDate: "" })}
+                        checked={newWork.is_current}
+                        onChange={(e) => setNewWork({ ...newWork, is_current: e.target.checked, end_date: "" })}
                         className="rounded"
                       />
                       Одоо ажиллаж байгаа
@@ -1025,9 +1058,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         size="sm"
                         className="flex-1 h-8 text-xs"
                         onClick={handleAddWork}
-                        disabled={!newWork.company || !newWork.position || !newWork.startDate}
+                        disabled={isCreatingWork || !newWork.company || !newWork.position || !newWork.start_date}
                       >
-                        Хадгалах
+                        {isCreatingWork ? "Хадгалж байна..." : "Хадгалах"}
                       </Button>
                       <Button
                         variant="outline"
@@ -1035,7 +1068,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                         className="h-8 text-xs"
                         onClick={() => {
                           setShowAddWork(false);
-                          setNewWork({ company: "", position: "", startDate: "", endDate: "", isCurrent: false });
+                          resetWorkForm();
                         }}
                       >
                         Болих
@@ -1045,7 +1078,11 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                 )}
 
                 {/* Work List */}
-                {workExperiences.length === 0 && !showAddWork ? (
+                {isWorkExperiencesLoading ? (
+                  <div className="text-center py-4">
+                    <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                  </div>
+                ) : workExperiences.length === 0 && !showAddWork ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Ажлын туршлага нэмээгүй байна
                   </p>
@@ -1053,7 +1090,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   <div className="space-y-2">
                     {[...workExperiences].sort((a, b) => {
                       // Sort by start date descending (newest first)
-                      return b.startDate.localeCompare(a.startDate);
+                      return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
                     }).map((work) => (
                       editingWorkId === work.id ? (
                         <div key={work.id} className="p-3 border rounded-lg space-y-3 bg-muted/20">
@@ -1076,8 +1113,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                               <label className="text-xs text-muted-foreground mb-1 block">Эхэлсэн</label>
                               <Input
                                 type="month"
-                                value={newWork.startDate}
-                                onChange={(e) => setNewWork({ ...newWork, startDate: e.target.value })}
+                                value={newWork.start_date}
+                                onChange={(e) => setNewWork({ ...newWork, start_date: e.target.value })}
                                 className="h-9 text-sm"
                               />
                             </div>
@@ -1085,9 +1122,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                               <label className="text-xs text-muted-foreground mb-1 block">Дууссан</label>
                               <Input
                                 type="month"
-                                value={newWork.endDate}
-                                onChange={(e) => setNewWork({ ...newWork, endDate: e.target.value })}
-                                disabled={newWork.isCurrent}
+                                value={newWork.end_date}
+                                onChange={(e) => setNewWork({ ...newWork, end_date: e.target.value })}
+                                disabled={newWork.is_current}
                                 className="h-9 text-sm"
                               />
                             </div>
@@ -1095,8 +1132,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                           <label className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
                               type="checkbox"
-                              checked={newWork.isCurrent}
-                              onChange={(e) => setNewWork({ ...newWork, isCurrent: e.target.checked, endDate: "" })}
+                              checked={newWork.is_current}
+                              onChange={(e) => setNewWork({ ...newWork, is_current: e.target.checked, end_date: "" })}
                               className="rounded"
                             />
                             Одоо ажиллаж байгаа
@@ -1106,9 +1143,9 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                               size="sm"
                               className="flex-1 h-8 text-xs"
                               onClick={handleSaveWork}
-                              disabled={!newWork.company || !newWork.position || !newWork.startDate}
+                              disabled={isUpdatingWork || !newWork.company || !newWork.position || !newWork.start_date}
                             >
-                              Хадгалах
+                              {isUpdatingWork ? "Хадгалж байна..." : "Хадгалах"}
                             </Button>
                             <Button
                               variant="outline"
@@ -1130,7 +1167,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                             <p className="font-medium text-sm">{work.position}</p>
                             <p className="text-xs text-muted-foreground">{work.company}</p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {formatWorkDate(work.startDate)} - {work.isCurrent ? "Одоог хүртэл" : formatWorkDate(work.endDate)}
+                              {formatWorkDate(new Date(work.start_date).toISOString().slice(0, 7))} - {work.is_current ? "Одоог хүртэл" : work.end_date ? formatWorkDate(new Date(work.end_date).toISOString().slice(0, 7)) : ""}
                             </p>
                           </div>
                           <div className="absolute top-3 right-3 flex gap-1">
@@ -1142,7 +1179,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleDeleteWork(work.id); }}
-                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 transition-opacity"
+                              disabled={isDeletingWork}
+                              className="p-1.5 rounded-md opacity-0 group-hover:opacity-100 hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 transition-opacity disabled:opacity-50"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>

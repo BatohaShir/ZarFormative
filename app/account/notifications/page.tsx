@@ -243,7 +243,7 @@ export default function NotificationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.pushNewRequests}
-                    onCheckedChange={(v) => handleSettingChange("pushNewRequests", v)}
+                    onCheckedChange={(v: boolean) => handleSettingChange("pushNewRequests", v)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -253,7 +253,7 @@ export default function NotificationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.pushNewMessages}
-                    onCheckedChange={(v) => handleSettingChange("pushNewMessages", v)}
+                    onCheckedChange={(v: boolean) => handleSettingChange("pushNewMessages", v)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -263,7 +263,7 @@ export default function NotificationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.pushStatusChanges}
-                    onCheckedChange={(v) => handleSettingChange("pushStatusChanges", v)}
+                    onCheckedChange={(v: boolean) => handleSettingChange("pushStatusChanges", v)}
                   />
                 </div>
               </div>
@@ -289,7 +289,7 @@ export default function NotificationSettingsPage() {
               </div>
               <Switch
                 checked={settings.emailEnabled}
-                onCheckedChange={(v) => handleSettingChange("emailEnabled", v)}
+                onCheckedChange={(v: boolean) => handleSettingChange("emailEnabled", v)}
               />
             </div>
 
@@ -303,7 +303,7 @@ export default function NotificationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.emailNewRequests}
-                    onCheckedChange={(v) => handleSettingChange("emailNewRequests", v)}
+                    onCheckedChange={(v: boolean) => handleSettingChange("emailNewRequests", v)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -313,7 +313,7 @@ export default function NotificationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.emailNewMessages}
-                    onCheckedChange={(v) => handleSettingChange("emailNewMessages", v)}
+                    onCheckedChange={(v: boolean) => handleSettingChange("emailNewMessages", v)}
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -323,7 +323,7 @@ export default function NotificationSettingsPage() {
                   </div>
                   <Switch
                     checked={settings.emailDigest}
-                    onCheckedChange={(v) => handleSettingChange("emailDigest", v)}
+                    onCheckedChange={(v: boolean) => handleSettingChange("emailDigest", v)}
                   />
                 </div>
 
@@ -367,7 +367,7 @@ export default function NotificationSettingsPage() {
               </div>
               <Switch
                 checked={settings.quietHoursEnabled}
-                onCheckedChange={(v) => handleSettingChange("quietHoursEnabled", v)}
+                onCheckedChange={(v: boolean) => handleSettingChange("quietHoursEnabled", v)}
               />
             </div>
 
