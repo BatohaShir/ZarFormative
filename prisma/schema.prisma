@@ -14,14 +14,17 @@ generator client {
 }
 
 model profiles {
-  id           String   @id() @db.Uuid()
-  first_name   String?
-  last_name    String?
-  phone_number String?
-  is_company   Boolean  @default(false)
-  avatar_url   String?
-  created_at   DateTime @default(now())
-  updated_at   DateTime @default(now())
+  id                  String   @id() @db.Uuid()
+  first_name          String?
+  last_name           String?
+  phone_number        String?
+  is_company          Boolean  @default(false)
+  avatar_url          String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @default(now())
+  company_name        String?
+  registration_number String?
+  is_deleted          Boolean  @default(false)
 
   @@map("profiles")
 }

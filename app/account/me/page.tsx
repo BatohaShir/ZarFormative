@@ -195,7 +195,7 @@ export default function MyProfilePage() {
   // Get display name from profile or user email
   const displayName = profile
     ? profile.is_company
-      ? profile.first_name || "Компани"
+      ? profile.company_name || "Компани"
       : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
     : user?.email?.split("@")[0] || "Хэрэглэгч";
 

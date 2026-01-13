@@ -42,6 +42,18 @@ const metadata: ModelMeta = {
                     name: "updated_at",
                     type: "DateTime",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, company_name: {
+                    name: "company_name",
+                    type: "String",
+                    isOptional: true,
+                }, registration_number: {
+                    name: "registration_number",
+                    type: "String",
+                    isOptional: true,
+                }, is_deleted: {
+                    name: "is_deleted",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
                 },
             }, uniqueConstraints: {
                 id: {

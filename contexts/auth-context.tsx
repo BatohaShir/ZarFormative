@@ -11,6 +11,8 @@ interface Profile {
   phone_number: string | null;
   is_company: boolean;
   avatar_url: string | null;
+  company_name: string | null;
+  registration_number: string | null;
 }
 
 interface AuthContextType {
@@ -23,10 +25,12 @@ interface AuthContextType {
     email: string,
     password: string,
     metadata: {
-      first_name: string;
-      last_name: string;
+      first_name?: string;
+      last_name?: string;
       phone_number?: string;
       is_company?: boolean;
+      company_name?: string;
+      registration_number?: string;
     }
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -125,10 +129,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string,
       password: string,
       metadata: {
-        first_name: string;
-        last_name: string;
+        first_name?: string;
+        last_name?: string;
         phone_number?: string;
         is_company?: boolean;
+        company_name?: string;
+        registration_number?: string;
       }
     ): Promise<{ error: string | null }> => {
       const { error } = await supabase.auth.signUp({

@@ -309,8 +309,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
             is_company: false,
           }
         : {
-            first_name: regCompanyName,
-            last_name: regRegistrationNumber,
+            company_name: regCompanyName,
+            registration_number: regRegistrationNumber,
             phone_number: regPhone,
             is_company: true,
           };
@@ -580,7 +580,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
   // Get display name from profile or user email
   const displayName = profile
     ? profile.is_company
-      ? profile.first_name || "Компани"
+      ? profile.company_name || "Компани"
       : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч"
     : user?.email?.split("@")[0] || "Хэрэглэгч";
 
@@ -727,13 +727,22 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
                   </div>
                 </div>
                 {profile?.is_company && (
-                  <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                    <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground">Төрөл</p>
-                      <p className="text-sm font-medium">Байгууллага</p>
+                  <>
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Компанийн нэр</p>
+                        <p className="text-sm font-medium">{profile.company_name || "-"}</p>
+                      </div>
                     </div>
-                  </div>
+                    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                      <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Регистрийн дугаар</p>
+                        <p className="text-sm font-medium">{profile.registration_number || "-"}</p>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 
