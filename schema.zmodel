@@ -77,6 +77,8 @@ model profiles_push_subscriptions {
   // Relations
   profile    profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
+  // Indexes
+  @@index([user_id]) // For fetching user's subscriptions
   @@unique([user_id, endpoint])
   @@map("profiles_push_subscriptions")
 
