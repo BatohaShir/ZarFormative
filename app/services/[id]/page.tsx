@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
-import { MessagesButton } from "@/components/messages-button";
+import { RequestsButton } from "@/components/requests-button";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import { ServiceRequestModal } from "@/components/service-request-modal";
@@ -487,7 +487,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
           </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
-            <MessagesButton />
+            <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
             <AuthModal />

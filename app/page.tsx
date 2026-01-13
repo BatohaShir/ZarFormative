@@ -6,7 +6,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { allCategories } from "@/lib/categories";
 import { ServiceCard } from "@/components/service-card";
 import { FavoritesButton } from "@/components/favorites-button";
-import { MessagesButton } from "@/components/messages-button";
+import { RequestsButton } from "@/components/requests-button";
 import { SearchInput } from "@/components/search-input";
 import { CitySelect } from "@/components/city-select";
 import { Footer } from "@/components/footer";
@@ -153,7 +153,7 @@ export default function Home() {
           </h1>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
-            <MessagesButton />
+            <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
             <AuthModal />

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Heart, Plus, MessageCircle, User } from "lucide-react";
+import { Home, Heart, Plus, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useMessages } from "@/contexts/messages-context";
@@ -24,7 +24,7 @@ export function MobileBottomNav() {
     return pathname.startsWith(path);
   };
 
-  const handleMessagesClick = (e: React.MouseEvent) => {
+  const handleRequestsClick = (e: React.MouseEvent) => {
     if (!isAuthenticated) {
       e.preventDefault();
       setShowAuthModal(true);
@@ -62,12 +62,12 @@ export function MobileBottomNav() {
       isCenter: true,
     },
     {
-      href: "/messages",
-      icon: MessageCircle,
-      label: "Мессеж",
-      isActive: isActive("/messages"),
+      href: "/requests",
+      icon: FileText,
+      label: "Заявки",
+      isActive: isActive("/requests"),
       badge: totalUnreadCount > 0 ? totalUnreadCount : null,
-      onClick: handleMessagesClick,
+      onClick: handleRequestsClick,
     },
     {
       href: "/account/me",
@@ -130,7 +130,7 @@ export function MobileBottomNav() {
                     <div
                       className={cn(
                         "absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full flex items-center justify-center text-[10px] font-semibold text-white",
-                        item.label === "Мессеж"
+                        item.label === "Заявки"
                           ? "bg-red-500"
                           : "bg-pink-500"
                       )}

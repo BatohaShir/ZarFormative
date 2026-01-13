@@ -68,8 +68,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/messages" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Мессежүүд
+                <Link href="/requests" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Заявки
                 </Link>
               </li>
             </ul>

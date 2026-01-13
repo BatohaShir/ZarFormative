@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
-import { MessagesButton } from "@/components/messages-button";
+import { RequestsButton } from "@/components/requests-button";
 import { ServiceCard } from "@/components/service-card";
 import { SearchInput } from "@/components/search-input";
 import { CitySelect } from "@/components/city-select";
@@ -517,7 +517,7 @@ function ServicesPageContent() {
           </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
-            <MessagesButton />
+            <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
             <AuthModal />

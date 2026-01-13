@@ -136,3 +136,13 @@ html:not(.dark) {
   background-color: oklch(1 0 0);
   color-scheme: light;
 }
+
+/* Hide scrollbar for iOS style picker */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

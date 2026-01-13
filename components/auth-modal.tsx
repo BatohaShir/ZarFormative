@@ -1276,23 +1276,6 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
 
           {/* Register Tab */}
           <TabsContent value="register" className="space-y-3 sm:space-y-4 mt-3 sm:mt-4">
-            {/* Google Register */}
-            <Button variant="outline" className="w-full gap-2 h-9 sm:h-10 text-xs sm:text-sm">
-              <GoogleIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-              Google-ээр бүртгүүлэх
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-[10px] sm:text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  эсвэл
-                </span>
-              </div>
-            </div>
-
             {/* Registration Form */}
             <div className="space-y-2 sm:space-y-3">
               <div className="relative">
