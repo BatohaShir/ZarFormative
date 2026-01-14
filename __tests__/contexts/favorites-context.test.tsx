@@ -9,7 +9,7 @@ describe("FavoritesContext", () => {
   it("should initialize with empty favorites", () => {
     const { result } = renderHook(() => useFavorites(), { wrapper });
 
-    expect(result.current.favorites).toEqual([]);
+    expect(result.current.favorites).toEqual(new Set());
     expect(result.current.count).toBe(0);
   });
 
@@ -20,7 +20,7 @@ describe("FavoritesContext", () => {
       result.current.toggleFavorite(1);
     });
 
-    expect(result.current.favorites).toContain(1);
+    expect(result.current.favorites.has(1)).toBe(true);
     expect(result.current.count).toBe(1);
     expect(result.current.isFavorite(1)).toBe(true);
   });
@@ -51,7 +51,7 @@ describe("FavoritesContext", () => {
       result.current.toggleFavorite(3);
     });
 
-    expect(result.current.favorites).toEqual([1, 2, 3]);
+    expect(result.current.favorites).toEqual(new Set([1, 2, 3]));
     expect(result.current.count).toBe(3);
   });
 

@@ -27,6 +27,8 @@ import {
   Bell,
   FileText,
   Check,
+  Building2,
+  Hash,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
@@ -608,26 +610,52 @@ export default function MyProfilePage() {
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-card rounded-xl border p-4 md:p-6">
               <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
-                <User className="h-5 w-5 text-primary" />
-                Хувийн мэдээлэл
+                {profile?.is_company ? (
+                  <Building2 className="h-5 w-5 text-primary" />
+                ) : (
+                  <User className="h-5 w-5 text-primary" />
+                )}
+                {profile?.is_company ? "Компанийн мэдээлэл" : "Хувийн мэдээлэл"}
               </h3>
 
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Нэр</p>
-                    <p className="font-medium truncate">{profile?.first_name || "-"}</p>
-                  </div>
-                </div>
+                {profile?.is_company ? (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <Building2 className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Нэр</p>
+                        <p className="font-medium truncate">{profile?.company_name || "-"}</p>
+                      </div>
+                    </div>
 
-                <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Овог</p>
-                    <p className="font-medium truncate">{profile?.last_name || "-"}</p>
-                  </div>
-                </div>
+                    <div className="flex items-start gap-3">
+                      <Hash className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Регистрийн дугаар</p>
+                        <p className="font-medium truncate">{profile?.registration_number || "-"}</p>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Нэр</p>
+                        <p className="font-medium truncate">{profile?.first_name || "-"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">Овог</p>
+                        <p className="font-medium truncate">{profile?.last_name || "-"}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 <div className="flex items-start gap-3">
                   <Mail className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
@@ -647,96 +675,98 @@ export default function MyProfilePage() {
               </div>
             </div>
 
-            {/* About Section */}
-            <div className="bg-card rounded-xl border p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  О себе
-                </h3>
-                {!isEditingAbout && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setIsEditingAbout(true)}
-                  >
-                    {profile?.about ? (
-                      <>
-                        <Pencil className="h-4 w-4" />
-                        Засварлах
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4" />
-                        Нэмэх
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+            {/* About Section - only for individuals */}
+            {!profile?.is_company && (
+              <div className="bg-card rounded-xl border p-4 md:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    О себе
+                  </h3>
+                  {!isEditingAbout && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => setIsEditingAbout(true)}
+                    >
+                      {profile?.about ? (
+                        <>
+                          <Pencil className="h-4 w-4" />
+                          Засварлах
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4" />
+                          Нэмэх
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
 
-              {isEditingAbout ? (
-                <div className="space-y-3">
-                  <Textarea
-                    placeholder="Өөрийнхөө тухай бичнэ үү..."
-                    value={aboutText}
-                    onChange={(e) => setAboutText(e.target.value)}
-                    className="min-h-30 resize-none"
-                    maxLength={500}
-                  />
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {aboutText.length}/500
-                    </span>
-                    <div className="flex gap-2">
-                      {profile?.about && (
+                {isEditingAbout ? (
+                  <div className="space-y-3">
+                    <Textarea
+                      placeholder="Өөрийнхөө тухай бичнэ үү..."
+                      value={aboutText}
+                      onChange={(e) => setAboutText(e.target.value)}
+                      className="min-h-30 resize-none"
+                      maxLength={500}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {aboutText.length}/500
+                      </span>
+                      <div className="flex gap-2">
+                        {profile?.about && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDeleteAbout}
+                            disabled={isSavingAbout}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Устгах
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={handleDeleteAbout}
+                          onClick={handleCancelAbout}
                           disabled={isSavingAbout}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                         >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Устгах
+                          Болих
                         </Button>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCancelAbout}
-                        disabled={isSavingAbout}
-                      >
-                        Болих
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleSaveAbout}
-                        disabled={isSavingAbout || !aboutText.trim()}
-                      >
-                        {isSavingAbout ? (
-                          "Хадгалж байна..."
-                        ) : (
-                          <>
-                            <Check className="h-4 w-4 mr-1" />
-                            Хадгалах
-                          </>
-                        )}
-                      </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveAbout}
+                          disabled={isSavingAbout || !aboutText.trim()}
+                        >
+                          {isSavingAbout ? (
+                            "Хадгалж байна..."
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4 mr-1" />
+                              Хадгалах
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : profile?.about ? (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {profile.about}
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Өөрийнхөө тухай мэдээлэл нэмээгүй байна
-                </p>
-              )}
-            </div>
+                ) : profile?.about ? (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {profile.about}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Өөрийнхөө тухай мэдээлэл нэмээгүй байна
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Mobile Action Buttons */}
             <div className="lg:hidden space-y-2">
@@ -760,566 +790,662 @@ export default function MyProfilePage() {
             </div>
           </div>
 
-          {/* Right Column - Education & Work */}
+          {/* Right Column - Education & Work (for individuals) OR About Company (for companies) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Education */}
-            <div className="bg-card rounded-xl border p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                  Боловсрол
-                </h3>
-                {!showAddEducation && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setShowAddEducation(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Нэмэх
-                  </Button>
+            {profile?.is_company ? (
+              /* Company About Section */
+              <div className="bg-card rounded-xl border p-4 md:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-primary" />
+                    О компании
+                  </h3>
+                  {!isEditingAbout && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => setIsEditingAbout(true)}
+                    >
+                      {profile?.about ? (
+                        <>
+                          <Pencil className="h-4 w-4" />
+                          Засварлах
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4" />
+                          Нэмэх
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+
+                {isEditingAbout ? (
+                  <div className="space-y-3">
+                    <Textarea
+                      placeholder="Компанийнхаа тухай бичнэ үү..."
+                      value={aboutText}
+                      onChange={(e) => setAboutText(e.target.value)}
+                      className="min-h-40 resize-none"
+                      maxLength={1000}
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {aboutText.length}/1000
+                      </span>
+                      <div className="flex gap-2">
+                        {profile?.about && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDeleteAbout}
+                            disabled={isSavingAbout}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Устгах
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCancelAbout}
+                          disabled={isSavingAbout}
+                        >
+                          Болих
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveAbout}
+                          disabled={isSavingAbout || !aboutText.trim()}
+                        >
+                          {isSavingAbout ? (
+                            "Хадгалж байна..."
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4 mr-1" />
+                              Хадгалах
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : profile?.about ? (
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {profile.about}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Компанийн тухай мэдээлэл нэмээгүй байна
+                  </p>
                 )}
               </div>
-
-              {/* Add Education Form */}
-              {showAddEducation && (
-                <div className="p-4 border rounded-lg space-y-3 bg-muted/20 mb-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Шинэ боловсрол нэмэх</h4>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        setShowAddEducation(false);
-                        resetEducationForm();
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+            ) : (
+              /* Education & Work Experience for individuals */
+              <>
+                {/* Education */}
+                <div className="bg-card rounded-xl border p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5 text-primary" />
+                      Боловсрол
+                    </h3>
+                    {!showAddEducation && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => setShowAddEducation(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Нэмэх
+                      </Button>
+                    )}
                   </div>
-                  <AutocompleteInput
-                    placeholder="Сургуулийн нэр"
-                    value={newEducation.institution}
-                    onChange={(value) =>
-                      setNewEducation({ ...newEducation, institution: value })
-                    }
-                    suggestions={SCHOOLS_DB}
-                    className="h-10"
-                  />
-                  <AutocompleteInput
-                    placeholder="Мэргэжил, зэрэг"
-                    value={newEducation.degree}
-                    onChange={(value) =>
-                      setNewEducation({ ...newEducation, degree: value })
-                    }
-                    suggestions={DEGREES_DB}
-                    className="h-10"
-                  />
-                  <Input
-                    placeholder="Чиглэл/Мэргэжил (заавал биш)"
-                    value={newEducation.field_of_study}
-                    onChange={(e) =>
-                      setNewEducation({ ...newEducation, field_of_study: e.target.value })
-                    }
-                    className="h-10"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Эхэлсэн
-                      </label>
-                      <Input
-                        type="month"
-                        value={newEducation.start_date}
-                        onChange={(e) =>
-                          setNewEducation({
-                            ...newEducation,
-                            start_date: e.target.value,
-                          })
-                        }
-                        className="h-10"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Төгссөн
-                      </label>
-                      <Input
-                        type="month"
-                        value={newEducation.end_date}
-                        onChange={(e) =>
-                          setNewEducation({
-                            ...newEducation,
-                            end_date: e.target.value,
-                          })
-                        }
-                        disabled={newEducation.is_current}
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newEducation.is_current}
-                      onChange={(e) =>
-                        setNewEducation({
-                          ...newEducation,
-                          is_current: e.target.checked,
-                          end_date: "",
-                        })
-                      }
-                      className="rounded"
-                    />
-                    <span className="text-sm">Одоо суралцаж байгаа</span>
-                  </label>
-                  <Button
-                    className="w-full"
-                    onClick={handleAddEducation}
-                    disabled={
-                      isCreatingEducation ||
-                      !newEducation.institution ||
-                      !newEducation.degree ||
-                      !newEducation.start_date
-                    }
-                  >
-                    {isCreatingEducation ? "Хадгалж байна..." : "Хадгалах"}
-                  </Button>
-                </div>
-              )}
 
-              {/* Education List */}
-              {isEducationsLoading ? (
-                <div className="grid gap-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
-                      <div className="h-5 bg-muted rounded w-1/3 mb-2" />
-                      <div className="h-4 bg-muted rounded w-1/2 mb-1" />
-                      <div className="h-4 bg-muted rounded w-2/5 mt-2" />
-                    </div>
-                  ))}
-                </div>
-              ) : educations.length === 0 && !showAddEducation ? (
-                <p className="text-muted-foreground text-center py-8">
-                  Боловсролын мэдээлэл нэмээгүй байна
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {[...educations]
-                    .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
-                    .map((edu) =>
-                      editingEducationId === edu.id ? (
-                        <div
-                          key={edu.id}
-                          className="p-4 border rounded-lg space-y-3 bg-muted/20"
+                  {/* Add Education Form */}
+                  {showAddEducation && (
+                    <div className="p-4 border rounded-lg space-y-3 bg-muted/20 mb-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Шинэ боловсрол нэмэх</h4>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setShowAddEducation(false);
+                            resetEducationForm();
+                          }}
                         >
-                          <AutocompleteInput
-                            placeholder="Сургуулийн нэр"
-                            value={newEducation.institution}
-                            onChange={(value) =>
-                              setNewEducation({ ...newEducation, institution: value })
-                            }
-                            suggestions={SCHOOLS_DB}
-                            className="h-10"
-                          />
-                          <AutocompleteInput
-                            placeholder="Мэргэжил, зэрэг"
-                            value={newEducation.degree}
-                            onChange={(value) =>
-                              setNewEducation({ ...newEducation, degree: value })
-                            }
-                            suggestions={DEGREES_DB}
-                            className="h-10"
-                          />
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <AutocompleteInput
+                        placeholder="Сургуулийн нэр"
+                        value={newEducation.institution}
+                        onChange={(value) =>
+                          setNewEducation({ ...newEducation, institution: value })
+                        }
+                        suggestions={SCHOOLS_DB}
+                        className="h-10"
+                      />
+                      <AutocompleteInput
+                        placeholder="Мэргэжил, зэрэг"
+                        value={newEducation.degree}
+                        onChange={(value) =>
+                          setNewEducation({ ...newEducation, degree: value })
+                        }
+                        suggestions={DEGREES_DB}
+                        className="h-10"
+                      />
+                      <Input
+                        placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                        value={newEducation.field_of_study}
+                        onChange={(e) =>
+                          setNewEducation({ ...newEducation, field_of_study: e.target.value })
+                        }
+                        className="h-10"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">
+                            Эхэлсэн
+                          </label>
                           <Input
-                            placeholder="Чиглэл/Мэргэжил (заавал биш)"
-                            value={newEducation.field_of_study}
+                            type="month"
+                            value={newEducation.start_date}
                             onChange={(e) =>
-                              setNewEducation({ ...newEducation, field_of_study: e.target.value })
+                              setNewEducation({
+                                ...newEducation,
+                                start_date: e.target.value,
+                              })
                             }
                             className="h-10"
                           />
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">
-                                Эхэлсэн
-                              </label>
-                              <Input
-                                type="month"
-                                value={newEducation.start_date}
-                                onChange={(e) =>
-                                  setNewEducation({
-                                    ...newEducation,
-                                    start_date: e.target.value,
-                                  })
-                                }
-                                className="h-10"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">
-                                Төгссөн
-                              </label>
-                              <Input
-                                type="month"
-                                value={newEducation.end_date}
-                                onChange={(e) =>
-                                  setNewEducation({
-                                    ...newEducation,
-                                    end_date: e.target.value,
-                                  })
-                                }
-                                disabled={newEducation.is_current}
-                                className="h-10"
-                              />
-                            </div>
-                          </div>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={newEducation.is_current}
-                              onChange={(e) =>
-                                setNewEducation({
-                                  ...newEducation,
-                                  is_current: e.target.checked,
-                                  end_date: "",
-                                })
-                              }
-                              className="rounded"
-                            />
-                            <span className="text-sm">Одоо суралцаж байгаа</span>
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">
+                            Төгссөн
                           </label>
-                          <div className="flex gap-2">
-                            <Button
-                              className="flex-1"
-                              onClick={handleSaveEducation}
-                              disabled={
-                                isUpdatingEducation ||
-                                !newEducation.institution ||
-                                !newEducation.degree ||
-                                !newEducation.start_date
-                              }
-                            >
-                              {isUpdatingEducation ? "Хадгалж байна..." : "Хадгалах"}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={handleCancelEditEducation}
-                            >
-                              Болих
-                            </Button>
-                          </div>
+                          <Input
+                            type="month"
+                            value={newEducation.end_date}
+                            onChange={(e) =>
+                              setNewEducation({
+                                ...newEducation,
+                                end_date: e.target.value,
+                              })
+                            }
+                            disabled={newEducation.is_current}
+                            className="h-10"
+                          />
                         </div>
-                      ) : (
-                        <div
-                          key={edu.id}
-                          className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="pr-20">
-                            <p className="font-medium">{edu.degree}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {edu.institution}
-                            </p>
-                            {edu.field_of_study && (
-                              <p className="text-sm text-muted-foreground">
-                                {edu.field_of_study}
-                              </p>
-                            )}
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))} -{" "}
-                              {edu.is_current
-                                ? "Одоог хүртэл"
-                                : edu.end_date ? formatWorkDate(new Date(edu.end_date).toISOString().slice(0, 7)) : ""}
-                            </p>
-                          </div>
-                          <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleEditEducation(edu)}
-                              className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteEducation(edu.id)}
-                              disabled={isDeletingEducation}
-                              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    )}
-                </div>
-              )}
-            </div>
-
-            {/* Work Experience */}
-            <div className="bg-card rounded-xl border p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" />
-                  Ажлын туршлага
-                </h3>
-                {!showAddWork && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    onClick={() => setShowAddWork(true)}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Нэмэх
-                  </Button>
-                )}
-              </div>
-
-              {/* Add Work Form */}
-              {showAddWork && (
-                <div className="p-4 border rounded-lg space-y-3 bg-muted/20 mb-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-sm">Шинэ ажлын туршлага нэмэх</h4>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        setShowAddWork(false);
-                        resetWorkForm();
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <AutocompleteInput
-                    placeholder="Байгууллагын нэр"
-                    value={newWork.company}
-                    onChange={(value) => setNewWork({ ...newWork, company: value })}
-                    suggestions={COMPANIES_DB}
-                    className="h-10"
-                  />
-                  <AutocompleteInput
-                    placeholder="Албан тушаал"
-                    value={newWork.position}
-                    onChange={(value) =>
-                      setNewWork({ ...newWork, position: value })
-                    }
-                    suggestions={POSITIONS_DB}
-                    className="h-10"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Эхэлсэн
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newEducation.is_current}
+                          onChange={(e) =>
+                            setNewEducation({
+                              ...newEducation,
+                              is_current: e.target.checked,
+                              end_date: "",
+                            })
+                          }
+                          className="rounded"
+                        />
+                        <span className="text-sm">Одоо суралцаж байгаа</span>
                       </label>
-                      <Input
-                        type="month"
-                        value={newWork.start_date}
-                        onChange={(e) =>
-                          setNewWork({ ...newWork, start_date: e.target.value })
+                      <Button
+                        className="w-full"
+                        onClick={handleAddEducation}
+                        disabled={
+                          isCreatingEducation ||
+                          !newEducation.institution ||
+                          !newEducation.degree ||
+                          !newEducation.start_date
                         }
+                      >
+                        {isCreatingEducation ? "Хадгалж байна..." : "Хадгалах"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Education List */}
+                  {isEducationsLoading ? (
+                    <div className="grid gap-3">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
+                          <div className="h-5 bg-muted rounded w-1/3 mb-2" />
+                          <div className="h-4 bg-muted rounded w-1/2 mb-1" />
+                          <div className="h-4 bg-muted rounded w-2/5 mt-2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : educations.length === 0 && !showAddEducation ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Боловсролын мэдээлэл нэмээгүй байна
+                    </p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {[...educations]
+                        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+                        .map((edu) =>
+                          editingEducationId === edu.id ? (
+                            <div
+                              key={edu.id}
+                              className="p-4 border rounded-lg space-y-3 bg-muted/20"
+                            >
+                              <AutocompleteInput
+                                placeholder="Сургуулийн нэр"
+                                value={newEducation.institution}
+                                onChange={(value) =>
+                                  setNewEducation({ ...newEducation, institution: value })
+                                }
+                                suggestions={SCHOOLS_DB}
+                                className="h-10"
+                              />
+                              <AutocompleteInput
+                                placeholder="Мэргэжил, зэрэг"
+                                value={newEducation.degree}
+                                onChange={(value) =>
+                                  setNewEducation({ ...newEducation, degree: value })
+                                }
+                                suggestions={DEGREES_DB}
+                                className="h-10"
+                              />
+                              <Input
+                                placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                                value={newEducation.field_of_study}
+                                onChange={(e) =>
+                                  setNewEducation({ ...newEducation, field_of_study: e.target.value })
+                                }
+                                className="h-10"
+                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">
+                                    Эхэлсэн
+                                  </label>
+                                  <Input
+                                    type="month"
+                                    value={newEducation.start_date}
+                                    onChange={(e) =>
+                                      setNewEducation({
+                                        ...newEducation,
+                                        start_date: e.target.value,
+                                      })
+                                    }
+                                    className="h-10"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">
+                                    Төгссөн
+                                  </label>
+                                  <Input
+                                    type="month"
+                                    value={newEducation.end_date}
+                                    onChange={(e) =>
+                                      setNewEducation({
+                                        ...newEducation,
+                                        end_date: e.target.value,
+                                      })
+                                    }
+                                    disabled={newEducation.is_current}
+                                    className="h-10"
+                                  />
+                                </div>
+                              </div>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={newEducation.is_current}
+                                  onChange={(e) =>
+                                    setNewEducation({
+                                      ...newEducation,
+                                      is_current: e.target.checked,
+                                      end_date: "",
+                                    })
+                                  }
+                                  className="rounded"
+                                />
+                                <span className="text-sm">Одоо суралцаж байгаа</span>
+                              </label>
+                              <div className="flex gap-2">
+                                <Button
+                                  className="flex-1"
+                                  onClick={handleSaveEducation}
+                                  disabled={
+                                    isUpdatingEducation ||
+                                    !newEducation.institution ||
+                                    !newEducation.degree ||
+                                    !newEducation.start_date
+                                  }
+                                >
+                                  {isUpdatingEducation ? "Хадгалж байна..." : "Хадгалах"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={handleCancelEditEducation}
+                                >
+                                  Болих
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              key={edu.id}
+                              className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="pr-20">
+                                <p className="font-medium">{edu.degree}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {edu.institution}
+                                </p>
+                                {edu.field_of_study && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {edu.field_of_study}
+                                  </p>
+                                )}
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))} -{" "}
+                                  {edu.is_current
+                                    ? "Одоог хүртэл"
+                                    : edu.end_date ? formatWorkDate(new Date(edu.end_date).toISOString().slice(0, 7)) : ""}
+                                </p>
+                              </div>
+                              <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleEditEducation(edu)}
+                                  className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteEducation(edu.id)}
+                                  disabled={isDeletingEducation}
+                                  className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Work Experience */}
+                <div className="bg-card rounded-xl border p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-lg flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-primary" />
+                      Ажлын туршлага
+                    </h3>
+                    {!showAddWork && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1"
+                        onClick={() => setShowAddWork(true)}
+                      >
+                        <Plus className="h-4 w-4" />
+                        Нэмэх
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Add Work Form */}
+                  {showAddWork && (
+                    <div className="p-4 border rounded-lg space-y-3 bg-muted/20 mb-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-sm">Шинэ ажлын туршлага нэмэх</h4>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setShowAddWork(false);
+                            resetWorkForm();
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <AutocompleteInput
+                        placeholder="Байгууллагын нэр"
+                        value={newWork.company}
+                        onChange={(value) => setNewWork({ ...newWork, company: value })}
+                        suggestions={COMPANIES_DB}
                         className="h-10"
                       />
-                    </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-1 block">
-                        Дууссан
-                      </label>
-                      <Input
-                        type="month"
-                        value={newWork.end_date}
-                        onChange={(e) =>
-                          setNewWork({ ...newWork, end_date: e.target.value })
+                      <AutocompleteInput
+                        placeholder="Албан тушаал"
+                        value={newWork.position}
+                        onChange={(value) =>
+                          setNewWork({ ...newWork, position: value })
                         }
-                        disabled={newWork.is_current}
+                        suggestions={POSITIONS_DB}
                         className="h-10"
                       />
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newWork.is_current}
-                      onChange={(e) =>
-                        setNewWork({
-                          ...newWork,
-                          is_current: e.target.checked,
-                          end_date: "",
-                        })
-                      }
-                      className="rounded"
-                    />
-                    <span className="text-sm">Одоо ажиллаж байгаа</span>
-                  </label>
-                  <Button
-                    className="w-full"
-                    onClick={handleAddWork}
-                    disabled={
-                      isCreatingWork ||
-                      !newWork.company ||
-                      !newWork.position ||
-                      !newWork.start_date
-                    }
-                  >
-                    {isCreatingWork ? "Хадгалж байна..." : "Хадгалах"}
-                  </Button>
-                </div>
-              )}
-
-              {/* Work List */}
-              {isWorkExperiencesLoading ? (
-                <div className="grid gap-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
-                      <div className="h-5 bg-muted rounded w-2/5 mb-2" />
-                      <div className="h-4 bg-muted rounded w-1/3 mb-1" />
-                      <div className="h-4 bg-muted rounded w-2/5 mt-2" />
-                    </div>
-                  ))}
-                </div>
-              ) : workExperiences.length === 0 && !showAddWork ? (
-                <p className="text-muted-foreground text-center py-8">
-                  Ажлын туршлага нэмээгүй байна
-                </p>
-              ) : (
-                <div className="grid gap-3">
-                  {[...workExperiences]
-                    .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
-                    .map((work) =>
-                      editingWorkId === work.id ? (
-                        <div
-                          key={work.id}
-                          className="p-4 border rounded-lg space-y-3 bg-muted/20"
-                        >
-                          <AutocompleteInput
-                            placeholder="Байгууллагын нэр"
-                            value={newWork.company}
-                            onChange={(value) =>
-                              setNewWork({ ...newWork, company: value })
-                            }
-                            suggestions={COMPANIES_DB}
-                            className="h-10"
-                          />
-                          <AutocompleteInput
-                            placeholder="Албан тушаал"
-                            value={newWork.position}
-                            onChange={(value) =>
-                              setNewWork({ ...newWork, position: value })
-                            }
-                            suggestions={POSITIONS_DB}
-                            className="h-10"
-                          />
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">
-                                Эхэлсэн
-                              </label>
-                              <Input
-                                type="month"
-                                value={newWork.start_date}
-                                onChange={(e) =>
-                                  setNewWork({
-                                    ...newWork,
-                                    start_date: e.target.value,
-                                  })
-                                }
-                                className="h-10"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-xs text-muted-foreground mb-1 block">
-                                Дууссан
-                              </label>
-                              <Input
-                                type="month"
-                                value={newWork.end_date}
-                                onChange={(e) =>
-                                  setNewWork({
-                                    ...newWork,
-                                    end_date: e.target.value,
-                                  })
-                                }
-                                disabled={newWork.is_current}
-                                className="h-10"
-                              />
-                            </div>
-                          </div>
-                          <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={newWork.is_current}
-                              onChange={(e) =>
-                                setNewWork({
-                                  ...newWork,
-                                  is_current: e.target.checked,
-                                  end_date: "",
-                                })
-                              }
-                              className="rounded"
-                            />
-                            <span className="text-sm">Одоо ажиллаж байгаа</span>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">
+                            Эхэлсэн
                           </label>
-                          <div className="flex gap-2">
-                            <Button
-                              className="flex-1"
-                              onClick={handleSaveWork}
-                              disabled={
-                                isUpdatingWork ||
-                                !newWork.company ||
-                                !newWork.position ||
-                                !newWork.start_date
-                              }
-                            >
-                              {isUpdatingWork ? "Хадгалж байна..." : "Хадгалах"}
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={handleCancelEditWork}
-                            >
-                              Болих
-                            </Button>
-                          </div>
+                          <Input
+                            type="month"
+                            value={newWork.start_date}
+                            onChange={(e) =>
+                              setNewWork({ ...newWork, start_date: e.target.value })
+                            }
+                            className="h-10"
+                          />
                         </div>
-                      ) : (
-                        <div
-                          key={work.id}
-                          className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
-                        >
-                          <div className="pr-20">
-                            <p className="font-medium">{work.position}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {work.company}
-                            </p>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {formatWorkDate(new Date(work.start_date).toISOString().slice(0, 7))} -{" "}
-                              {work.is_current
-                                ? "Одоог хүртэл"
-                                : work.end_date ? formatWorkDate(new Date(work.end_date).toISOString().slice(0, 7)) : ""}
-                            </p>
-                          </div>
-                          <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleEditWork(work)}
-                              className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteWork(work.id)}
-                              disabled={isDeletingWork}
-                              className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground mb-1 block">
+                            Дууссан
+                          </label>
+                          <Input
+                            type="month"
+                            value={newWork.end_date}
+                            onChange={(e) =>
+                              setNewWork({ ...newWork, end_date: e.target.value })
+                            }
+                            disabled={newWork.is_current}
+                            className="h-10"
+                          />
                         </div>
-                      )
-                    )}
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newWork.is_current}
+                          onChange={(e) =>
+                            setNewWork({
+                              ...newWork,
+                              is_current: e.target.checked,
+                              end_date: "",
+                            })
+                          }
+                          className="rounded"
+                        />
+                        <span className="text-sm">Одоо ажиллаж байгаа</span>
+                      </label>
+                      <Button
+                        className="w-full"
+                        onClick={handleAddWork}
+                        disabled={
+                          isCreatingWork ||
+                          !newWork.company ||
+                          !newWork.position ||
+                          !newWork.start_date
+                        }
+                      >
+                        {isCreatingWork ? "Хадгалж байна..." : "Хадгалах"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Work List */}
+                  {isWorkExperiencesLoading ? (
+                    <div className="grid gap-3">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
+                          <div className="h-5 bg-muted rounded w-2/5 mb-2" />
+                          <div className="h-4 bg-muted rounded w-1/3 mb-1" />
+                          <div className="h-4 bg-muted rounded w-2/5 mt-2" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : workExperiences.length === 0 && !showAddWork ? (
+                    <p className="text-muted-foreground text-center py-8">
+                      Ажлын туршлага нэмээгүй байна
+                    </p>
+                  ) : (
+                    <div className="grid gap-3">
+                      {[...workExperiences]
+                        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
+                        .map((work) =>
+                          editingWorkId === work.id ? (
+                            <div
+                              key={work.id}
+                              className="p-4 border rounded-lg space-y-3 bg-muted/20"
+                            >
+                              <AutocompleteInput
+                                placeholder="Байгууллагын нэр"
+                                value={newWork.company}
+                                onChange={(value) =>
+                                  setNewWork({ ...newWork, company: value })
+                                }
+                                suggestions={COMPANIES_DB}
+                                className="h-10"
+                              />
+                              <AutocompleteInput
+                                placeholder="Албан тушаал"
+                                value={newWork.position}
+                                onChange={(value) =>
+                                  setNewWork({ ...newWork, position: value })
+                                }
+                                suggestions={POSITIONS_DB}
+                                className="h-10"
+                              />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">
+                                    Эхэлсэн
+                                  </label>
+                                  <Input
+                                    type="month"
+                                    value={newWork.start_date}
+                                    onChange={(e) =>
+                                      setNewWork({
+                                        ...newWork,
+                                        start_date: e.target.value,
+                                      })
+                                    }
+                                    className="h-10"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-muted-foreground mb-1 block">
+                                    Дууссан
+                                  </label>
+                                  <Input
+                                    type="month"
+                                    value={newWork.end_date}
+                                    onChange={(e) =>
+                                      setNewWork({
+                                        ...newWork,
+                                        end_date: e.target.value,
+                                      })
+                                    }
+                                    disabled={newWork.is_current}
+                                    className="h-10"
+                                  />
+                                </div>
+                              </div>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={newWork.is_current}
+                                  onChange={(e) =>
+                                    setNewWork({
+                                      ...newWork,
+                                      is_current: e.target.checked,
+                                      end_date: "",
+                                    })
+                                  }
+                                  className="rounded"
+                                />
+                                <span className="text-sm">Одоо ажиллаж байгаа</span>
+                              </label>
+                              <div className="flex gap-2">
+                                <Button
+                                  className="flex-1"
+                                  onClick={handleSaveWork}
+                                  disabled={
+                                    isUpdatingWork ||
+                                    !newWork.company ||
+                                    !newWork.position ||
+                                    !newWork.start_date
+                                  }
+                                >
+                                  {isUpdatingWork ? "Хадгалж байна..." : "Хадгалах"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={handleCancelEditWork}
+                                >
+                                  Болих
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              key={work.id}
+                              className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="pr-20">
+                                <p className="font-medium">{work.position}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {work.company}
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  {formatWorkDate(new Date(work.start_date).toISOString().slice(0, 7))} -{" "}
+                                  {work.is_current
+                                    ? "Одоог хүртэл"
+                                    : work.end_date ? formatWorkDate(new Date(work.end_date).toISOString().slice(0, 7)) : ""}
+                                </p>
+                              </div>
+                              <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleEditWork(work)}
+                                  className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteWork(work.id)}
+                                  disabled={isDeletingWork}
+                                  className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        )}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
       </div>

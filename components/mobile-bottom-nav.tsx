@@ -51,7 +51,7 @@ export function MobileBottomNav() {
       icon: Heart,
       label: "Лайк",
       isActive: isActive("/favorites"),
-      badge: favorites.length > 0 ? favorites.length : null,
+      badge: favorites.size > 0 ? favorites.size : null,
     },
     {
       href: "/services/create",

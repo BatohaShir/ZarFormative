@@ -1,5 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+// Zod schema for notification settings validation
+const notificationSettingsSchema = z.object({
+  settings: z.object({
+    pushEnabled: z.boolean().optional(),
+    emailEnabled: z.boolean().optional(),
+    pushNewRequests: z.boolean().optional(),
+    pushNewMessages: z.boolean().optional(),
+    pushStatusChanges: z.boolean().optional(),
+    emailNewRequests: z.boolean().optional(),
+    emailNewMessages: z.boolean().optional(),
+    emailDigest: z.boolean().optional(),
+    emailDigestFrequency: z.enum(["daily", "weekly", "monthly"]).optional(),
+    quietHoursEnabled: z.boolean().optional(),
+    quietHoursStart: z.string().optional(),
+    quietHoursEnd: z.string().optional(),
+  }),
+});
 
 // GET /api/notifications/settings - Get notification settings
 export async function GET(request: NextRequest) {
@@ -13,6 +33,12 @@ export async function GET(request: NextRequest) {
         { error: "Unauthorized" },
         { status: 401 }
       );
+    }
+
+    // Rate limiting: 30 requests per minute per user
+    const rateLimit = withRateLimit(request, user.user.id, { limit: 30, windowSeconds: 60 });
+    if (!rateLimit.success) {
+      return rateLimitResponse(rateLimit);
     }
 
     // Get notification settings - select only needed fields
@@ -58,33 +84,42 @@ export async function GET(request: NextRequest) {
 // POST /api/notifications/settings - Save notification settings
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { userId, settings } = body;
-
-    if (!userId || !settings) {
-      return NextResponse.json(
-        { error: "Missing userId or settings" },
-        { status: 400 }
-      );
-    }
-
     const supabase = await createClient();
 
-    // Check if user is authenticated
-    const { data: user, error: userError } = await supabase.auth.getUser();
-    if (userError || !user.user || user.user.id !== userId) {
+    // Get user from session (not from request body!)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       );
     }
 
+    // Rate limiting: 10 requests per minute per user
+    const rateLimit = withRateLimit(request, user.id, { limit: 10, windowSeconds: 60 });
+    if (!rateLimit.success) {
+      return rateLimitResponse(rateLimit);
+    }
+
+    // Validate request body with Zod
+    const body = await request.json();
+    const validation = notificationSettingsSchema.safeParse(body);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid settings data", details: validation.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { settings } = validation.data;
+
     // Upsert notification settings - no select to minimize response
     const { error } = await supabase
       .from("profiles_notification_settings")
       .upsert(
         {
-          user_id: userId,
+          user_id: user.id,
           push_enabled: settings.pushEnabled,
           email_enabled: settings.emailEnabled,
           push_new_requests: settings.pushNewRequests,
@@ -116,6 +151,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    // Handle JSON parse errors
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
     console.error("Save settings error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

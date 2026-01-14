@@ -6,6 +6,8 @@ export async function getEnhancedPrisma() {
   const supabase = await createClient();
   let context = {};
 
+  // Используем getUser() - middleware уже обновила сессию,
+  // поэтому getUser() безопасен и проверяет аутентичность токена
   const {
     data: { user },
   } = await supabase.auth.getUser();

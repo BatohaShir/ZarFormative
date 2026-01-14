@@ -222,7 +222,7 @@ export default function FavoritesPage() {
   };
 
   const favoriteServices = allServices.filter((service) =>
-    favorites.includes(service.id)
+    favorites.has(service.id)
   );
 
   if (!isAuthenticated) {
