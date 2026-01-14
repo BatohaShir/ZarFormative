@@ -14,7 +14,7 @@ const notificationSettingsSchema = z.object({
     emailNewRequests: z.boolean().optional(),
     emailNewMessages: z.boolean().optional(),
     emailDigest: z.boolean().optional(),
-    emailDigestFrequency: z.enum(["daily", "weekly", "monthly"]).optional(),
+    emailDigestFrequency: z.enum(["daily", "weekly", "never"]).optional(),
     quietHoursEnabled: z.boolean().optional(),
     quietHoursStart: z.string().optional(),
     quietHoursEnd: z.string().optional(),

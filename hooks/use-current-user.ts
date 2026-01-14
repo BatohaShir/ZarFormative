@@ -101,6 +101,7 @@ export function useCurrentUser() {
   const signOut = async () => {
     await supabase.auth.signOut();
     clearAuthCache(); // Очищаем кэш auth при выходе
+    window.location.href = "/"; // Переход на главную страницу
   };
 
   // Sign in

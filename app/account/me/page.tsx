@@ -29,10 +29,10 @@ import {
   Check,
   Building2,
   Hash,
+  Settings,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
-import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { EditProfileModal } from "@/components/edit-profile-modal";
 import { useEducations, type Education } from "@/hooks/use-educations";
 import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experiences";
@@ -184,8 +184,7 @@ interface NewWorkExperienceForm {
 
 export default function MyProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, user, profile, signOut, uploadAvatar, displayName, avatarUrl, updateProfile } = useAuth();
-  const [showLoginModal, setShowLoginModal] = React.useState(false);
+  const { isAuthenticated, isLoading, user, profile, signOut, uploadAvatar, displayName, avatarUrl, updateProfile } = useAuth();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
 
@@ -249,23 +248,12 @@ export default function MyProfilePage() {
     is_current: false,
   });
 
+  // Redirect to home if not authenticated
   React.useEffect(() => {
-    if (!isAuthenticated) {
-      setShowLoginModal(true);
-    }
-  }, [isAuthenticated]);
-
-  const handleLoginSuccess = () => {
-    setShowLoginModal(false);
-  };
-
-  const handleLoginModalClose = (open: boolean) => {
-    if (!open && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       router.push("/");
-    } else {
-      setShowLoginModal(open);
     }
-  };
+  }, [isLoading, isAuthenticated, router]);
 
   const handleLogout = async () => {
     await signOut();
@@ -480,24 +468,12 @@ export default function MyProfilePage() {
     setIsEditingAbout(false);
   };
 
-  if (!isAuthenticated) {
+  // Show loading or redirect is in progress
+  if (isLoading || !isAuthenticated) {
     return (
-      <>
-        <div className="min-h-screen bg-background pb-20 md:pb-0 flex items-center justify-center">
-          <div className="text-center">
-            <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-xl font-semibold mb-2">Нэвтэрнэ үү</h2>
-            <p className="text-muted-foreground mb-4">
-              Профайл харахын тулд нэвтэрнэ үү
-            </p>
-          </div>
-        </div>
-        <LoginPromptModal
-          open={showLoginModal}
-          onOpenChange={handleLoginModalClose}
-          onSuccess={handleLoginSuccess}
-        />
-      </>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
     );
   }
 
@@ -523,6 +499,17 @@ export default function MyProfilePage() {
               </h1>
             </Link>
           </div>
+          {/* Mobile Settings Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-8 w-8"
+            asChild
+          >
+            <Link href="/account/me/settings">
+              <Settings className="h-4 w-4" />
+            </Link>
+          </Button>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
             <RequestsButton />
@@ -596,6 +583,12 @@ export default function MyProfilePage() {
 
             {/* Quick Actions - Desktop */}
             <div className="hidden lg:flex flex-col gap-2">
+              <Button variant="outline" className="gap-2" asChild>
+                <Link href="/account/me/settings">
+                  <Settings className="h-4 w-4" />
+                  Апп тохиргоо
+                </Link>
+              </Button>
               <Button onClick={() => setShowEditProfileModal(true)} className="gap-2">
                 <Pencil className="h-4 w-4" />
                 Засварлах

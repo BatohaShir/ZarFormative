@@ -26,6 +26,7 @@ import {
   ThumbsUp,
   ThumbsDown,
   Pencil,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { EducationSection } from "@/components/auth/education-section";
