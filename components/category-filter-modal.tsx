@@ -14,15 +14,21 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { allCategories, type Category } from "@/lib/categories";
+import { useFindManycategories } from "@/lib/hooks/categories";
+import {
+  isImageIcon,
+  buildCategoryTree,
+  getChildCategories,
+  fallbackCategories,
+  type CategoryWithChildren,
+  type Category,
+} from "@/lib/categories";
 
 interface CategoryFilterModalProps {
   trigger?: React.ReactNode;
   selectedCategories: string[];
   onCategoriesChange: (categories: string[]) => void;
 }
-
-const isImageIcon = (icon: string) => icon.startsWith("/");
 
 export function CategoryFilterModal({
   trigger,
@@ -32,21 +38,49 @@ export function CategoryFilterModal({
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [tempSelectedCategories, setTempSelectedCategories] = React.useState<string[]>(selectedCategories);
-  const [expandedCategory, setExpandedCategory] = React.useState<Category | null>(null);
+  const [expandedCategory, setExpandedCategory] = React.useState<CategoryWithChildren | Category | null>(null);
 
-  const filteredCategories = allCategories.filter(
-    (cat) =>
-      cat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      cat.subcategories?.some((sub) =>
-        sub.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+  // Загружаем категории из БД
+  const { data: fetchedCategories } = useFindManycategories({
+    where: { is_active: true },
+    orderBy: { sort_order: "asc" },
+  });
+
+  const allCategoriesFlat = fetchedCategories || [];
+  const categoryTree = fetchedCategories ? buildCategoryTree(fetchedCategories) : [];
+
+  // Если БД пустая, используем fallback
+  const rootCategories: (CategoryWithChildren | Category)[] =
+    categoryTree.length > 0 ? categoryTree : fallbackCategories;
+
+  // Получить дочерние категории
+  const getChildren = React.useCallback(
+    (parentId: string): (CategoryWithChildren | Category)[] => {
+      const parent = categoryTree.find((c) => c.id === parentId) as CategoryWithChildren | undefined;
+      if (parent?.children && parent.children.length > 0) {
+        return parent.children;
+      }
+      return getChildCategories(allCategoriesFlat, parentId);
+    },
+    [categoryTree, allCategoriesFlat]
   );
 
-  const toggleCategory = (categoryName: string) => {
-    if (tempSelectedCategories.includes(categoryName)) {
-      setTempSelectedCategories(tempSelectedCategories.filter((c) => c !== categoryName));
+  const filteredCategories = React.useMemo(() => {
+    if (!searchQuery.trim()) return rootCategories;
+    const lowerQuery = searchQuery.toLowerCase();
+
+    return rootCategories.filter((cat) => {
+      if (cat.name.toLowerCase().includes(lowerQuery)) return true;
+      const children = getChildren(cat.id);
+      return children.some((child) => child.name.toLowerCase().includes(lowerQuery));
+    });
+  }, [searchQuery, rootCategories, getChildren]);
+
+  const toggleCategory = (categorySlug: string) => {
+    if (tempSelectedCategories.includes(categorySlug)) {
+      setTempSelectedCategories(tempSelectedCategories.filter((c) => c !== categorySlug));
     } else {
-      setTempSelectedCategories([...tempSelectedCategories, categoryName]);
+      setTempSelectedCategories([...tempSelectedCategories, categorySlug]);
     }
   };
 
@@ -59,11 +93,11 @@ export function CategoryFilterModal({
     }
   };
 
-  const toggleSubcategory = (subcategory: string) => {
-    if (tempSelectedCategories.includes(subcategory)) {
-      setTempSelectedCategories(tempSelectedCategories.filter((c) => c !== subcategory));
+  const toggleSubcategory = (subcategorySlug: string) => {
+    if (tempSelectedCategories.includes(subcategorySlug)) {
+      setTempSelectedCategories(tempSelectedCategories.filter((c) => c !== subcategorySlug));
     } else {
-      setTempSelectedCategories([...tempSelectedCategories, subcategory]);
+      setTempSelectedCategories([...tempSelectedCategories, subcategorySlug]);
     }
   };
 
@@ -75,6 +109,8 @@ export function CategoryFilterModal({
   const handleReset = () => {
     setTempSelectedCategories([]);
   };
+
+  const expandedChildren = expandedCategory ? getChildren(expandedCategory.id) : [];
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -118,9 +154,7 @@ export function CategoryFilterModal({
 
           {tempSelectedCategories.length > 0 && (
             <div className="flex items-center justify-between text-sm shrink-0">
-              <span className="text-muted-foreground">
-                {tempSelectedCategories.length} сонгосон
-              </span>
+              <span className="text-muted-foreground">{tempSelectedCategories.length} сонгосон</span>
               <Button variant="ghost" size="sm" onClick={handleReset} className="h-auto p-0 text-primary">
                 Бүгдийг арилгах
               </Button>
@@ -130,15 +164,14 @@ export function CategoryFilterModal({
           {!expandedCategory ? (
             <div className="flex-1 overflow-y-auto space-y-1 pr-2">
               {filteredCategories.map((category) => {
-                const isSelected = tempSelectedCategories.includes(category.name);
-                const hasSubcategories = category.subcategories && category.subcategories.length > 0;
+                const isSelected = tempSelectedCategories.includes(category.slug);
+                const children = getChildren(category.id);
+                const hasSubcategories = children.length > 0;
                 return (
                   <div
                     key={category.id}
                     className={`flex items-center p-3 rounded-lg transition-colors border ${
-                      isSelected
-                        ? "bg-primary/10 border-primary/30"
-                        : "border-transparent hover:bg-muted"
+                      isSelected ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-muted"
                     }`}
                   >
                     <label
@@ -148,18 +181,22 @@ export function CategoryFilterModal({
                       <Checkbox
                         id={`filter-cat-${category.id}`}
                         checked={isSelected}
-                        onCheckedChange={() => toggleCategory(category.name)}
+                        onCheckedChange={() => toggleCategory(category.slug)}
                       />
                       {isImageIcon(category.icon) ? (
-                        <Image src={category.icon} alt={category.name} width={24} height={24} className="shrink-0" />
+                        <Image src={category.icon!} alt={category.name} width={24} height={24} className="shrink-0" />
                       ) : (
-                        <span className="text-lg shrink-0">{category.icon}</span>
+                        <span className="text-lg shrink-0">{category.icon || "📁"}</span>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{category.name}</p>
-                        {category.subcategories && (
+                        {hasSubcategories && (
                           <p className="text-xs text-muted-foreground truncate">
-                            {category.subcategories.slice(0, 3).join(", ")}...
+                            {children
+                              .slice(0, 3)
+                              .map((c) => c.name)
+                              .join(", ")}
+                            ...
                           </p>
                         )}
                       </div>
@@ -180,35 +217,31 @@ export function CategoryFilterModal({
             <div className="flex-1 overflow-y-auto space-y-1 pr-2">
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg mb-2">
                 {isImageIcon(expandedCategory.icon) ? (
-                  <Image src={expandedCategory.icon} alt={expandedCategory.name} width={32} height={32} />
+                  <Image src={expandedCategory.icon!} alt={expandedCategory.name} width={32} height={32} />
                 ) : (
-                  <span className="text-2xl">{expandedCategory.icon}</span>
+                  <span className="text-2xl">{expandedCategory.icon || "📁"}</span>
                 )}
                 <div>
                   <p className="font-medium">{expandedCategory.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {expandedCategory.subcategories?.length || 0} дэд ангилал
-                  </p>
+                  <p className="text-xs text-muted-foreground">{expandedChildren.length} дэд ангилал</p>
                 </div>
               </div>
-              {expandedCategory.subcategories?.map((sub, index) => {
-                const isSubSelected = tempSelectedCategories.includes(sub);
+              {expandedChildren.map((sub) => {
+                const isSubSelected = tempSelectedCategories.includes(sub.slug);
                 return (
                   <label
-                    key={index}
-                    htmlFor={`filter-sub-${index}`}
+                    key={sub.id}
+                    htmlFor={`filter-sub-${sub.id}`}
                     className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors border ${
-                      isSubSelected
-                        ? "bg-primary/10 border-primary/30"
-                        : "border-transparent hover:bg-muted"
+                      isSubSelected ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-muted"
                     }`}
                   >
                     <Checkbox
-                      id={`filter-sub-${index}`}
+                      id={`filter-sub-${sub.id}`}
                       checked={isSubSelected}
-                      onCheckedChange={() => toggleSubcategory(sub)}
+                      onCheckedChange={() => toggleSubcategory(sub.slug)}
                     />
-                    <span className="text-sm">{sub}</span>
+                    <span className="text-sm">{sub.name}</span>
                   </label>
                 );
               })}
@@ -220,9 +253,7 @@ export function CategoryFilterModal({
           <Button variant="outline" onClick={() => setOpen(false)}>
             Болих
           </Button>
-          <Button onClick={handleConfirm}>
-            Баталгаажуулах ({tempSelectedCategories.length})
-          </Button>
+          <Button onClick={handleConfirm}>Баталгаажуулах ({tempSelectedCategories.length})</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

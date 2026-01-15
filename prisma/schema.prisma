@@ -19,6 +19,14 @@ enum UserRole {
   user
 }
 
+enum ListingStatus {
+  draft
+  active
+  paused
+  archived
+  deleted
+}
+
 model categories {
   id         String       @id() @default(cuid())
   slug       String       @unique()
@@ -31,6 +39,7 @@ model categories {
   is_active  Boolean      @default(true)
   created_at DateTime     @default(now())
   updated_at DateTime     @updatedAt()
+  listings   listings[]
 
   @@index([parent_id])
   @@index([slug])
@@ -56,6 +65,7 @@ model profiles {
   notification_settings profiles_notification_settings?
   educations            profiles_educations[]
   work_experiences      profiles_work_experiences[]
+  listings              listings[]
 
   @@index([is_deleted])
   @@index([is_company])
@@ -136,4 +146,56 @@ model profiles_work_experiences {
   @@index([user_id])
   @@index([user_id, start_date(sort: Desc)])
   @@map("profiles_work_experiences")
+}
+
+model listings {
+  id            String            @id() @default(cuid())
+  user_id       String            @db.Uuid()
+  category_id   String
+  title         String
+  slug          String            @unique()
+  description   String            @db.Text()
+  price         Decimal?          @db.Decimal(12, 2)
+  currency      String            @default("MNT")
+  is_negotiable Boolean           @default(false)
+  city          String
+  district      String?
+  address       String?
+  latitude      Decimal?          @db.Decimal(10, 7)
+  longitude     Decimal?          @db.Decimal(10, 7)
+  status        ListingStatus     @default(draft)
+  is_active     Boolean           @default(true)
+  views_count   Int               @default(0)
+  created_at    DateTime          @default(now())
+  updated_at    DateTime          @updatedAt()
+  published_at  DateTime?
+  user          profiles          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category      categories        @relation(fields: [category_id], references: [id])
+  images        listings_images[]
+
+  @@index([user_id])
+  @@index([category_id])
+  @@index([status, is_active])
+  @@index([city])
+  @@index([city, district])
+  @@index([created_at(sort: Desc)])
+  @@index([status, city, category_id])
+  @@index([slug])
+  @@map("listings")
+}
+
+model listings_images {
+  id         String   @id() @default(uuid()) @db.Uuid()
+  listing_id String
+  url        String
+  alt        String?
+  sort_order Int      @default(0)
+  is_cover   Boolean  @default(false)
+  created_at DateTime @default(now())
+  listing    listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@index([listing_id])
+  @@index([listing_id, sort_order])
+  @@index([listing_id, is_cover])
+  @@map("listings_images")
 }

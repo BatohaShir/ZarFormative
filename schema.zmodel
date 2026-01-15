@@ -33,6 +33,18 @@ enum UserRole {
 }
 
 // ============================================
+// Listing Status - статусы объявлений
+// ============================================
+
+enum ListingStatus {
+  draft      // Черновик
+  active     // Активное (опубликовано)
+  paused     // Приостановлено владельцем
+  archived   // В архиве
+  deleted    // Удалено (soft delete)
+}
+
+// ============================================
 // Categories - категории услуг с иерархией
 // ============================================
 
@@ -54,6 +66,9 @@ model categories {
   // Метаданные
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+
+  // Relations
+  listings    listings[]
 
   // Indexes
   @@index([parent_id])
@@ -97,6 +112,7 @@ model profiles {
   notification_settings  profiles_notification_settings?
   educations             profiles_educations[]
   work_experiences       profiles_work_experiences[]
+  listings               listings[]
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -278,4 +294,116 @@ model profiles_work_experiences {
 
   // Manager может только редактировать
   @@allow('update', auth().role == manager)
+}
+
+// ============================================
+// Listings - объявления услуг
+// ============================================
+
+model listings {
+  id            String        @id @default(cuid())
+  user_id       String        @db.Uuid
+  category_id   String
+
+  // Контент
+  title         String                    // Заголовок объявления
+  slug          String        @unique     // URL-friendly идентификатор
+  description   String        @db.Text    // Описание услуги
+
+  // Цена
+  price         Decimal?      @db.Decimal(12, 2)  // Цена услуги
+  currency      String        @default("MNT")     // Валюта (MNT, USD)
+  is_negotiable Boolean       @default(false)     // Договорная цена?
+
+  // Локация
+  city          String                    // Город (Улаанбаатар, Дархан и т.д.)
+  district      String?                   // Район/Дүүрэг
+  address       String?                   // Полный адрес
+  latitude      Decimal?      @db.Decimal(10, 7)  // Широта для карты
+  longitude     Decimal?      @db.Decimal(10, 7)  // Долгота для карты
+
+  // Статус и видимость
+  status        ListingStatus @default(draft)     // Статус объявления
+  is_active     Boolean       @default(true)      // Активно?
+
+  // Статистика
+  views_count   Int           @default(0)         // Количество просмотров
+
+  // Метаданные
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+  published_at  DateTime?                         // Дата публикации
+
+  // Relations
+  user          profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category      categories    @relation(fields: [category_id], references: [id])
+  images        listings_images[]
+
+  // Indexes для оптимизации запросов
+  @@index([user_id])                              // Мои объявления
+  @@index([category_id])                          // Фильтр по категории
+  @@index([status, is_active])                    // Активные объявления
+  @@index([city])                                 // Поиск по городу
+  @@index([city, district])                       // Поиск по локации
+  @@index([created_at(sort: Desc)])               // Сортировка по дате
+  @@index([status, city, category_id])            // Комбинированный фильтр
+  @@index([slug])                                 // Быстрый поиск по slug
+
+  @@map("listings")
+
+  // === RBAC Rules ===
+  // Активные объявления видны всем
+  @@allow('read', status == active && is_active == true)
+
+  // Владелец видит все свои объявления (включая черновики)
+  @@allow('read', auth() == user)
+
+  // Admin & Manager видят все объявления
+  @@allow('read', auth().role in [admin, manager])
+
+  // Создание - только авторизованные пользователи
+  @@allow('create', auth() != null)
+
+  // Обновление - владелец или админ
+  @@allow('update', auth() == user || auth().role == admin)
+
+  // Manager может обновлять (модерация)
+  @@allow('update', auth().role == manager)
+
+  // Удаление - владелец или админ
+  @@allow('delete', auth() == user || auth().role == admin)
+}
+
+// ============================================
+// Listings Images - галерея фото объявлений
+// ============================================
+
+model listings_images {
+  id          String   @id @default(uuid()) @db.Uuid
+  listing_id  String
+  url         String                        // URL изображения в storage
+  alt         String?                       // Alt текст для SEO
+  sort_order  Int      @default(0)          // Порядок отображения
+  is_cover    Boolean  @default(false)      // Это обложка?
+  created_at  DateTime @default(now())
+
+  // Relations
+  listing     listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([listing_id])
+  @@index([listing_id, sort_order])
+  @@index([listing_id, is_cover])
+
+  @@map("listings_images")
+
+  // === RBAC Rules ===
+  // Чтение - если объявление активно или это владелец/админ
+  @@allow('read', listing.status == active || auth() == listing.user || auth().role in [admin, manager])
+
+  // Создание/обновление/удаление - владелец объявления
+  @@allow('create,update,delete', auth() == listing.user)
+
+  // Admin может всё
+  @@allow('create,update,delete', auth().role == admin)
 }

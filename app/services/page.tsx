@@ -9,20 +9,21 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
-import { ServiceCard } from "@/components/service-card";
+import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
 import { SearchInput } from "@/components/search-input";
 import { CitySelect } from "@/components/city-select";
 import { CategoryFilterModal } from "@/components/category-filter-modal";
 import { Slider } from "@/components/ui/slider";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft,
   SlidersHorizontal,
   X,
-  Star,
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
   MapPin,
+  Package,
 } from "lucide-react";
 import {
   Select,
@@ -31,206 +32,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatPrice } from "@/lib/utils";
+import { useFindManylistings } from "@/lib/hooks/listings";
 
-const allServices = [
-  {
-    id: 1,
-    title: "Орон сууцны засвар",
-    description: "Мэргэжлийн баг, чанартай ажил",
-    price: "50,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Болд Констракшн",
-    providerAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    rating: 4.8,
-    likes: 892,
-    successful: 245,
-    failed: 3,
-    image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=300&h=300&fit=crop",
-  },
-  {
-    id: 2,
-    title: "Гэрийн цэвэрлэгээ",
-    description: "Өдөр бүр, долоо хоног бүр",
-    price: "30,000₮-с",
-    category: "Цэвэрлэгээ",
-    city: "Улаанбаатар",
-    provider: "Цэвэр Гэр ХХК",
-    providerAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    rating: 4.9,
-    likes: 654,
-    successful: 178,
-    failed: 2,
-    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&h=300&fit=crop",
-  },
-  {
-    id: 3,
-    title: "Компьютер засвар",
-    description: "Бүх төрлийн техник засвар",
-    price: "20,000₮-с",
-    category: "Техник",
-    city: "Дархан",
-    provider: "ТехМастер",
-    providerAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    rating: 4.7,
-    likes: 1203,
-    successful: 412,
-    failed: 8,
-    image: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=300&h=300&fit=crop",
-  },
-  {
-    id: 4,
-    title: "Англи хэлний хичээл",
-    description: "Туршлагатай багш, онлайн/офлайн",
-    price: "40,000₮/цаг",
-    category: "Сургалт",
-    city: "Улаанбаатар",
-    provider: "Сараа багш",
-    providerAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    rating: 5.0,
-    likes: 1567,
-    successful: 320,
-    failed: 0,
-    image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=300&h=300&fit=crop",
-  },
-  {
-    id: 5,
-    title: "Ачаа тээвэр",
-    description: "Хот доторх болон хот хоорондын",
-    price: "80,000₮-с",
-    category: "Тээвэр",
-    city: "Улаанбаатар",
-    provider: "Хурд Логистик",
-    providerAvatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop",
-    rating: 4.6,
-    likes: 2341,
-    successful: 856,
-    failed: 12,
-    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=300&h=300&fit=crop",
-  },
-  {
-    id: 6,
-    title: "Гоо сайхны үйлчилгээ",
-    description: "Үс засалт, гоо сайхан",
-    price: "15,000₮-с",
-    category: "Гоо сайхан",
-    city: "Эрдэнэт",
-    provider: "Гоо Студио",
-    providerAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
-    rating: 4.9,
-    likes: 1876,
-    successful: 534,
-    failed: 4,
-    image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=300&h=300&fit=crop",
-  },
-  {
-    id: 7,
-    title: "Веб хөгжүүлэлт",
-    description: "Вебсайт, апп хөгжүүлэлт",
-    price: "500,000₮-с",
-    category: "IT",
-    city: "Улаанбаатар",
-    provider: "КодМастер ХХК",
-    providerAvatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop",
-    rating: 4.8,
-    likes: 456,
-    successful: 89,
-    failed: 2,
-    image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=300&h=300&fit=crop",
-  },
-  {
-    id: 8,
-    title: "Авто засвар",
-    description: "Бүх төрлийн авто засвар",
-    price: "30,000₮-с",
-    category: "Авто",
-    city: "Улаанбаатар",
-    provider: "АвтоПро Сервис",
-    providerAvatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop",
-    rating: 4.7,
-    likes: 1432,
-    successful: 623,
-    failed: 9,
-    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=300&h=300&fit=crop",
-  },
-  {
-    id: 9,
-    title: "Цахилгааны ажил",
-    description: "Цахилгаан угсралт, засвар",
-    price: "25,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Электрик Про",
-    providerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-    rating: 4.6,
-    likes: 678,
-    successful: 234,
-    failed: 5,
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=300&h=300&fit=crop",
-  },
-  {
-    id: 10,
-    title: "Сантехникийн ажил",
-    description: "Ус, дулааны шугам засвар",
-    price: "35,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Усны Мастер",
-    providerAvatar: "https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=100&h=100&fit=crop",
-    rating: 4.5,
-    likes: 543,
-    successful: 189,
-    failed: 7,
-    image: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=300&h=300&fit=crop",
-  },
-  {
-    id: 11,
-    title: "Гэрийн тавилга угсралт",
-    description: "Тавилга угсрах, задлах",
-    price: "20,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Тавилга Мастер",
-    providerAvatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop",
-    rating: 4.8,
-    likes: 432,
-    successful: 156,
-    failed: 2,
-    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=300&h=300&fit=crop",
-  },
-  {
-    id: 12,
-    title: "Зураг авалт",
-    description: "Мэргэжлийн гэрэл зураг",
-    price: "100,000₮-с",
-    category: "Урлаг",
-    city: "Улаанбаатар",
-    provider: "Фото Студио",
-    providerAvatar: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100&h=100&fit=crop",
-    rating: 4.9,
-    likes: 987,
-    successful: 345,
-    failed: 1,
-    image: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?w=300&h=300&fit=crop",
-  },
-];
-
-type SortOption = "popular" | "rating" | "price_asc" | "price_desc" | "newest";
-type ExperienceLevel = "any" | "beginner" | "experienced" | "top";
-
-const experienceLevels = [
-  { id: "beginner", label: "Шинэ (0-50)", min: 0, max: 50 },
-  { id: "experienced", label: "Туршлагатай (50-200)", min: 50, max: 200 },
-  { id: "top", label: "Топ (200+)", min: 200, max: Infinity },
-];
+type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
 
 // Desktop Sidebar Filters Component
 function FiltersContent({
@@ -238,20 +48,12 @@ function FiltersContent({
   setSelectedCategories,
   priceRange,
   setPriceRange,
-  minRating,
-  setMinRating,
-  experienceLevel,
-  setExperienceLevel,
   onReset,
 }: {
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
   priceRange: [number, number];
   setPriceRange: (range: [number, number]) => void;
-  minRating: number;
-  setMinRating: (rating: number) => void;
-  experienceLevel: ExperienceLevel;
-  setExperienceLevel: (level: ExperienceLevel) => void;
   onReset: () => void;
 }) {
   return (
@@ -311,58 +113,6 @@ function FiltersContent({
         </div>
       </div>
 
-      {/* Rating */}
-      <div>
-        <h4 className="font-medium mb-3">Хамгийн багадаа үнэлгээ</h4>
-        <div className="px-1">
-          <Slider
-            value={[minRating]}
-            onValueChange={(value) => setMinRating(value[0])}
-            max={5}
-            min={0}
-            step={0.5}
-            className="mb-2"
-          />
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>0</span>
-            <span className="flex items-center gap-1">
-              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-              {minRating}+
-            </span>
-            <span>5</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Experience Level */}
-      <div>
-        <h4 className="font-medium mb-3">Туршлага</h4>
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="exp-any"
-              checked={experienceLevel === "any"}
-              onCheckedChange={() => setExperienceLevel("any")}
-            />
-            <Label htmlFor="exp-any" className="text-sm cursor-pointer">
-              Бүгд
-            </Label>
-          </div>
-          {experienceLevels.map((level) => (
-            <div key={level.id} className="flex items-center space-x-2">
-              <Checkbox
-                id={`exp-${level.id}`}
-                checked={experienceLevel === level.id}
-                onCheckedChange={() => setExperienceLevel(level.id as ExperienceLevel)}
-              />
-              <Label htmlFor={`exp-${level.id}`} className="text-sm cursor-pointer">
-                {level.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Reset button */}
       <Button variant="outline" className="w-full" onClick={onReset}>
         <X className="w-4 h-4 mr-2" />
@@ -372,33 +122,106 @@ function FiltersContent({
   );
 }
 
-// Helper to parse price from string like "50,000₮-с" to number
-const parsePrice = (priceStr: string): number => {
-  const match = priceStr.match(/[\d,]+/);
-  if (match) {
-    return parseInt(match[0].replace(/,/g, ""), 10);
-  }
-  return 0;
-};
-
 function ServicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Read initial values from URL
-  const initialCategories = searchParams.get("categories")?.split(",").filter(Boolean) || [];
+  const initialCategory = searchParams.get("category") || "";
+  const initialCategories = initialCategory ? [initialCategory] : (searchParams.get("categories")?.split(",").filter(Boolean) || []);
   const initialPriceMin = parseInt(searchParams.get("priceMin") || "0", 10);
   const initialPriceMax = parseInt(searchParams.get("priceMax") || "1000000", 10);
-  const initialRating = parseFloat(searchParams.get("rating") || "0");
-  const initialExperience = (searchParams.get("experience") as ExperienceLevel) || "any";
-  const initialSort = (searchParams.get("sort") as SortOption) || "popular";
+  const initialSort = (searchParams.get("sort") as SortOption) || "newest";
+  const initialCity = searchParams.get("city") || "";
 
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>(initialCategories);
   const [priceRange, setPriceRange] = React.useState<[number, number]>([initialPriceMin, initialPriceMax]);
-  const [minRating, setMinRating] = React.useState(initialRating);
-  const [experienceLevel, setExperienceLevel] = React.useState<ExperienceLevel>(initialExperience);
   const [sortBy, setSortBy] = React.useState<SortOption>(initialSort);
+  const [selectedCity, setSelectedCity] = React.useState(initialCity);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
+
+  // Строим where условие для запроса
+  const whereCondition = React.useMemo(() => {
+    const conditions: Record<string, unknown> = {
+      status: "active",
+      is_active: true,
+    };
+
+    // Фильтр по категориям (slug)
+    if (selectedCategories.length > 0) {
+      conditions.category = {
+        slug: { in: selectedCategories },
+      };
+    }
+
+    // Фильтр по цене
+    if (priceRange[0] > 0 || priceRange[1] < 1000000) {
+      conditions.price = {};
+      if (priceRange[0] > 0) {
+        (conditions.price as Record<string, number>).gte = priceRange[0];
+      }
+      if (priceRange[1] < 1000000) {
+        (conditions.price as Record<string, number>).lte = priceRange[1];
+      }
+    }
+
+    // Фильтр по городу
+    if (selectedCity) {
+      conditions.city = selectedCity;
+    }
+
+    return conditions;
+  }, [selectedCategories, priceRange, selectedCity]);
+
+  // Строим orderBy для сортировки
+  const orderByCondition = React.useMemo(() => {
+    switch (sortBy) {
+      case "price_asc":
+        return { price: "asc" as const };
+      case "price_desc":
+        return { price: "desc" as const };
+      case "popular":
+        return { views_count: "desc" as const };
+      case "newest":
+      default:
+        return { created_at: "desc" as const };
+    }
+  }, [sortBy]);
+
+  // Загружаем объявления из БД
+  const { data: listings, isLoading } = useFindManylistings({
+    where: whereCondition,
+    include: {
+      user: {
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          avatar_url: true,
+          company_name: true,
+          is_company: true,
+        },
+      },
+      category: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      images: {
+        select: {
+          id: true,
+          url: true,
+          sort_order: true,
+        },
+        orderBy: {
+          sort_order: "asc",
+        },
+      },
+    },
+    orderBy: orderByCondition,
+  });
 
   // Update URL when filters change
   const updateURL = React.useCallback(() => {
@@ -413,81 +236,34 @@ function ServicesPageContent() {
     if (priceRange[1] < 1000000) {
       params.set("priceMax", priceRange[1].toString());
     }
-    if (minRating > 0) {
-      params.set("rating", minRating.toString());
-    }
-    if (experienceLevel !== "any") {
-      params.set("experience", experienceLevel);
-    }
-    if (sortBy !== "popular") {
+    if (sortBy !== "newest") {
       params.set("sort", sortBy);
+    }
+    if (selectedCity) {
+      params.set("city", selectedCity);
     }
 
     const queryString = params.toString();
     router.replace(queryString ? `/services?${queryString}` : "/services", { scroll: false });
-  }, [selectedCategories, priceRange, minRating, experienceLevel, sortBy, router]);
+  }, [selectedCategories, priceRange, sortBy, selectedCity, router]);
 
   React.useEffect(() => {
     updateURL();
   }, [updateURL]);
 
-  // Мемоизированная фильтрация сервисов
-  const filteredServices = React.useMemo(() => {
-    return allServices.filter((service) => {
-      if (selectedCategories.length > 0 && !selectedCategories.includes(service.category)) {
-        return false;
-      }
-      if (service.rating < minRating) {
-        return false;
-      }
-      const servicePrice = parsePrice(service.price);
-      if (servicePrice < priceRange[0] || servicePrice > priceRange[1]) {
-        return false;
-      }
-      if (experienceLevel !== "any") {
-        const level = experienceLevels.find((l) => l.id === experienceLevel);
-        if (level) {
-          if (service.successful < level.min || service.successful >= level.max) {
-            return false;
-          }
-        }
-      }
-      return true;
-    });
-  }, [selectedCategories, minRating, priceRange, experienceLevel]);
-
-  // Мемоизированная сортировка
-  const sortedServices = React.useMemo(() => {
-    return [...filteredServices].sort((a, b) => {
-      switch (sortBy) {
-        case "rating":
-          return b.rating - a.rating;
-        case "price_asc":
-          return parsePrice(a.price) - parsePrice(b.price);
-        case "price_desc":
-          return parsePrice(b.price) - parsePrice(a.price);
-        case "newest":
-          return b.id - a.id;
-        case "popular":
-        default:
-          return b.likes - a.likes;
-      }
-    });
-  }, [filteredServices, sortBy]);
-
   const resetFilters = () => {
     setSelectedCategories([]);
     setPriceRange([0, 1000000]);
-    setMinRating(0);
-    setExperienceLevel("any");
-    setSortBy("popular");
+    setSortBy("newest");
+    setSelectedCity("");
   };
 
   const activeFiltersCount =
     selectedCategories.length +
     (priceRange[0] > 0 || priceRange[1] < 1000000 ? 1 : 0) +
-    (minRating > 0 ? 1 : 0) +
-    (experienceLevel !== "any" ? 1 : 0);
+    (selectedCity ? 1 : 0);
+
+  const listingsData = (listings || []) as ListingWithRelations[];
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -524,14 +300,14 @@ function ServicesPageContent() {
 
         {/* Desktop Search & City */}
         <div className="hidden md:flex w-full gap-2 mb-6">
-          <SearchInput services={allServices} className="flex-1" />
+          <SearchInput className="flex-1" />
           <CitySelect />
         </div>
 
         {/* Mobile: Search, City (full width), Collapsible Filters */}
         <div className="md:hidden space-y-3 mb-4">
           {/* Search */}
-          <SearchInput services={allServices} />
+          <SearchInput />
 
           {/* City Select - Full Width */}
           <CitySelect
@@ -616,53 +392,6 @@ function ServicesPageContent() {
                   </div>
                 </div>
 
-                {/* Rating */}
-                <div>
-                  <h4 className="font-medium mb-2 text-sm">Үнэлгээ</h4>
-                  <Slider
-                    value={[minRating]}
-                    onValueChange={(value) => setMinRating(value[0])}
-                    max={5}
-                    min={0}
-                    step={0.5}
-                    className="mb-2"
-                  />
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>0</span>
-                    <span className="flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                      {minRating}+
-                    </span>
-                    <span>5</span>
-                  </div>
-                </div>
-
-                {/* Experience Level */}
-                <div>
-                  <h4 className="font-medium mb-2 text-sm">Туршлага</h4>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant={experienceLevel === "any" ? "default" : "outline"}
-                      size="sm"
-                      className="text-xs"
-                      onClick={() => setExperienceLevel("any")}
-                    >
-                      Бүгд
-                    </Button>
-                    {experienceLevels.map((level) => (
-                      <Button
-                        key={level.id}
-                        variant={experienceLevel === level.id ? "default" : "outline"}
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => setExperienceLevel(level.id as ExperienceLevel)}
-                      >
-                        {level.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Reset button */}
                 {activeFiltersCount > 0 && (
                   <Button variant="ghost" size="sm" className="w-full" onClick={resetFilters}>
@@ -693,10 +422,6 @@ function ServicesPageContent() {
                 setSelectedCategories={setSelectedCategories}
                 priceRange={priceRange}
                 setPriceRange={setPriceRange}
-                minRating={minRating}
-                setMinRating={setMinRating}
-                experienceLevel={experienceLevel}
-                setExperienceLevel={setExperienceLevel}
                 onReset={resetFilters}
               />
             </div>
@@ -707,7 +432,7 @@ function ServicesPageContent() {
             {/* Results header with sort */}
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {sortedServices.length} үйлчилгээ
+                {isLoading ? "Ачааллаж байна..." : `${listingsData.length} үйлчилгээ`}
               </p>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
                 <SelectTrigger className="w-36 md:w-44">
@@ -715,33 +440,58 @@ function ServicesPageContent() {
                   <SelectValue placeholder="Эрэмбэлэх" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="newest">Шинэ</SelectItem>
                   <SelectItem value="popular">Эрэлттэй</SelectItem>
-                  <SelectItem value="rating">Үнэлгээгээр</SelectItem>
                   <SelectItem value="price_asc">Үнэ ↑</SelectItem>
                   <SelectItem value="price_desc">Үнэ ↓</SelectItem>
-                  <SelectItem value="newest">Шинэ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {sortedServices.length > 0 ? (
+            {isLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                {sortedServices.map((service) => (
-                  <ServiceCard key={service.id} service={service} />
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-xl md:rounded-2xl overflow-hidden border">
+                    <Skeleton className="aspect-4/3" />
+                    <div className="p-3 md:p-4 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-full" />
+                      <div className="flex items-center gap-2 mt-2">
+                        <Skeleton className="h-5 w-5 rounded-full" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : listingsData.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {listingsData.map((listing) => (
+                  <ListingCard key={listing.id} listing={listing} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground mb-4">Үйлчилгээ олдсонгүй</p>
-                <Button variant="outline" onClick={resetFilters}>
-                  Шүүлтүүр цэвэрлэх
-                </Button>
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                <p className="text-muted-foreground mb-2">Үйлчилгээ олдсонгүй</p>
+                <p className="text-muted-foreground/70 text-sm mb-4">
+                  Шүүлтүүр өөрчилж үзнэ үү эсвэл эхний зараа нэмээрэй
+                </p>
+                <div className="flex gap-2">
+                  {activeFiltersCount > 0 && (
+                    <Button variant="outline" onClick={resetFilters}>
+                      Шүүлтүүр цэвэрлэх
+                    </Button>
+                  )}
+                  <Link href="/services/create">
+                    <Button>Зар нэмэх</Button>
+                  </Link>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
-
     </div>
   );
 }

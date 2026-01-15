@@ -61,6 +61,12 @@ const metadata: ModelMeta = {
                     name: "updated_at",
                     type: "DateTime",
                     attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, listings: {
+                    name: "listings",
+                    type: "listings",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'category',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -147,6 +153,12 @@ const metadata: ModelMeta = {
                 }, work_experiences: {
                     name: "work_experiences",
                     type: "profiles_work_experiences",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
+                }, listings: {
+                    name: "listings",
+                    type: "listings",
                     isDataModel: true,
                     isArray: true,
                     backLink: 'user',
@@ -413,10 +425,171 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        listings: {
+            name: 'listings', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'user',
+                }, category_id: {
+                    name: "category_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'category',
+                }, title: {
+                    name: "title",
+                    type: "String",
+                }, slug: {
+                    name: "slug",
+                    type: "String",
+                }, description: {
+                    name: "description",
+                    type: "String",
+                }, price: {
+                    name: "price",
+                    type: "Decimal",
+                    isOptional: true,
+                }, currency: {
+                    name: "currency",
+                    type: "String",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "MNT" }] }],
+                }, is_negotiable: {
+                    name: "is_negotiable",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, city: {
+                    name: "city",
+                    type: "String",
+                }, district: {
+                    name: "district",
+                    type: "String",
+                    isOptional: true,
+                }, address: {
+                    name: "address",
+                    type: "String",
+                    isOptional: true,
+                }, latitude: {
+                    name: "latitude",
+                    type: "Decimal",
+                    isOptional: true,
+                }, longitude: {
+                    name: "longitude",
+                    type: "Decimal",
+                    isOptional: true,
+                }, status: {
+                    name: "status",
+                    type: "ListingStatus",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, views_count: {
+                    name: "views_count",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, published_at: {
+                    name: "published_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, user: {
+                    name: "user",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'listings',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                }, category: {
+                    name: "category",
+                    type: "categories",
+                    isDataModel: true,
+                    backLink: 'listings',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "category_id" },
+                }, images: {
+                    name: "images",
+                    type: "listings_images",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'listing',
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, slug: {
+                    name: "slug",
+                    fields: ["slug"]
+                },
+            },
+        },
+        listings_images: {
+            name: 'listings_images', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, listing_id: {
+                    name: "listing_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'listing',
+                }, url: {
+                    name: "url",
+                    type: "String",
+                }, alt: {
+                    name: "alt",
+                    type: "String",
+                    isOptional: true,
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_cover: {
+                    name: "is_cover",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, listing: {
+                    name: "listing",
+                    type: "listings",
+                    isDataModel: true,
+                    backLink: 'images',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "listing_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings'],
+        listings: ['listings_images'],
 
     },
     authModel: 'profiles'
