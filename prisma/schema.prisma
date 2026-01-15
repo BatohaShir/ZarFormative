@@ -13,6 +13,31 @@ generator client {
   provider = "prisma-client-js"
 }
 
+enum UserRole {
+  admin
+  manager
+  user
+}
+
+model categories {
+  id         String       @id() @default(cuid())
+  slug       String       @unique()
+  name       String
+  icon       String?
+  parent_id  String?
+  parent     categories?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  children   categories[] @relation("CategoryHierarchy")
+  sort_order Int          @default(0)
+  is_active  Boolean      @default(true)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt()
+
+  @@index([parent_id])
+  @@index([slug])
+  @@index([is_active, sort_order])
+  @@map("categories")
+}
+
 model profiles {
   id                    String                          @id() @db.Uuid()
   first_name            String?
@@ -21,6 +46,7 @@ model profiles {
   is_company            Boolean                         @default(false)
   avatar_url            String?
   about                 String?
+  role                  UserRole                        @default(user)
   created_at            DateTime                        @default(now())
   updated_at            DateTime                        @default(now())
   company_name          String?
@@ -34,6 +60,7 @@ model profiles {
   @@index([is_deleted])
   @@index([is_company])
   @@index([created_at])
+  @@index([role])
   @@map("profiles")
 }
 

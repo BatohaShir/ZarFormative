@@ -20,6 +20,60 @@ plugin enhancer {
 }
 
 // ============================================
+// User Roles - роли пользователей
+// ============================================
+// admin    - Полный доступ: create, update, delete
+// manager  - Ограниченный доступ: create, update (без delete)
+// user     - Базовый доступ: только свои данные
+
+enum UserRole {
+  admin
+  manager
+  user
+}
+
+// ============================================
+// Categories - категории услуг с иерархией
+// ============================================
+
+model categories {
+  id          String   @id @default(cuid())
+  slug        String   @unique          // "transport", "repair" и т.д.
+  name        String                    // "Тээвэрлэлт, хүргэлт"
+  icon        String?                   // "/icons/delivery-man.png" или emoji
+
+  // Иерархия
+  parent_id   String?                   // null = корневая категория
+  parent      categories? @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  children    categories[] @relation("CategoryHierarchy")
+
+  // Сортировка и управление
+  sort_order  Int      @default(0)      // Порядок отображения
+  is_active   Boolean  @default(true)   // Можно скрыть категорию
+
+  // Метаданные
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Indexes
+  @@index([parent_id])
+  @@index([slug])
+  @@index([is_active, sort_order])
+
+  @@map("categories")
+
+  // === RBAC Rules ===
+  // Все могут читать категории
+  @@allow('read', true)
+
+  // Admin & Manager: create, update
+  @@allow('create,update', auth().role in [admin, manager])
+
+  // Только Admin: delete
+  @@allow('delete', auth().role == admin)
+}
+
+// ============================================
 // Profiles - связан с auth.users через UUID
 // ============================================
 
@@ -31,6 +85,7 @@ model profiles {
   is_company          Boolean  @default(false)
   avatar_url          String?
   about               String?  // О себе / описание пользователя
+  role                UserRole @default(user) // Роль пользователя
   created_at          DateTime @default(now())
   updated_at          DateTime @default(now())
   company_name        String?
@@ -47,18 +102,26 @@ model profiles {
   @@index([is_deleted]) // For filtering active profiles
   @@index([is_company]) // For filtering by account type
   @@index([created_at]) // For sorting by registration date
+  @@index([role])       // For filtering by role
 
   @@map("profiles")
   @@auth()
 
-  // Любой может читать профили
+  // === RBAC Rules ===
+  // Все могут читать профили
   @@allow('read', true)
 
-  // Пользователь может обновлять только свой профиль
+  // Создание через триггер Supabase (системное)
+  @@allow('create', true)
+
+  // Пользователь может обновлять свой профиль
   @@allow('update', auth() == this)
 
-  // Создание через триггер Supabase
-  @@allow('create', true)
+  // Admin может обновлять любой профиль (например, менять роли)
+  @@allow('update', auth().role == admin)
+
+  // Admin & Manager могут "удалять" (soft delete) профили
+  @@allow('delete', auth().role in [admin, manager])
 }
 
 // ============================================
@@ -83,8 +146,15 @@ model profiles_push_subscriptions {
   @@unique([user_id, endpoint])
   @@map("profiles_push_subscriptions")
 
-  // Пользователь может управлять только своими подписками
-  @@allow('all', auth() != null && auth().id == user_id)
+  // === RBAC Rules ===
+  // Пользователь управляет своими подписками
+  @@allow('read,create,update,delete', auth() != null && auth().id == user_id)
+
+  // Admin может видеть и удалять любые подписки
+  @@allow('read,delete', auth().role == admin)
+
+  // Manager может только видеть
+  @@allow('read', auth().role == manager)
 }
 
 // ============================================
@@ -121,8 +191,15 @@ model profiles_notification_settings {
 
   @@map("profiles_notification_settings")
 
-  // Пользователь может управлять только своими настройками
-  @@allow('all', auth() != null && auth().id == user_id)
+  // === RBAC Rules ===
+  // Пользователь управляет своими настройками
+  @@allow('read,create,update,delete', auth() != null && auth().id == user_id)
+
+  // Admin может видеть и редактировать любые настройки
+  @@allow('read,update', auth().role == admin)
+
+  // Manager может только видеть
+  @@allow('read', auth().role == manager)
 }
 
 // ============================================
@@ -150,13 +227,18 @@ model profiles_educations {
 
   @@map("profiles_educations")
 
-  // Любой может читать образование
+  // === RBAC Rules ===
+  // Все могут читать образование (публичная информация профиля)
   @@allow('read', true)
 
-  // Пользователь может управлять только своим образованием
-  @@allow('create', auth().id == user_id)
-  @@allow('update', auth().id == user_id)
-  @@allow('delete', auth().id == user_id)
+  // Пользователь управляет своим образованием
+  @@allow('create,update,delete', auth() != null && auth().id == user_id)
+
+  // Admin может редактировать и удалять любое
+  @@allow('update,delete', auth().role == admin)
+
+  // Manager может только редактировать
+  @@allow('update', auth().role == manager)
 }
 
 // ============================================
@@ -184,11 +266,16 @@ model profiles_work_experiences {
 
   @@map("profiles_work_experiences")
 
-  // Любой может читать опыт работы
+  // === RBAC Rules ===
+  // Все могут читать опыт работы (публичная информация профиля)
   @@allow('read', true)
 
-  // Пользователь может управлять только своим опытом работы
-  @@allow('create', auth().id == user_id)
-  @@allow('update', auth().id == user_id)
-  @@allow('delete', auth().id == user_id)
+  // Пользователь управляет своим опытом работы
+  @@allow('create,update,delete', auth() != null && auth().id == user_id)
+
+  // Admin может редактировать и удалять любое
+  @@allow('update,delete', auth().role == admin)
+
+  // Manager может только редактировать
+  @@allow('update', auth().role == manager)
 }

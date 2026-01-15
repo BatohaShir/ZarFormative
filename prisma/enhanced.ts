@@ -13,10 +13,17 @@ export async function getEnhancedPrisma() {
   } = await supabase.auth.getUser();
 
   if (user) {
+    // Получаем профиль с ролью из базы данных
+    const profile = await prisma.profiles.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    });
+
     context = {
       user: {
         id: user.id,
         email: user.email,
+        role: profile?.role || "user",
       },
     };
   }

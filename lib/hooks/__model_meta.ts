@@ -8,6 +8,70 @@ import type { ModelMeta } from "@zenstackhq/runtime";
 
 const metadata: ModelMeta = {
     models: {
+        categories: {
+            name: 'categories', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, slug: {
+                    name: "slug",
+                    type: "String",
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, icon: {
+                    name: "icon",
+                    type: "String",
+                    isOptional: true,
+                }, parent_id: {
+                    name: "parent_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'parent',
+                }, parent: {
+                    name: "parent",
+                    type: "categories",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'children',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "parent_id" },
+                }, children: {
+                    name: "children",
+                    type: "categories",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'parent',
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, slug: {
+                    name: "slug",
+                    fields: ["slug"]
+                },
+            },
+        },
         profiles: {
             name: 'profiles', fields: {
                 id: {
@@ -38,6 +102,10 @@ const metadata: ModelMeta = {
                     name: "about",
                     type: "String",
                     isOptional: true,
+                }, role: {
+                    name: "role",
+                    type: "UserRole",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
                 }, created_at: {
                     name: "created_at",
                     type: "DateTime",

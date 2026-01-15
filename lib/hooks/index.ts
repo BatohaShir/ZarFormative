@@ -4,6 +4,7 @@
 
 /* eslint-disable */
 
+export * from './categories';
 export * from './profiles';
 export * from './profiles-push-subscriptions';
 export * from './profiles-notification-settings';

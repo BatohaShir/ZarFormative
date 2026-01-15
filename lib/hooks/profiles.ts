@@ -326,8 +326,9 @@ export function useSuspenseCountprofiles<TArgs extends Prisma.profilesCountArgs,
     const { endpoint, fetch } = getHooksContext();
     return useSuspenseModelQuery<TQueryFnData, TData, TError>('profiles', `${endpoint}/profiles/count`, args, options, fetch);
 }
+import type { UserRole } from '@prisma/client';
 
-export function useCheckprofiles<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; first_name?: string; last_name?: string; phone_number?: string; is_company?: boolean; avatar_url?: string; about?: string; company_name?: string; registration_number?: string; is_deleted?: boolean }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
+export function useCheckprofiles<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; first_name?: string; last_name?: string; phone_number?: string; is_company?: boolean; avatar_url?: string; about?: string; role?: UserRole; company_name?: string; registration_number?: string; is_deleted?: boolean }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
     const { endpoint, fetch } = getHooksContext();
     return useModelQuery<boolean, boolean, TError>('profiles', `${endpoint}/profiles/check`, args, options, fetch);
 }
