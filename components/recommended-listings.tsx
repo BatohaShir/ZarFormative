@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Package } from "lucide-react";
+import Image from "next/image";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
@@ -40,6 +41,24 @@ export function RecommendedListings() {
         },
         orderBy: {
           sort_order: "asc",
+        },
+      },
+      aimag: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      district: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      khoroo: {
+        select: {
+          id: true,
+          name: true,
         },
       },
     },
@@ -85,7 +104,13 @@ export function RecommendedListings() {
           <h3 className="text-base md:text-xl font-semibold">Танд зориулсан санал</h3>
         </div>
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+          <Image
+            src="/icons/7486744.png"
+            alt="Пустая коробка"
+            width={80}
+            height={80}
+            className="mb-4 opacity-70"
+          />
           <p className="text-muted-foreground text-sm md:text-base">
             Одоогоор зар байхгүй байна
           </p>

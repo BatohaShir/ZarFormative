@@ -45,6 +45,114 @@ enum ListingStatus {
 }
 
 // ============================================
+// Aimag Type - тип административной единицы
+// ============================================
+
+enum AimagType {
+  aimag      // Аймаг (провинция)
+  capital    // Столица (Улаанбаатар)
+}
+
+// ============================================
+// District Type - тип района
+// ============================================
+
+enum DistrictType {
+  duureg     // Дүүрэг (район города)
+  sum        // Сум (сельский район)
+}
+
+// ============================================
+// Aimags - Аймаги Монголии (21 аймаг + столица)
+// ============================================
+
+model aimags {
+  id          String    @id @default(cuid())
+  name        String    @unique              // Название (Улаанбаатар, Дархан-Уул...)
+  name_en     String?                        // Название на английском
+  code        String    @unique              // Код (UB, DH, OR...)
+  type        AimagType @default(aimag)      // Тип: аймаг или столица
+  sort_order  Int       @default(0)          // Порядок отображения
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  // Relations
+  districts   districts[]
+  listings    listings[]
+
+  @@index([type])
+  @@index([is_active, sort_order])
+  @@map("aimags")
+
+  // === RBAC Rules ===
+  // Все могут читать активные аймаги
+  @@allow('read', is_active == true)
+  // Admin может всё
+  @@allow('all', auth().role == admin)
+}
+
+// ============================================
+// Districts - Дүүрэг/Сум (районы)
+// ============================================
+
+model districts {
+  id          String       @id @default(cuid())
+  aimag_id    String
+  name        String                          // Название (Баянгол, Сүхбаатар...)
+  name_en     String?                         // Название на английском
+  type        DistrictType @default(duureg)   // Тип: дүүрэг или сум
+  sort_order  Int          @default(0)
+  is_active   Boolean      @default(true)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  // Relations
+  aimag       aimags       @relation(fields: [aimag_id], references: [id], onDelete: Cascade)
+  khoroos     khoroos[]
+  listings    listings[]
+
+  @@unique([aimag_id, name])
+  @@index([aimag_id])
+  @@index([aimag_id, is_active])
+  @@index([type])
+  @@map("districts")
+
+  // === RBAC Rules ===
+  @@allow('read', is_active == true)
+  @@allow('all', auth().role == admin)
+}
+
+// ============================================
+// Khoroos - Хороо/Баг (микрорайоны)
+// ============================================
+
+model khoroos {
+  id          String   @id @default(cuid())
+  district_id String
+  name        String                          // Название (1-р хороо, 2-р хороо...)
+  number      Int?                            // Номер хороо (1, 2, 3...)
+  sort_order  Int      @default(0)
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  district    districts @relation(fields: [district_id], references: [id], onDelete: Cascade)
+  listings    listings[]
+
+  @@unique([district_id, name])
+  @@unique([district_id, number])
+  @@index([district_id])
+  @@index([district_id, is_active])
+  @@map("khoroos")
+
+  // === RBAC Rules ===
+  @@allow('read', is_active == true)
+  @@allow('all', auth().role == admin)
+}
+
+// ============================================
 // Categories - категории услуг с иерархией
 // ============================================
 
@@ -113,6 +221,7 @@ model profiles {
   educations             profiles_educations[]
   work_experiences       profiles_work_experiences[]
   listings               listings[]
+  viewed_listings        listings_views[]
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -315,10 +424,11 @@ model listings {
   currency      String        @default("MNT")     // Валюта (MNT, USD)
   is_negotiable Boolean       @default(false)     // Договорная цена?
 
-  // Локация
-  city          String                    // Город (Улаанбаатар, Дархан и т.д.)
-  district      String?                   // Район/Дүүрэг
-  address       String?                   // Полный адрес
+  // Локация (связь с справочниками)
+  aimag_id      String?                   // Аймаг/Столица
+  district_id   String?                   // Дүүрэг/Сум
+  khoroo_id     String?                   // Хороо/Баг
+  address       String?                   // Детальный адрес (дом, подъезд, квартира)
   latitude      Decimal?      @db.Decimal(10, 7)  // Широта для карты
   longitude     Decimal?      @db.Decimal(10, 7)  // Долгота для карты
 
@@ -337,16 +447,21 @@ model listings {
   // Relations
   user          profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   category      categories    @relation(fields: [category_id], references: [id])
+  aimag         aimags?       @relation(fields: [aimag_id], references: [id])
+  district      districts?    @relation(fields: [district_id], references: [id])
+  khoroo        khoroos?      @relation(fields: [khoroo_id], references: [id])
   images        listings_images[]
+  views         listings_views[]
 
   // Indexes для оптимизации запросов
   @@index([user_id])                              // Мои объявления
   @@index([category_id])                          // Фильтр по категории
   @@index([status, is_active])                    // Активные объявления
-  @@index([city])                                 // Поиск по городу
-  @@index([city, district])                       // Поиск по локации
+  @@index([aimag_id])                             // Поиск по аймагу
+  @@index([aimag_id, district_id])                // Поиск по локации
+  @@index([aimag_id, district_id, khoroo_id])     // Полный поиск по локации
   @@index([created_at(sort: Desc)])               // Сортировка по дате
-  @@index([status, city, category_id])            // Комбинированный фильтр
+  @@index([status, aimag_id, category_id])        // Комбинированный фильтр
   @@index([slug])                                 // Быстрый поиск по slug
 
   @@map("listings")
@@ -406,4 +521,40 @@ model listings_images {
 
   // Admin может всё
   @@allow('create,update,delete', auth().role == admin)
+}
+
+// ============================================
+// Listings Views - просмотры объявлений
+// ============================================
+
+model listings_views {
+  id          String   @id @default(uuid()) @db.Uuid
+  listing_id  String
+  viewer_id   String?  @db.Uuid              // user_id если авторизован, null если гость
+  ip_address  String?                        // IP адрес для гостей
+  viewed_at   DateTime @default(now())
+
+  // Relations
+  listing     listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  viewer      profiles? @relation(fields: [viewer_id], references: [id], onDelete: SetNull)
+
+  // Уникальность: один просмотр на user/IP за сессию (24 часа)
+  // Реализуется в API логике
+
+  // Indexes
+  @@index([listing_id])
+  @@index([viewer_id])
+  @@index([ip_address])
+  @@index([listing_id, viewer_id])
+  @@index([listing_id, ip_address])
+  @@index([viewed_at])
+
+  @@map("listings_views")
+
+  // === RBAC Rules ===
+  // Создание - все могут (через API)
+  @@allow('create', true)
+
+  // Чтение - владелец объявления или админ
+  @@allow('read', auth() == listing.user || auth().role in [admin, manager])
 }

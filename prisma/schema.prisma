@@ -27,6 +27,74 @@ enum ListingStatus {
   deleted
 }
 
+enum AimagType {
+  aimag
+  capital
+}
+
+enum DistrictType {
+  duureg
+  sum
+}
+
+model aimags {
+  id         String      @id() @default(cuid())
+  name       String      @unique()
+  name_en    String?
+  code       String      @unique()
+  type       AimagType   @default(aimag)
+  sort_order Int         @default(0)
+  is_active  Boolean     @default(true)
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt()
+  districts  districts[]
+  listings   listings[]
+
+  @@index([type])
+  @@index([is_active, sort_order])
+  @@map("aimags")
+}
+
+model districts {
+  id         String       @id() @default(cuid())
+  aimag_id   String
+  name       String
+  name_en    String?
+  type       DistrictType @default(duureg)
+  sort_order Int          @default(0)
+  is_active  Boolean      @default(true)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt()
+  aimag      aimags       @relation(fields: [aimag_id], references: [id], onDelete: Cascade)
+  khoroos    khoroos[]
+  listings   listings[]
+
+  @@unique([aimag_id, name])
+  @@index([aimag_id])
+  @@index([aimag_id, is_active])
+  @@index([type])
+  @@map("districts")
+}
+
+model khoroos {
+  id          String     @id() @default(cuid())
+  district_id String
+  name        String
+  number      Int?
+  sort_order  Int        @default(0)
+  is_active   Boolean    @default(true)
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt()
+  district    districts  @relation(fields: [district_id], references: [id], onDelete: Cascade)
+  listings    listings[]
+
+  @@unique([district_id, name])
+  @@unique([district_id, number])
+  @@index([district_id])
+  @@index([district_id, is_active])
+  @@map("khoroos")
+}
+
 model categories {
   id         String       @id() @default(cuid())
   slug       String       @unique()
@@ -66,6 +134,7 @@ model profiles {
   educations            profiles_educations[]
   work_experiences      profiles_work_experiences[]
   listings              listings[]
+  viewed_listings       listings_views[]
 
   @@index([is_deleted])
   @@index([is_company])
@@ -158,8 +227,9 @@ model listings {
   price         Decimal?          @db.Decimal(12, 2)
   currency      String            @default("MNT")
   is_negotiable Boolean           @default(false)
-  city          String
-  district      String?
+  aimag_id      String?
+  district_id   String?
+  khoroo_id     String?
   address       String?
   latitude      Decimal?          @db.Decimal(10, 7)
   longitude     Decimal?          @db.Decimal(10, 7)
@@ -171,15 +241,20 @@ model listings {
   published_at  DateTime?
   user          profiles          @relation(fields: [user_id], references: [id], onDelete: Cascade)
   category      categories        @relation(fields: [category_id], references: [id])
+  aimag         aimags?           @relation(fields: [aimag_id], references: [id])
+  district      districts?        @relation(fields: [district_id], references: [id])
+  khoroo        khoroos?          @relation(fields: [khoroo_id], references: [id])
   images        listings_images[]
+  views         listings_views[]
 
   @@index([user_id])
   @@index([category_id])
   @@index([status, is_active])
-  @@index([city])
-  @@index([city, district])
+  @@index([aimag_id])
+  @@index([aimag_id, district_id])
+  @@index([aimag_id, district_id, khoroo_id])
   @@index([created_at(sort: Desc)])
-  @@index([status, city, category_id])
+  @@index([status, aimag_id, category_id])
   @@index([slug])
   @@map("listings")
 }
@@ -198,4 +273,22 @@ model listings_images {
   @@index([listing_id, sort_order])
   @@index([listing_id, is_cover])
   @@map("listings_images")
+}
+
+model listings_views {
+  id         String    @id() @default(uuid()) @db.Uuid()
+  listing_id String
+  viewer_id  String?   @db.Uuid()
+  ip_address String?
+  viewed_at  DateTime  @default(now())
+  listing    listings  @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  viewer     profiles? @relation(fields: [viewer_id], references: [id], onDelete: SetNull)
+
+  @@index([listing_id])
+  @@index([viewer_id])
+  @@index([ip_address])
+  @@index([listing_id, viewer_id])
+  @@index([listing_id, ip_address])
+  @@index([viewed_at])
+  @@map("listings_views")
 }

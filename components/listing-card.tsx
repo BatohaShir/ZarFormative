@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Heart, MapPin, Eye } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
-import type { listings, profiles, categories, listings_images } from "@prisma/client";
+import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
 // Тип объявления с включёнными связями
@@ -13,6 +13,9 @@ export type ListingWithRelations = listings & {
   user: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company">;
   category: Pick<categories, "id" | "name" | "slug">;
   images: Pick<listings_images, "id" | "url" | "sort_order">[];
+  aimag?: Pick<aimags, "id" | "name"> | null;
+  district?: Pick<districts, "id" | "name"> | null;
+  khoroo?: Pick<khoroos, "id" | "name"> | null;
 };
 
 interface ListingCardProps {
@@ -54,6 +57,23 @@ function getFirstImageUrl(images: ListingWithRelations["images"]): string {
   return sorted[0].url;
 }
 
+// Форматирование локации
+function formatLocation(listing: ListingWithRelations): string {
+  const parts: string[] = [];
+
+  if (listing.aimag?.name) {
+    parts.push(listing.aimag.name);
+  }
+  if (listing.district?.name) {
+    parts.push(listing.district.name);
+  }
+  if (listing.khoroo?.name) {
+    parts.push(listing.khoroo.name);
+  }
+
+  return parts.length > 0 ? parts.join(", ") : "Байршил тодорхойгүй";
+}
+
 export const ListingCard = React.memo(function ListingCard({
   listing,
 }: ListingCardProps) {
@@ -74,6 +94,7 @@ export const ListingCard = React.memo(function ListingCard({
   const providerName = getProviderName(listing.user);
   const imageUrl = getFirstImageUrl(listing.images);
   const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+  const locationDisplay = formatLocation(listing);
 
   return (
     <Link
@@ -155,8 +176,8 @@ export const ListingCard = React.memo(function ListingCard({
         </div>
         <div className="flex items-center gap-1 mt-1.5 md:mt-2 text-muted-foreground">
           <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
-          <span className="text-[10px] md:text-[11px]">
-            {listing.district ? `${listing.city}, ${listing.district}` : listing.city}
+          <span className="text-[10px] md:text-[11px] line-clamp-1">
+            {locationDisplay}
           </span>
         </div>
       </div>

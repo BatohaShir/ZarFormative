@@ -110,6 +110,18 @@ export const SearchInput = React.memo(function SearchInput({
           },
           take: 1,
         },
+        aimag: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
       take: 10,
     },

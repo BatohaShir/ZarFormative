@@ -15,6 +15,7 @@ import { CitySelect } from "@/components/city-select";
 import { CategoryFilterModal } from "@/components/category-filter-modal";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 import {
   ChevronLeft,
   SlidersHorizontal,
@@ -23,7 +24,6 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
-  Package,
 } from "lucide-react";
 import {
   Select,
@@ -217,6 +217,24 @@ function ServicesPageContent() {
         },
         orderBy: {
           sort_order: "asc",
+        },
+      },
+      aimag: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      district: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      khoroo: {
+        select: {
+          id: true,
+          name: true,
         },
       },
     },
@@ -472,7 +490,13 @@ function ServicesPageContent() {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                <Image
+                  src="/icons/7486744.png"
+                  alt="Пустая коробка"
+                  width={80}
+                  height={80}
+                  className="mb-4 opacity-70"
+                />
                 <p className="text-muted-foreground mb-2">Үйлчилгээ олдсонгүй</p>
                 <p className="text-muted-foreground/70 text-sm mb-4">
                   Шүүлтүүр өөрчилж үзнэ үү эсвэл эхний зараа нэмээрэй
