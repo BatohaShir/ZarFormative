@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -21,6 +22,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload, ImageFile } from "@/components/image-upload";
+import { LoginPromptModal } from "@/components/login-prompt-modal";
 
 import { useCreatelistings } from "@/lib/hooks/listings";
 import { useCreatelistings_images } from "@/lib/hooks/listings-images";
@@ -42,11 +44,11 @@ const cities = [
 
 const listingSchema = z.object({
   title: z.string().min(5, "Минимум 5 символов").max(200, "Максимум 200 символов"),
-  category_id: z.string().min(1, "Выберите категорию"),
+  category_id: z.string().min(1, "Выберите категорию").or(z.literal("")).refine(val => val !== "", "Выберите категорию"),
   description: z.string().min(20, "Минимум 20 символов"),
   price: z.string().optional(),
   is_negotiable: z.boolean(),
-  city: z.string().min(1, "Выберите город"),
+  city: z.string().min(1, "Выберите город").or(z.literal("")).refine(val => val !== "", "Выберите город"),
   district: z.string().optional(),
   address: z.string().optional(),
 });
@@ -58,11 +60,22 @@ export default function CreateListingPage() {
   const { user } = useCurrentUser();
   const [images, setImages] = useState<ImageFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const { data: categories } = useFindManycategories({
-    where: { is_active: true },
+  const { data: allCategories } = useFindManycategories({
     orderBy: { sort_order: "asc" },
+    include: {
+      children: {
+        orderBy: { sort_order: "asc" },
+      },
+    },
   });
+
+  // Фильтруем только активные категории на клиенте
+  const categories = React.useMemo(() => {
+    if (!allCategories) return [];
+    return allCategories.filter(cat => cat.is_active);
+  }, [allCategories]);
 
   const createListing = useCreatelistings();
   const createListingImage = useCreatelistings_images();
@@ -77,6 +90,8 @@ export default function CreateListingPage() {
     resolver: zodResolver(listingSchema),
     defaultValues: {
       is_negotiable: false,
+      category_id: "",
+      city: "",
     },
   });
 
@@ -159,22 +174,32 @@ export default function CreateListingPage() {
 
   if (!user) {
     return (
-      <div className="container max-w-2xl py-8">
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p>Необходимо войти в систему для создания объявления</p>
-            <Button onClick={() => router.push("/auth/signin")} className="mt-4">
-              Войти
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6 text-center">
+              <p className="mb-4">Для создания объявления необходимо войти в систему.</p>
+              <Button onClick={() => setShowLoginModal(true)}>
+                Авторизоваться
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <LoginPromptModal
+          open={showLoginModal}
+          onOpenChange={setShowLoginModal}
+          onSuccess={() => {
+            setShowLoginModal(false);
+            window.location.reload();
+          }}
+        />
+      </>
     );
   }
 
   return (
-    <div className="container max-w-2xl py-8">
-      <Card>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle>Создать объявление</CardTitle>
         </CardHeader>
@@ -205,11 +230,28 @@ export default function CreateListingPage() {
                   <SelectValue placeholder="Выберите категорию" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories?.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
+                  {!categories || categories.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground">
+                      Загрузка категорий...
+                    </div>
+                  ) : (
+                    categories
+                      .filter((category) => !category.parent_id)
+                      .map((category) => (
+                        <React.Fragment key={category.id}>
+                          {/* Родительская категория */}
+                          <SelectItem value={category.id} className="font-semibold">
+                            {category.name}
+                          </SelectItem>
+                          {/* Дочерние категории */}
+                          {category.children?.map((child) => (
+                            <SelectItem key={child.id} value={child.id} className="pl-6">
+                              └─ {child.name}
+                            </SelectItem>
+                          ))}
+                        </React.Fragment>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
               {errors.category_id && (
