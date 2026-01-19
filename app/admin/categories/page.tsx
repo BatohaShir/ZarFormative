@@ -100,7 +100,7 @@ export default function CategoriesPage() {
           c.name.toLowerCase().includes(search.toLowerCase()) ||
           c.slug.toLowerCase().includes(search.toLowerCase()) ||
           c.children?.some(
-            (child) =>
+            (child: Category) =>
               child.name.toLowerCase().includes(search.toLowerCase()) ||
               child.slug.toLowerCase().includes(search.toLowerCase())
           )
