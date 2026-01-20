@@ -6,6 +6,7 @@ import {
   useUpdateprofiles_work_experiences,
   useDeleteprofiles_work_experiences,
 } from "@/lib/hooks/profiles-work-experiences";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./use-auth";
 // Тип для отображения - без created_at/updated_at (используем select в запросе)
 export type WorkExperience = {
@@ -40,8 +41,10 @@ export interface UpdateWorkExperienceInput {
 export function useWorkExperiences(userId?: string) {
   // Используем общий хук для auth - предотвращает дублирование запросов
   const { userId: currentUserId } = useAuth();
+  const queryClient = useQueryClient();
 
   const targetUserId = userId || currentUserId;
+  const queryKey = ["profiles_work_experiences", "findMany", { where: { user_id: targetUserId ?? "" } }];
 
   // Fetch work experiences - optimized with select to reduce data transfer
   const {
@@ -65,7 +68,11 @@ export function useWorkExperiences(userId?: string) {
         // Исключаем created_at и updated_at - не нужны для отображения
       },
     },
-    { enabled: !!targetUserId }
+    {
+      enabled: !!targetUserId,
+      staleTime: 10 * 60 * 1000, // 10 минут - опыт работы редко меняется
+      gcTime: 30 * 60 * 1000, // 30 минут в памяти
+    }
   );
 
   // Mutations
@@ -73,8 +80,29 @@ export function useWorkExperiences(userId?: string) {
   const updateMutation = useUpdateprofiles_work_experiences();
   const deleteMutation = useDeleteprofiles_work_experiences();
 
+  // Optimistic create - мгновенно добавляем в UI, потом синхронизируем с сервером
   const createWorkExperience = async (data: CreateWorkExperienceInput) => {
     if (!currentUserId) return { error: "Not authenticated" };
+
+    // Создаём оптимистичную запись
+    const optimisticWork: WorkExperience = {
+      id: `temp-${Date.now()}`, // Временный ID
+      user_id: currentUserId,
+      company: data.company,
+      position: data.position,
+      description: data.description ?? null,
+      start_date: data.start_date,
+      end_date: data.end_date ?? null,
+      is_current: data.is_current ?? false,
+    };
+
+    // Сохраняем предыдущее состояние для rollback
+    const previousData = queryClient.getQueryData(queryKey);
+
+    // Оптимистично добавляем в кэш
+    queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
+      return old ? [...old, optimisticWork] : [optimisticWork];
+    });
 
     try {
       await createMutation.mutateAsync({
@@ -83,14 +111,30 @@ export function useWorkExperiences(userId?: string) {
           user_id: currentUserId,
         },
       });
+      // После успеха - инвалидируем для получения реального ID
+      queryClient.invalidateQueries({ queryKey });
       return { error: null };
     } catch (error) {
+      // Rollback при ошибке
+      queryClient.setQueryData(queryKey, previousData);
       return { error: error instanceof Error ? error.message : "Create failed" };
     }
   };
 
+  // Optimistic update - мгновенно обновляем в UI
   const updateWorkExperience = async (id: string, data: UpdateWorkExperienceInput) => {
     if (!currentUserId) return { error: "Not authenticated" };
+
+    // Сохраняем предыдущее состояние
+    const previousData = queryClient.getQueryData(queryKey);
+
+    // Оптимистично обновляем в кэше
+    queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
+      if (!old) return old;
+      return old.map((work) =>
+        work.id === id ? { ...work, ...data } : work
+      );
+    });
 
     try {
       await updateMutation.mutateAsync({
@@ -99,12 +143,24 @@ export function useWorkExperiences(userId?: string) {
       });
       return { error: null };
     } catch (error) {
+      // Rollback при ошибке
+      queryClient.setQueryData(queryKey, previousData);
       return { error: error instanceof Error ? error.message : "Update failed" };
     }
   };
 
+  // Optimistic delete - мгновенно удаляем из UI
   const deleteWorkExperience = async (id: string) => {
     if (!currentUserId) return { error: "Not authenticated" };
+
+    // Сохраняем предыдущее состояние
+    const previousData = queryClient.getQueryData(queryKey);
+
+    // Оптимистично удаляем из кэша
+    queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
+      if (!old) return old;
+      return old.filter((work) => work.id !== id);
+    });
 
     try {
       await deleteMutation.mutateAsync({
@@ -112,6 +168,8 @@ export function useWorkExperiences(userId?: string) {
       });
       return { error: null };
     } catch (error) {
+      // Rollback при ошибке
+      queryClient.setQueryData(queryKey, previousData);
       return { error: error instanceof Error ? error.message : "Delete failed" };
     }
   };

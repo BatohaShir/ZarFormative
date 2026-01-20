@@ -255,6 +255,19 @@ export default function MyProfilePage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
+  // Мемоизированные отсортированные списки - предотвращает лишние вычисления при ререндере
+  const sortedEducations = React.useMemo(() => {
+    return [...educations].sort((a, b) =>
+      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    );
+  }, [educations]);
+
+  const sortedWorkExperiences = React.useMemo(() => {
+    return [...workExperiences].sort((a, b) =>
+      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    );
+  }, [workExperiences]);
+
   const handleLogout = async () => {
     await signOut();
     router.push("/");
@@ -1024,9 +1037,7 @@ export default function MyProfilePage() {
                     </p>
                   ) : (
                     <div className="grid gap-3">
-                      {[...educations]
-                        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
-                        .map((edu) =>
+                      {sortedEducations.map((edu) =>
                           editingEducationId === edu.id ? (
                             <div
                               key={edu.id}
@@ -1302,9 +1313,7 @@ export default function MyProfilePage() {
                     </p>
                   ) : (
                     <div className="grid gap-3">
-                      {[...workExperiences]
-                        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
-                        .map((work) =>
+                      {sortedWorkExperiences.map((work) =>
                           editingWorkId === work.id ? (
                             <div
                               key={work.id}

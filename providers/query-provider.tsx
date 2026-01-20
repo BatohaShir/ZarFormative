@@ -14,8 +14,8 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 1000 * 60 * 2, // 2 minutes
-            gcTime: 1000 * 60 * 10, // 10 minutes
+            staleTime: 1000 * 60 * 5, // 5 минут - данные считаются свежими
+            gcTime: 1000 * 60 * 30, // 30 минут - хранение в памяти
             refetchOnWindowFocus: false,
             retry: 1,
             placeholderData: keepPreviousData,

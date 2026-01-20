@@ -15,6 +15,7 @@ import { CitySelect } from "@/components/city-select";
 import { CategoryFilterModal } from "@/components/category-filter-modal";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
+import Image from "next/image";
 import {
   ChevronLeft,
   SlidersHorizontal,
@@ -23,7 +24,7 @@ import {
   ChevronDown,
   ChevronUp,
   MapPin,
-  Package,
+  Loader2,
 } from "lucide-react";
 import {
   Select,
@@ -38,7 +39,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { formatPrice } from "@/lib/utils";
-import { useFindManylistings } from "@/lib/hooks/listings";
+import { useInfiniteFindManylistings } from "@/lib/hooks/listings";
 
 type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
 
@@ -188,40 +189,86 @@ function ServicesPageContent() {
     }
   }, [sortBy]);
 
-  // Загружаем объявления из БД
-  const { data: listings, isLoading } = useFindManylistings({
-    where: whereCondition,
-    include: {
-      user: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          company_name: true,
-          is_company: true,
+  const PAGE_SIZE = 12;
+
+  // Загружаем объявления с cursor-based пагинацией и оптимизированным кэшированием
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteFindManylistings(
+    {
+      where: whereCondition,
+      include: {
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            company_name: true,
+            is_company: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        images: {
+          where: {
+            is_cover: true,
+          },
+          select: {
+            id: true,
+            url: true,
+            sort_order: true,
+            is_cover: true,
+          },
+          take: 1,
+        },
+        aimag: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        khoroo: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      images: {
-        select: {
-          id: true,
-          url: true,
-          sort_order: true,
-        },
-        orderBy: {
-          sort_order: "asc",
-        },
-      },
+      orderBy: orderByCondition,
+      take: PAGE_SIZE,
     },
-    orderBy: orderByCondition,
-  });
+    {
+      getNextPageParam: (lastPage) => {
+        if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
+        const lastItem = lastPage[lastPage.length - 1];
+        return { cursor: { id: lastItem.id }, skip: 1 };
+      },
+      staleTime: 2 * 60 * 1000, // 2 минуты - списки обновляются не часто
+      gcTime: 10 * 60 * 1000, // 10 минут в памяти
+    }
+  );
+
+  // Собираем все объявления из всех страниц
+  const listings = React.useMemo(() => {
+    if (!data?.pages) return [];
+    return data.pages.flat();
+  }, [data]);
 
   // Update URL when filters change
   const updateURL = React.useCallback(() => {
@@ -465,14 +512,42 @@ function ServicesPageContent() {
                 ))}
               </div>
             ) : listingsData.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                {listingsData.map((listing) => (
-                  <ListingCard key={listing.id} listing={listing} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  {listingsData.map((listing) => (
+                    <ListingCard key={listing.id} listing={listing} />
+                  ))}
+                </div>
+                {/* Кнопка "Загрузить ещё" */}
+                {hasNextPage && (
+                  <div className="flex justify-center mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="min-w-40"
+                    >
+                      {isFetchingNextPage ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Ачааллаж байна...
+                        </>
+                      ) : (
+                        "Дараагийнхыг харах"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                <Image
+                  src="/icons/7486744.png"
+                  alt="Пустая коробка"
+                  width={80}
+                  height={80}
+                  className="mb-4 opacity-70"
+                />
                 <p className="text-muted-foreground mb-2">Үйлчилгээ олдсонгүй</p>
                 <p className="text-muted-foreground/70 text-sm mb-4">
                   Шүүлтүүр өөрчилж үзнэ үү эсвэл эхний зараа нэмээрэй

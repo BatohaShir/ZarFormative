@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, ChevronDown, Search, Check, ChevronRight } from "lucide-react";
+import { MapPin, ChevronDown, Search, Check, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,135 +11,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-
-interface District {
-  id: string;
-  name: string;
-}
-
-interface City {
-  id: string;
-  name: string;
-  districts: District[];
-}
-
-const cities: City[] = [
-  {
-    id: "ulaanbaatar",
-    name: "Улаанбаатар",
-    districts: [
-      { id: "bayangol", name: "Баянгол" },
-      { id: "bayanzurkh", name: "Баянзүрх" },
-      { id: "songinokhairkhan", name: "Сонгинохайрхан" },
-      { id: "sukhbaatar", name: "Сүхбаатар" },
-      { id: "khan-uul", name: "Хан-Уул" },
-      { id: "chingeltei", name: "Чингэлтэй" },
-      { id: "baganuur", name: "Багануур" },
-      { id: "bagakhangai", name: "Багахангай" },
-      { id: "nalaikh", name: "Налайх" },
-    ],
-  },
-  {
-    id: "darkhan",
-    name: "Дархан",
-    districts: [
-      { id: "darkhan", name: "Дархан" },
-      { id: "khongor", name: "Хонгор" },
-      { id: "shariin-gol", name: "Шарын гол" },
-      { id: "orkhon", name: "Орхон" },
-    ],
-  },
-  {
-    id: "erdenet",
-    name: "Эрдэнэт",
-    districts: [
-      { id: "bayan-undur", name: "Баян-Өндөр" },
-      { id: "jargalant", name: "Жаргалант" },
-    ],
-  },
-  {
-    id: "choibalsan",
-    name: "Чойбалсан",
-    districts: [
-      { id: "kherlen", name: "Хэрлэн" },
-      { id: "choibalsan-city", name: "Чойбалсан хот" },
-    ],
-  },
-  {
-    id: "murun",
-    name: "Мөрөн",
-    districts: [
-      { id: "murun-city", name: "Мөрөн хот" },
-      { id: "alag-erdene", name: "Алаг-Эрдэнэ" },
-    ],
-  },
-  {
-    id: "khovd",
-    name: "Ховд",
-    districts: [
-      { id: "jargalant-khovd", name: "Жаргалант" },
-      { id: "buyant", name: "Буянт" },
-    ],
-  },
-  {
-    id: "ulgii",
-    name: "Өлгий",
-    districts: [
-      { id: "ulgii-city", name: "Өлгий хот" },
-      { id: "altai", name: "Алтай" },
-    ],
-  },
-  {
-    id: "bayankhongor",
-    name: "Баянхонгор",
-    districts: [
-      { id: "bayankhongor-city", name: "Баянхонгор хот" },
-      { id: "erdenetsogt", name: "Эрдэнэцогт" },
-    ],
-  },
-  {
-    id: "arvaikheer",
-    name: "Арвайхээр",
-    districts: [
-      { id: "arvaikheer-city", name: "Арвайхээр хот" },
-      { id: "kharkhorin", name: "Хархорин" },
-    ],
-  },
-  {
-    id: "dalanzadgad",
-    name: "Даланзадгад",
-    districts: [
-      { id: "dalanzadgad-city", name: "Даланзадгад хот" },
-      { id: "khanbogd", name: "Ханбогд" },
-    ],
-  },
-  {
-    id: "sukhbaatar-city",
-    name: "Сүхбаатар",
-    districts: [
-      { id: "sukhbaatar-center", name: "Сүхбаатар төв" },
-      { id: "altanbulag", name: "Алтанбулаг" },
-    ],
-  },
-  {
-    id: "zuunmod",
-    name: "Зуунмод",
-    districts: [
-      { id: "zuunmod-city", name: "Зуунмод хот" },
-      { id: "sergelen", name: "Сэргэлэн" },
-    ],
-  },
-];
+import { useFindManyaimags } from "@/lib/hooks/aimags";
+import { useFindManydistricts } from "@/lib/hooks/districts";
+import type { aimags, districts } from "@prisma/client";
 
 interface CitySelectProps {
   trigger?: React.ReactNode | ((displayText: string) => React.ReactNode);
-  onSelect?: (city: string, district: string) => void;
-  value?: { city: string; district: string };
+  onSelect?: (aimagId: string, aimagName: string, districtId: string, districtName: string) => void;
+  value?: { aimagId: string; districtId: string };
 }
 
-const STORAGE_KEY = "uilchilgee_selected_city";
+const STORAGE_KEY = "uilchilgee_selected_location";
 
-function getStoredCity(): { cityName: string; districtName: string } | null {
+interface StoredLocation {
+  aimagId: string;
+  aimagName: string;
+  districtId: string;
+  districtName: string;
+}
+
+function getStoredLocation(): StoredLocation | null {
   if (typeof window === "undefined") return null;
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -149,16 +40,16 @@ function getStoredCity(): { cityName: string; districtName: string } | null {
   }
 }
 
-function storeCity(cityName: string, districtName: string) {
+function storeLocation(location: StoredLocation) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ cityName, districtName }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
   } catch {
     // Ignore storage errors
   }
 }
 
-function clearStoredCity() {
+function clearStoredLocation() {
   if (typeof window === "undefined") return;
   try {
     localStorage.removeItem(STORAGE_KEY);
@@ -169,84 +60,138 @@ function clearStoredCity() {
 
 export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
   const [open, setOpen] = React.useState(false);
-  const [isInitialized, setIsInitialized] = React.useState(false);
-  const [selectedCity, setSelectedCity] = React.useState<City | null>(null);
-  const [selectedDistrict, setSelectedDistrict] = React.useState<District | null>(null);
+  const [selectedAimag, setSelectedAimag] = React.useState<aimags | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = React.useState<districts | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [showCityList, setShowCityList] = React.useState(true);
+  const [showAimagList, setShowAimagList] = React.useState(true);
+
+  // Загружаем аймаги из БД (кэш 24 часа - редко меняются)
+  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags(
+    {
+      where: {
+        is_active: true,
+      },
+      orderBy: {
+        sort_order: "asc",
+      },
+    },
+    {
+      staleTime: 24 * 60 * 60 * 1000, // 24 часа
+      gcTime: 48 * 60 * 60 * 1000, // 48 часов
+    }
+  );
+
+  // Загружаем дүүрэги для выбранного аймага (кэш 24 часа)
+  const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
+    {
+      where: {
+        aimag_id: selectedAimag?.id,
+        is_active: true,
+      },
+      orderBy: {
+        sort_order: "asc",
+      },
+    },
+    {
+      enabled: !!selectedAimag,
+      staleTime: 24 * 60 * 60 * 1000, // 24 часа
+      gcTime: 48 * 60 * 60 * 1000, // 48 часов
+    }
+  );
+
+  const aimags = aimagsData || [];
+  const districts = districtsData || [];
 
   // Initialize from localStorage on mount
   React.useEffect(() => {
-    const stored = getStoredCity();
-    if (value?.city) {
-      const city = cities.find((c) => c.name === value.city) || null;
-      setSelectedCity(city);
-      if (value.district && city) {
-        setSelectedDistrict(city.districts.find((d) => d.name === value.district) || null);
-      }
-    } else if (stored) {
-      const city = cities.find((c) => c.name === stored.cityName) || null;
-      setSelectedCity(city);
-      if (stored.districtName && city) {
-        setSelectedDistrict(city.districts.find((d) => d.name === stored.districtName) || null);
-      }
+    const stored = getStoredLocation();
+    if (value?.aimagId && aimags.length > 0) {
+      const aimag = aimags.find((a) => a.id === value.aimagId) || null;
+      setSelectedAimag(aimag);
+    } else if (stored && aimags.length > 0) {
+      const aimag = aimags.find((a) => a.id === stored.aimagId) || null;
+      setSelectedAimag(aimag);
     }
-    setIsInitialized(true);
-  }, [value]);
+  }, [value, aimags]);
 
-  const filteredCities = cities.filter((city) =>
-    city.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Load district from storage after districts are loaded
+  React.useEffect(() => {
+    const stored = getStoredLocation();
+    if (value?.districtId && districts.length > 0) {
+      const district = districts.find((d) => d.id === value.districtId) || null;
+      setSelectedDistrict(district);
+    } else if (stored?.districtId && districts.length > 0) {
+      const district = districts.find((d) => d.id === stored.districtId) || null;
+      setSelectedDistrict(district);
+    }
+  }, [value, districts]);
+
+  const filteredAimags = aimags.filter((aimag) =>
+    aimag.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCitySelect = (city: City) => {
-    setSelectedCity(city);
+  const handleAimagSelect = (aimag: aimags) => {
+    setSelectedAimag(aimag);
     setSelectedDistrict(null);
-    setShowCityList(false);
+    setShowAimagList(false);
   };
 
-  const handleDistrictSelect = (district: District) => {
+  const handleDistrictSelect = (district: districts) => {
     setSelectedDistrict(district);
-    storeCity(selectedCity?.name || "", district.name);
-    onSelect?.(selectedCity?.name || "", district.name);
+    const location: StoredLocation = {
+      aimagId: selectedAimag?.id || "",
+      aimagName: selectedAimag?.name || "",
+      districtId: district.id,
+      districtName: district.name,
+    };
+    storeLocation(location);
+    onSelect?.(location.aimagId, location.aimagName, location.districtId, location.districtName);
     setOpen(false);
   };
 
-  const handleSelectWholeCity = () => {
-    if (selectedCity) {
-      storeCity(selectedCity.name, "");
-      onSelect?.(selectedCity.name, "");
+  const handleSelectWholeAimag = () => {
+    if (selectedAimag) {
+      const location: StoredLocation = {
+        aimagId: selectedAimag.id,
+        aimagName: selectedAimag.name,
+        districtId: "",
+        districtName: "",
+      };
+      storeLocation(location);
+      onSelect?.(location.aimagId, location.aimagName, "", "");
       setOpen(false);
     }
   };
 
   const handleReset = () => {
-    setSelectedCity(null);
+    setSelectedAimag(null);
     setSelectedDistrict(null);
     setSearchQuery("");
-    setShowCityList(true);
-    clearStoredCity();
+    setShowAimagList(true);
+    clearStoredLocation();
+    onSelect?.("", "", "", "");
   };
 
-  const handleChangeCity = () => {
-    setShowCityList(true);
+  const handleChangeAimag = () => {
+    setShowAimagList(true);
     setSearchQuery("");
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
     if (isOpen) {
-      if (selectedCity) {
-        setShowCityList(false);
+      if (selectedAimag) {
+        setShowAimagList(false);
       } else {
-        setShowCityList(true);
+        setShowAimagList(true);
       }
     }
   };
 
   const displayText = selectedDistrict
-    ? `${selectedCity?.name}, ${selectedDistrict.name}`
-    : selectedCity
-    ? selectedCity.name
+    ? `${selectedAimag?.name}, ${selectedDistrict.name}`
+    : selectedAimag
+    ? selectedAimag.name
     : "Бүх хот";
 
   return (
@@ -268,15 +213,15 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Хот эсвэл бүс нутаг</DialogTitle>
+          <DialogTitle>Аймаг эсвэл хот</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          {/* Search - only show when city list is visible */}
-          {showCityList && (
+          {/* Search - only show when aimag list is visible */}
+          {showAimagList && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Хот хайх..."
+                placeholder="Аймаг хайх..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -285,55 +230,77 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
           )}
 
           {/* Reset button */}
-          {(selectedCity || selectedDistrict) && showCityList && (
+          {(selectedAimag || selectedDistrict) && showAimagList && (
             <Button variant="ghost" size="sm" onClick={handleReset} className="w-full">
-              Бүх хот сонгох
+              Бүгдийг сонгох
             </Button>
           )}
 
-          {/* Cities list */}
-          {showCityList && (
-            <div className="max-h-72 overflow-y-auto space-y-1">
-              <p className="text-sm font-medium text-muted-foreground px-2 py-1">Хотууд</p>
-              {filteredCities.map((city) => (
-                <button
-                  key={city.id}
-                  onClick={() => handleCitySelect(city)}
-                  className={`w-full text-left px-3 py-2 rounded-md hover:bg-accent flex items-center justify-between transition-colors ${
-                    selectedCity?.id === city.id ? "bg-accent" : ""
-                  }`}
-                >
-                  <span>{city.name}</span>
-                  {selectedCity?.id === city.id ? (
-                    <Check className="h-4 w-4 text-primary" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-              ))}
+          {/* Loading state */}
+          {isLoadingAimags && showAimagList && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          {/* Selected city header with change button */}
-          {selectedCity && !showCityList && (
+          {/* Aimags list */}
+          {showAimagList && !isLoadingAimags && (
+            <div className="max-h-72 overflow-y-auto space-y-1">
+              <p className="text-sm font-medium text-muted-foreground px-2 py-1">
+                Аймаг, хотууд
+              </p>
+              {filteredAimags.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Аймаг олдсонгүй
+                </p>
+              ) : (
+                filteredAimags.map((aimag) => (
+                  <button
+                    key={aimag.id}
+                    onClick={() => handleAimagSelect(aimag)}
+                    className={`w-full text-left px-3 py-2 rounded-md hover:bg-accent flex items-center justify-between transition-colors ${
+                      selectedAimag?.id === aimag.id ? "bg-accent" : ""
+                    }`}
+                  >
+                    <span>{aimag.name}</span>
+                    {selectedAimag?.id === aimag.id ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Selected aimag header with change button */}
+          {selectedAimag && !showAimagList && (
             <div className="space-y-4">
               <div className="flex items-center justify-between bg-muted rounded-md px-3 py-2">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  <span className="font-medium">{selectedCity.name}</span>
+                  <span className="font-medium">{selectedAimag.name}</span>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleChangeCity}>
+                <Button variant="ghost" size="sm" onClick={handleChangeAimag}>
                   Өөрчлөх
                 </Button>
               </div>
 
+              {/* Loading districts */}
+              {isLoadingDistricts && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
               {/* Districts list */}
-              {selectedCity.districts.length > 0 && (
+              {!isLoadingDistricts && districts.length > 0 && (
                 <div className="max-h-60 overflow-y-auto space-y-1">
                   <p className="text-sm font-medium text-muted-foreground px-2 py-1">
-                    Дүүргүүд
+                    Дүүрэг / Сум
                   </p>
-                  {selectedCity.districts.map((district) => (
+                  {districts.map((district) => (
                     <button
                       key={district.id}
                       onClick={() => handleDistrictSelect(district)}
@@ -350,9 +317,16 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
                 </div>
               )}
 
-              {/* Confirm button - select whole city */}
-              <Button onClick={handleSelectWholeCity} variant="outline" className="w-full">
-                Бүх {selectedCity.name} сонгох
+              {/* No districts message */}
+              {!isLoadingDistricts && districts.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Дүүрэг/сум олдсонгүй
+                </p>
+              )}
+
+              {/* Confirm button - select whole aimag */}
+              <Button onClick={handleSelectWholeAimag} variant="outline" className="w-full">
+                Бүх {selectedAimag.name} сонгох
               </Button>
             </div>
           )}

@@ -31,16 +31,6 @@ import { useCurrentUser } from "@/hooks/use-current-user";
 import { uploadListingImage } from "@/lib/storage/listings";
 import { generateUniqueSlug } from "@/lib/utils/slug";
 
-const cities = [
-  "Улаанбаатар",
-  "Эрдэнэт",
-  "Дархан",
-  "Чойбалсан",
-  "Мөрөн",
-  "Ховд",
-  "Өлгий",
-  "Улиастай",
-];
 
 const listingSchema = z.object({
   title: z.string().min(5, "Минимум 5 символов").max(200, "Максимум 200 символов"),
@@ -48,8 +38,6 @@ const listingSchema = z.object({
   description: z.string().min(20, "Минимум 20 символов"),
   price: z.string().optional(),
   is_negotiable: z.boolean(),
-  city: z.string().min(1, "Выберите город").or(z.literal("")).refine(val => val !== "", "Выберите город"),
-  district: z.string().optional(),
   address: z.string().optional(),
 });
 
@@ -91,7 +79,6 @@ export default function CreateListingPage() {
     defaultValues: {
       is_negotiable: false,
       category_id: "",
-      city: "",
     },
   });
 
@@ -117,8 +104,6 @@ export default function CreateListingPage() {
           description: data.description,
           category_id: data.category_id,
           user_id: user.id,
-          city: data.city,
-          district: data.district || null,
           address: data.address || null,
           price: data.price ? parseFloat(data.price) : null,
           is_negotiable: data.is_negotiable,
@@ -302,38 +287,6 @@ export default function CreateListingPage() {
               <Label htmlFor="is_negotiable" className="cursor-pointer">
                 Договорная цена
               </Label>
-            </div>
-
-            {/* Город */}
-            <div className="space-y-2">
-              <Label htmlFor="city">
-                Город <span className="text-destructive">*</span>
-              </Label>
-              <Select onValueChange={(value) => setValue("city", value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите город" />
-                </SelectTrigger>
-                <SelectContent>
-                  {cities.map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.city && (
-                <p className="text-sm text-destructive">{errors.city.message}</p>
-              )}
-            </div>
-
-            {/* Район */}
-            <div className="space-y-2">
-              <Label htmlFor="district">Район</Label>
-              <Input
-                id="district"
-                {...register("district")}
-                placeholder="Например: Сүхбаатар"
-              />
             </div>
 
             {/* Адрес */}

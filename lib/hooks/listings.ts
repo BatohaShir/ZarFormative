@@ -328,7 +328,7 @@ export function useSuspenseCountlistings<TArgs extends Prisma.listingsCountArgs,
 }
 import type { ListingStatus } from '@prisma/client';
 
-export function useChecklistings<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; user_id?: string; category_id?: string; title?: string; slug?: string; description?: string; currency?: string; is_negotiable?: boolean; city?: string; district?: string; address?: string; status?: ListingStatus; is_active?: boolean; views_count?: number }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
+export function useChecklistings<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; user_id?: string; category_id?: string; title?: string; slug?: string; description?: string; currency?: string; is_negotiable?: boolean; aimag_id?: string; district_id?: string; khoroo_id?: string; address?: string; status?: ListingStatus; is_active?: boolean; views_count?: number }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
     const { endpoint, fetch } = getHooksContext();
     return useModelQuery<boolean, boolean, TError>('listings', `${endpoint}/listings/check`, args, options, fetch);
 }
