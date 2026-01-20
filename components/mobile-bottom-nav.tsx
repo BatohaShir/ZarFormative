@@ -12,7 +12,7 @@ import { AuthModal } from "./auth-modal";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { favorites } = useFavorites();
+  const { count: favoritesCount } = useFavorites();
   const { totalUnreadCount } = useMessages();
   const { isAuthenticated } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -51,7 +51,7 @@ export function MobileBottomNav() {
       icon: Heart,
       label: "Лайк",
       isActive: isActive("/favorites"),
-      badge: favorites.size > 0 ? favorites.size : null,
+      badge: favoritesCount > 0 ? favoritesCount : null,
     },
     {
       href: "/services/create",

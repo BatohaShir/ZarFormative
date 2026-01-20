@@ -3,204 +3,203 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
-import { ServiceCard } from "@/components/service-card";
-import { ChevronLeft, Heart } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ChevronLeft,
+  Heart,
+  MapPin,
+  Eye,
+  Loader2,
+  Trash2,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { useFavorites } from "@/contexts/favorites-context";
+import { useFavorites, type FavoriteWithListing } from "@/contexts/favorites-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { Decimal } from "@prisma/client/runtime/library";
 
-const allServices = [
-  {
-    id: 1,
-    title: "Орон сууцны засвар",
-    description: "Мэргэжлийн баг, чанартай ажил",
-    price: "50,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Болд Констракшн",
-    providerAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
-    rating: 4.8,
-    likes: 892,
-    successful: 245,
-    failed: 3,
-    image: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=300&h=300&fit=crop",
-  },
-  {
-    id: 2,
-    title: "Гэрийн цэвэрлэгээ",
-    description: "Өдөр бүр, долоо хоног бүр",
-    price: "30,000₮-с",
-    category: "Цэвэрлэгээ",
-    city: "Улаанбаатар",
-    provider: "Цэвэр Гэр ХХК",
-    providerAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    rating: 4.9,
-    likes: 654,
-    successful: 178,
-    failed: 2,
-    image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=300&h=300&fit=crop",
-  },
-  {
-    id: 3,
-    title: "Компьютер засвар",
-    description: "Бүх төрлийн техник засвар",
-    price: "20,000₮-с",
-    category: "Техник",
-    city: "Дархан",
-    provider: "ТехМастер",
-    providerAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    rating: 4.7,
-    likes: 1203,
-    successful: 412,
-    failed: 8,
-    image: "https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=300&h=300&fit=crop",
-  },
-  {
-    id: 4,
-    title: "Англи хэлний хичээл",
-    description: "Туршлагатай багш, онлайн/офлайн",
-    price: "40,000₮/цаг",
-    category: "Сургалт",
-    city: "Улаанбаатар",
-    provider: "Сараа багш",
-    providerAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    rating: 5.0,
-    likes: 1567,
-    successful: 320,
-    failed: 0,
-    image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=300&h=300&fit=crop",
-  },
-  {
-    id: 5,
-    title: "Ачаа тээвэр",
-    description: "Хот доторх болон хот хоорондын",
-    price: "80,000₮-с",
-    category: "Тээвэр",
-    city: "Улаанбаатар",
-    provider: "Хурд Логистик",
-    providerAvatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop",
-    rating: 4.6,
-    likes: 2341,
-    successful: 856,
-    failed: 12,
-    image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=300&h=300&fit=crop",
-  },
-  {
-    id: 6,
-    title: "Гоо сайхны үйлчилгээ",
-    description: "Үс засалт, гоо сайхан",
-    price: "15,000₮-с",
-    category: "Гоо сайхан",
-    city: "Эрдэнэт",
-    provider: "Гоо Студио",
-    providerAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
-    rating: 4.9,
-    likes: 1876,
-    successful: 534,
-    failed: 4,
-    image: "https://images.unsplash.com/photo-1560066984-138dadb4c035?w=300&h=300&fit=crop",
-  },
-  {
-    id: 7,
-    title: "Веб хөгжүүлэлт",
-    description: "Вебсайт, апп хөгжүүлэлт",
-    price: "500,000₮-с",
-    category: "IT",
-    city: "Улаанбаатар",
-    provider: "КодМастер ХХК",
-    providerAvatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop",
-    rating: 4.8,
-    likes: 456,
-    successful: 89,
-    failed: 2,
-    image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=300&h=300&fit=crop",
-  },
-  {
-    id: 8,
-    title: "Авто засвар",
-    description: "Бүх төрлийн авто засвар",
-    price: "30,000₮-с",
-    category: "Авто",
-    city: "Улаанбаатар",
-    provider: "АвтоПро Сервис",
-    providerAvatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop",
-    rating: 4.7,
-    likes: 1432,
-    successful: 623,
-    failed: 9,
-    image: "https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=300&h=300&fit=crop",
-  },
-  {
-    id: 9,
-    title: "Цахилгааны ажил",
-    description: "Цахилгаан угсралт, засвар",
-    price: "25,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Электрик Про",
-    providerAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-    rating: 4.6,
-    likes: 678,
-    successful: 234,
-    failed: 5,
-    image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=300&h=300&fit=crop",
-  },
-  {
-    id: 10,
-    title: "Сантехникийн ажил",
-    description: "Ус, дулааны шугам засвар",
-    price: "35,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Усны Мастер",
-    providerAvatar: "https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=100&h=100&fit=crop",
-    rating: 4.5,
-    likes: 543,
-    successful: 189,
-    failed: 7,
-    image: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=300&h=300&fit=crop",
-  },
-  {
-    id: 11,
-    title: "Гэрийн тавилга угсралт",
-    description: "Тавилга угсрах, задлах",
-    price: "20,000₮-с",
-    category: "Засвар",
-    city: "Улаанбаатар",
-    provider: "Тавилга Мастер",
-    providerAvatar: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop",
-    rating: 4.8,
-    likes: 432,
-    successful: 156,
-    failed: 2,
-    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=300&h=300&fit=crop",
-  },
-  {
-    id: 12,
-    title: "Зураг авалт",
-    description: "Мэргэжлийн гэрэл зураг",
-    price: "100,000₮-с",
-    category: "Урлаг",
-    city: "Улаанбаатар",
-    provider: "Фото Студио",
-    providerAvatar: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100&h=100&fit=crop",
-    rating: 4.9,
-    likes: 987,
-    successful: 345,
-    failed: 1,
-    image: "https://images.unsplash.com/photo-1542038784456-1ea8e935640e?w=300&h=300&fit=crop",
-  },
-];
+// Форматирование цены
+function formatPrice(price: Decimal | null, currency: string, isNegotiable: boolean): string {
+  if (isNegotiable) return "Тохиролцоно";
+  if (!price) return "Үнэгүй";
+
+  const numPrice = Number(price);
+  const formatted = new Intl.NumberFormat("mn-MN").format(numPrice);
+
+  if (currency === "MNT") {
+    return `${formatted}₮`;
+  }
+  return `$${formatted}`;
+}
+
+// Skeleton для загрузки
+function FavoriteCardSkeleton() {
+  return (
+    <div className="rounded-xl md:rounded-2xl overflow-hidden border">
+      <Skeleton className="aspect-4/3" />
+      <div className="p-3 md:p-4 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+        <div className="flex items-center gap-2 mt-2">
+          <Skeleton className="h-5 w-5 rounded-full" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Карточка избранного
+function FavoriteCard({
+  favorite,
+  onRemove,
+}: {
+  favorite: FavoriteWithListing;
+  onRemove: (id: string) => void;
+}) {
+  const listing = favorite.listing;
+  const imageUrl = listing.images?.[0]?.url || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
+  const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+
+  // Получить имя провайдера
+  const providerName = React.useMemo(() => {
+    const user = listing.user;
+    if (user.first_name || user.last_name) {
+      return [user.first_name, user.last_name].filter(Boolean).join(" ");
+    }
+    return "Хэрэглэгч";
+  }, [listing.user]);
+
+  const handleRemove = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onRemove(listing.id);
+  }, [onRemove, listing.id]);
+
+  return (
+    <Link
+      href={`/services/${listing.slug}`}
+      className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/30 hover:shadow-xl transition-all duration-300"
+    >
+      {/* Image */}
+      <div className="aspect-4/3 relative overflow-hidden">
+        <Image
+          src={imageUrl}
+          alt={listing.title}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover group-hover:scale-110 transition-transform duration-500"
+        />
+        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* Category badge */}
+        <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
+          {listing.category.name}
+        </span>
+
+        {/* Remove button */}
+        <button
+          onClick={handleRemove}
+          className="absolute top-2 right-2 md:top-3 md:right-3 p-1.5 md:p-2 rounded-full bg-white/90 dark:bg-black/70 hover:bg-white dark:hover:bg-black transition-colors shadow-sm group/btn"
+          title="Хасах"
+        >
+          <Heart className="w-4 h-4 md:w-5 md:h-5 fill-pink-500 text-pink-500 group-hover/btn:hidden" />
+          <Trash2 className="w-4 h-4 md:w-5 md:h-5 text-red-500 hidden group-hover/btn:block" />
+        </button>
+
+        {/* Price */}
+        <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3">
+          <p className="text-white font-bold text-base md:text-lg drop-shadow-lg">
+            {priceDisplay}
+          </p>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-3 md:p-4">
+        <h4 className="font-semibold text-xs md:text-sm line-clamp-1">
+          {listing.title}
+        </h4>
+        <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 mt-0.5 md:mt-1">
+          {listing.description}
+        </p>
+
+        {/* Provider */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            {listing.user.avatar_url ? (
+              <Image
+                src={listing.user.avatar_url}
+                alt={providerName}
+                width={20}
+                height={20}
+                className="rounded-full object-cover w-4 h-4 md:w-5 md:h-5"
+              />
+            ) : (
+              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] md:text-[10px] font-medium text-primary">
+                {providerName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span className="text-[10px] md:text-xs text-primary font-medium line-clamp-1">
+              {providerName}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 md:gap-2 text-[9px] md:text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-0.5">
+              <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              {listing.views_count}
+            </span>
+            <span className="flex items-center gap-0.5 text-pink-500">
+              <Heart className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
+              {listing.favorites_count}
+            </span>
+          </div>
+        </div>
+
+        {listing.aimag && (
+          <div className="flex items-center gap-1 mt-1.5 md:mt-2 text-muted-foreground">
+            <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
+            <span className="text-[10px] md:text-[11px] line-clamp-1">
+              {listing.aimag.name}
+            </span>
+          </div>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+// Пустое состояние
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <Image
+        src="/icons/7486744.png"
+        alt="Пустая коробка"
+        width={80}
+        height={80}
+        className="mb-4 opacity-70"
+      />
+      <p className="text-muted-foreground mb-2">Таалагдсан зүйлс хоосон байна</p>
+      <p className="text-muted-foreground/70 text-sm mb-4">
+        Үйлчилгээнүүдийг үзэж, таалагдсан зүйлсээ хадгалаарай
+      </p>
+      <Link href="/services">
+        <Button>Үйлчилгээ хайх</Button>
+      </Link>
+    </div>
+  );
+}
 
 export default function FavoritesPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { favorites } = useFavorites();
+  const { favorites, isLoading, toggleFavorite, count, isToggling } = useFavorites();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
 
   React.useEffect(() => {
@@ -221,19 +220,26 @@ export default function FavoritesPage() {
     }
   };
 
-  const favoriteServices = allServices.filter((service) =>
-    favorites.has(service.id)
-  );
+  const handleRemoveFavorite = React.useCallback((listingId: string) => {
+    toggleFavorite(listingId);
+  }, [toggleFavorite]);
 
+  // Не авторизован
   if (!isAuthenticated) {
     return (
       <>
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <div className="text-center">
-            <Heart className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-xl font-semibold mb-2">Нэвтэрнэ үү</h2>
-            <p className="text-muted-foreground mb-4">
-              Дуртай үйлчилгээнүүдээ харахын тулд нэвтэрнэ үү
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <Image
+              src="/icons/7486744.png"
+              alt="Пустая коробка"
+              width={80}
+              height={80}
+              className="mx-auto mb-4 opacity-70"
+            />
+            <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
+            <p className="text-muted-foreground text-sm">
+              Дуртай үйлчилгээнүүдээ хадгалж, хүссэн үедээ үзэхийн тулд нэвтрэх шаардлагатай
             </p>
           </div>
         </div>
@@ -275,38 +281,41 @@ export default function FavoritesPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
+      <div className="container mx-auto px-4 py-4 md:py-6">
         {/* Page Title */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center">
-            <Heart className="h-5 w-5 md:h-6 md:w-6 text-pink-500 fill-pink-500" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl md:text-2xl font-bold">Таалагдсан</h2>
+            {isToggling && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            )}
           </div>
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold">Дуртай үйлчилгээ</h2>
-            <p className="text-sm text-muted-foreground">
-              {favoriteServices.length} үйлчилгээ
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            {isLoading ? "Ачааллаж байна..." : `${count} үйлчилгээ`}
+          </p>
         </div>
 
-        {/* Favorites Grid */}
-        {favoriteServices.length > 0 ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-            {favoriteServices.map((service) => (
-              <ServiceCard key={service.id} service={service} />
+        {/* Loading State */}
+        {isLoading ? (
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <FavoriteCardSkeleton key={i} />
+            ))}
+          </div>
+        ) : favorites.length > 0 ? (
+          /* Favorites Grid */
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {favorites.map((favorite) => (
+              <FavoriteCard
+                key={favorite.id}
+                favorite={favorite}
+                onRemove={handleRemoveFavorite}
+              />
             ))}
           </div>
         ) : (
-          <div className="text-center py-16">
-            <Heart className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">Дуртай үйлчилгээ байхгүй байна</h3>
-            <p className="text-muted-foreground mb-6">
-              Та дуртай үйлчилгээгээ ❤️ дарж хадгалаарай
-            </p>
-            <Link href="/services">
-              <Button>Үйлчилгээ үзэх</Button>
-            </Link>
-          </div>
+          /* Empty State */
+          <EmptyState />
         )}
       </div>
     </div>

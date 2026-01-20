@@ -222,6 +222,7 @@ model profiles {
   work_experiences       profiles_work_experiences[]
   listings               listings[]
   viewed_listings        listings_views[]
+  favorites              user_favorites[]
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -441,7 +442,8 @@ model listings {
   is_active     Boolean       @default(true)      // Активно?
 
   // Статистика
-  views_count   Int           @default(0)         // Количество просмотров
+  views_count      Int           @default(0)         // Количество просмотров
+  favorites_count  Int           @default(0)         // Количество в избранном
 
   // Full-text поиск (обновляется триггером PostgreSQL)
   search_vector Unsupported("tsvector")?
@@ -459,6 +461,7 @@ model listings {
   khoroo        khoroos?      @relation(fields: [khoroo_id], references: [id])
   images        listings_images[]
   views         listings_views[]
+  favorites     user_favorites[]
 
   // Indexes для оптимизации запросов
   @@index([user_id])                              // Мои объявления
@@ -567,4 +570,41 @@ model listings_views {
 
   // Чтение - владелец объявления или админ
   @@allow('read', auth() == listing.user || auth().role in [admin, manager])
+}
+
+// ============================================
+// User Favorites - избранные объявления
+// ============================================
+
+model user_favorites {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  listing_id  String
+  created_at  DateTime @default(now())
+
+  // Relations
+  user        profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  listing     listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  // Уникальность: один лайк на пользователя на объявление
+  @@unique([user_id, listing_id])
+
+  // Indexes для оптимизации
+  @@index([user_id, created_at(sort: Desc)])  // Мои избранные с сортировкой
+  @@index([listing_id])                        // Подсчёт лайков объявления
+
+  @@map("user_favorites")
+
+  // === RBAC Rules ===
+  // Пользователь может добавлять в избранное
+  @@allow('create', auth() != null && auth().id == user_id)
+
+  // Пользователь видит свои избранные
+  @@allow('read', auth() != null && auth().id == user_id)
+
+  // Пользователь может удалять из избранного
+  @@allow('delete', auth() != null && auth().id == user_id)
+
+  // Admin видит все избранные (для аналитики)
+  @@allow('read', auth().role == admin)
 }

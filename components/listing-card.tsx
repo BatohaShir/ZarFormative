@@ -77,18 +77,18 @@ function formatLocation(listing: ListingWithRelations): string {
 export const ListingCard = React.memo(function ListingCard({
   listing,
 }: ListingCardProps) {
-  const { toggleFavorite, isFavorite } = useFavorites();
-  // Используем числовой хеш от id для совместимости с текущим контекстом избранного
-  const numericId = Math.abs(listing.id.split("").reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0));
-  const isLiked = isFavorite(numericId);
+  const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+  const isLiked = isFavorite(listing.id);
 
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      toggleFavorite(numericId);
+      if (!isToggling) {
+        toggleFavorite(listing.id);
+      }
     },
-    [toggleFavorite, numericId]
+    [toggleFavorite, listing.id, isToggling]
   );
 
   const providerName = getProviderName(listing.user);
@@ -170,7 +170,7 @@ export const ListingCard = React.memo(function ListingCard({
             </span>
             <span className="flex items-center gap-0.5 text-pink-500">
               <Heart className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
-              {isLiked ? 1 : 0}
+              {listing.favorites_count + (isLiked ? 1 : 0)}
             </span>
           </div>
         </div>

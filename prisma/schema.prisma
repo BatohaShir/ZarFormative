@@ -135,6 +135,7 @@ model profiles {
   work_experiences      profiles_work_experiences[]
   listings              listings[]
   viewed_listings       listings_views[]
+  favorites             user_favorites[]
 
   @@index([is_deleted])
   @@index([is_company])
@@ -222,35 +223,37 @@ model profiles_work_experiences {
 }
 
 model listings {
-  id            String                   @id() @default(cuid())
-  user_id       String                   @db.Uuid()
-  category_id   String
-  title         String
-  slug          String                   @unique()
-  description   String                   @db.Text()
-  price         Decimal?                 @db.Decimal(12, 2)
-  currency      String                   @default("MNT")
-  is_negotiable Boolean                  @default(false)
-  aimag_id      String?
-  district_id   String?
-  khoroo_id     String?
-  address       String?
-  latitude      Decimal?                 @db.Decimal(10, 7)
-  longitude     Decimal?                 @db.Decimal(10, 7)
-  status        ListingStatus            @default(draft)
-  is_active     Boolean                  @default(true)
-  views_count   Int                      @default(0)
-  search_vector Unsupported("tsvector")?
-  created_at    DateTime                 @default(now())
-  updated_at    DateTime                 @updatedAt()
-  published_at  DateTime?
-  user          profiles                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category      categories               @relation(fields: [category_id], references: [id])
-  aimag         aimags?                  @relation(fields: [aimag_id], references: [id])
-  district      districts?               @relation(fields: [district_id], references: [id])
-  khoroo        khoroos?                 @relation(fields: [khoroo_id], references: [id])
-  images        listings_images[]
-  views         listings_views[]
+  id              String                   @id() @default(cuid())
+  user_id         String                   @db.Uuid()
+  category_id     String
+  title           String
+  slug            String                   @unique()
+  description     String                   @db.Text()
+  price           Decimal?                 @db.Decimal(12, 2)
+  currency        String                   @default("MNT")
+  is_negotiable   Boolean                  @default(false)
+  aimag_id        String?
+  district_id     String?
+  khoroo_id       String?
+  address         String?
+  latitude        Decimal?                 @db.Decimal(10, 7)
+  longitude       Decimal?                 @db.Decimal(10, 7)
+  status          ListingStatus            @default(draft)
+  is_active       Boolean                  @default(true)
+  views_count     Int                      @default(0)
+  favorites_count Int                      @default(0)
+  search_vector   Unsupported("tsvector")?
+  created_at      DateTime                 @default(now())
+  updated_at      DateTime                 @updatedAt()
+  published_at    DateTime?
+  user            profiles                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  category        categories               @relation(fields: [category_id], references: [id])
+  aimag           aimags?                  @relation(fields: [aimag_id], references: [id])
+  district        districts?               @relation(fields: [district_id], references: [id])
+  khoroo          khoroos?                 @relation(fields: [khoroo_id], references: [id])
+  images          listings_images[]
+  views           listings_views[]
+  favorites       user_favorites[]
 
   @@index([user_id])
   @@index([category_id])
@@ -296,4 +299,18 @@ model listings_views {
   @@index([listing_id, viewer_id, viewed_at(sort: Desc)])
   @@index([listing_id, ip_address, viewed_at(sort: Desc)])
   @@map("listings_views")
+}
+
+model user_favorites {
+  id         String   @id() @default(uuid()) @db.Uuid()
+  user_id    String   @db.Uuid()
+  listing_id String
+  created_at DateTime @default(now())
+  user       profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  listing    listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, listing_id])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([listing_id])
+  @@map("user_favorites")
 }

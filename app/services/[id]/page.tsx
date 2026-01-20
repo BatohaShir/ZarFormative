@@ -172,8 +172,8 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
     },
   });
 
-  // Числовой хеш для избранного
-  const numericId = listing ? Math.abs(listing.id.split("").reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)) : 0;
+  // ID объявления для избранного
+  const listingId = listing?.id || "";
 
   // Real-time обновление счётчика просмотров
   const { viewsCount } = useRealtimeViews({
@@ -258,7 +258,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
 
   const handleSave = () => {
     if (listing) {
-      toggleFavorite(numericId);
+      toggleFavorite(listingId);
     }
   };
 
@@ -397,11 +397,11 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               <Button
                 variant="outline"
                 size="sm"
-                className={`flex-1 sm:flex-none ${isFavorite(numericId) ? "bg-pink-50 border-pink-200 text-pink-600 dark:bg-pink-950/30 dark:border-pink-800" : ""}`}
+                className={`flex-1 sm:flex-none ${isFavorite(listingId) ? "bg-pink-50 border-pink-200 text-pink-600 dark:bg-pink-950/30 dark:border-pink-800" : ""}`}
                 onClick={handleSave}
               >
-                <Heart className={`h-4 w-4 mr-2 ${isFavorite(numericId) ? "fill-current" : ""}`} />
-                {isFavorite(numericId) ? "Хадгалсан" : "Хадгалах"}
+                <Heart className={`h-4 w-4 mr-2 ${isFavorite(listingId) ? "fill-current" : ""}`} />
+                {isFavorite(listingId) ? "Хадгалсан" : "Хадгалах"}
               </Button>
             </div>
 

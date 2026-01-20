@@ -8,7 +8,7 @@ import { useFavorites } from "@/contexts/favorites-context";
 
 interface ServiceCardProps {
   service: {
-    id: number;
+    id: number | string;
     title: string;
     description: string;
     price: string;
@@ -27,16 +27,20 @@ interface ServiceCardProps {
 export const ServiceCard = React.memo(function ServiceCard({
   service,
 }: ServiceCardProps) {
-  const { toggleFavorite, isFavorite } = useFavorites();
-  const isLiked = isFavorite(service.id);
+  const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+  // Преобразуем id в строку для совместимости с новым API
+  const serviceId = String(service.id);
+  const isLiked = isFavorite(serviceId);
 
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      toggleFavorite(service.id);
+      if (!isToggling) {
+        toggleFavorite(serviceId);
+      }
     },
-    [toggleFavorite, service.id]
+    [toggleFavorite, serviceId, isToggling]
   );
 
   return (

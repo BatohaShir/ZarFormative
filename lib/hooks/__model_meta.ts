@@ -364,6 +364,12 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'viewer',
+                }, favorites: {
+                    name: "favorites",
+                    type: "user_favorites",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -707,6 +713,10 @@ const metadata: ModelMeta = {
                     name: "views_count",
                     type: "Int",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, favorites_count: {
+                    name: "favorites_count",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
                 }, search_vector: {
                     name: "search_vector",
                     type: "undefined",
@@ -771,6 +781,12 @@ const metadata: ModelMeta = {
                 }, views: {
                     name: "views",
                     type: "listings_views",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'listing',
+                }, favorites: {
+                    name: "favorites",
+                    type: "user_favorites",
                     isDataModel: true,
                     isArray: true,
                     backLink: 'listing',
@@ -883,13 +899,61 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        user_favorites: {
+            name: 'user_favorites', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'user',
+                }, listing_id: {
+                    name: "listing_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'listing',
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user: {
+                    name: "user",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'favorites',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                }, listing: {
+                    name: "listing",
+                    type: "listings",
+                    isDataModel: true,
+                    backLink: 'favorites',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "listing_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, user_id_listing_id: {
+                    name: "user_id_listing_id",
+                    fields: ["user_id", "listing_id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
         aimags: ['districts'],
         districts: ['khoroos'],
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings'],
-        listings: ['listings_images', 'listings_views'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites'],
+        listings: ['listings_images', 'listings_views', 'user_favorites'],
 
     },
     authModel: 'profiles'
