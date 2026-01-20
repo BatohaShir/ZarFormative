@@ -53,9 +53,7 @@ export default function CreateListingPage() {
   const { data: allCategories } = useFindManycategories({
     orderBy: { sort_order: "asc" },
     include: {
-      children: {
-        orderBy: { sort_order: "asc" },
-      },
+      children: true,
     },
   });
 
