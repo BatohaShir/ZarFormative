@@ -9,66 +9,72 @@ import { ListingCard, type ListingWithRelations } from "@/components/listing-car
 import { useFindManylistings } from "@/lib/hooks/listings";
 
 export function RecommendedListings() {
-  // Загружаем активные объявления из БД
-  const { data: listings, isLoading } = useFindManylistings({
-    where: {
-      status: "active",
-      is_active: true,
+  // Загружаем активные объявления из БД с оптимизированным кэшированием
+  const { data: listings, isLoading } = useFindManylistings(
+    {
+      where: {
+        status: "active",
+        is_active: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            company_name: true,
+            is_company: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        images: {
+          where: {
+            is_cover: true,
+          },
+          select: {
+            id: true,
+            url: true,
+            sort_order: true,
+            is_cover: true,
+          },
+          take: 1,
+        },
+        aimag: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        khoroo: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+      take: 8,
     },
-    include: {
-      user: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          company_name: true,
-          is_company: true,
-        },
-      },
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      images: {
-        where: {
-          is_cover: true,
-        },
-        select: {
-          id: true,
-          url: true,
-          sort_order: true,
-          is_cover: true,
-        },
-        take: 1,
-      },
-      aimag: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      district: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      khoroo: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-    orderBy: {
-      created_at: "desc",
-    },
-    take: 8,
-  });
+    {
+      staleTime: 2 * 60 * 1000, // 2 минуты - рекомендации обновляются не часто
+      gcTime: 10 * 60 * 1000, // 10 минут в памяти
+    }
+  );
 
   if (isLoading) {
     return (

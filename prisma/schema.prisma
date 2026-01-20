@@ -196,6 +196,8 @@ model profiles_educations {
 
   @@index([user_id])
   @@index([user_id, start_date(sort: Desc)])
+  @@index([user_id, is_current])
+  @@index([user_id, is_current, start_date(sort: Desc)])
   @@map("profiles_educations")
 }
 
@@ -214,6 +216,8 @@ model profiles_work_experiences {
 
   @@index([user_id])
   @@index([user_id, start_date(sort: Desc)])
+  @@index([user_id, is_current])
+  @@index([user_id, is_current, start_date(sort: Desc)])
   @@map("profiles_work_experiences")
 }
 
@@ -288,12 +292,6 @@ model listings_views {
   listing    listings  @relation(fields: [listing_id], references: [id], onDelete: Cascade)
   viewer     profiles? @relation(fields: [viewer_id], references: [id], onDelete: SetNull)
 
-  @@index([listing_id])
-  @@index([viewer_id])
-  @@index([ip_address])
-  @@index([listing_id, viewer_id])
-  @@index([listing_id, ip_address])
-  @@index([viewed_at])
   @@index([listing_id, viewed_at(sort: Desc)])
   @@index([listing_id, viewer_id, viewed_at(sort: Desc)])
   @@index([listing_id, ip_address, viewed_at(sort: Desc)])

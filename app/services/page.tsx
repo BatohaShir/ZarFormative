@@ -191,7 +191,7 @@ function ServicesPageContent() {
 
   const PAGE_SIZE = 12;
 
-  // Загружаем объявления с cursor-based пагинацией
+  // Загружаем объявления с cursor-based пагинацией и оптимизированным кэшированием
   const {
     data,
     isLoading,
@@ -259,6 +259,8 @@ function ServicesPageContent() {
         const lastItem = lastPage[lastPage.length - 1];
         return { cursor: { id: lastItem.id }, skip: 1 };
       },
+      staleTime: 2 * 60 * 1000, // 2 минуты - списки обновляются не часто
+      gcTime: 10 * 60 * 1000, // 10 минут в памяти
     }
   );
 

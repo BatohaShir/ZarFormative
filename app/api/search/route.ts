@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
       .map((word) => `${word}:*`)
       .join(" & ");
 
-    // Выполняем полнотекстовый поиск с ранжированием
+    // Выполняем полнотекстовый поиск с ранжированием и COUNT в одном запросе
+    // Используем COUNT(*) OVER() для получения общего количества без отдельного запроса
     const results = await prisma.$queryRaw<
       Array<{
         id: string;
@@ -44,6 +45,7 @@ export async function GET(request: NextRequest) {
         user_name: string;
         user_avatar: string | null;
         rank: number;
+        total_count: bigint;
       }>
     >`
       SELECT
@@ -66,7 +68,8 @@ export async function GET(request: NextRequest) {
         ) as user_name,
         p.avatar_url as user_avatar,
         ts_rank(l.search_vector, to_tsquery('russian', ${tsQuery})) +
-        ts_rank(l.search_vector, to_tsquery('english', ${tsQuery})) as rank
+        ts_rank(l.search_vector, to_tsquery('english', ${tsQuery})) as rank,
+        COUNT(*) OVER() as total_count
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN aimags a ON l.aimag_id = a.id
@@ -83,20 +86,8 @@ export async function GET(request: NextRequest) {
       OFFSET ${offset}
     `;
 
-    // Считаем общее количество результатов
-    const countResult = await prisma.$queryRaw<[{ count: bigint }]>`
-      SELECT COUNT(*) as count
-      FROM listings l
-      WHERE
-        l.status = 'active'
-        AND l.is_active = true
-        AND (
-          l.search_vector @@ to_tsquery('russian', ${tsQuery})
-          OR l.search_vector @@ to_tsquery('english', ${tsQuery})
-        )
-    `;
-
-    const total = Number(countResult[0]?.count || 0);
+    // Получаем total из первого результата (оптимизация: 1 запрос вместо 2)
+    const total = results.length > 0 ? Number(results[0].total_count) : 0;
 
     return NextResponse.json({
       results: results.map((r) => ({

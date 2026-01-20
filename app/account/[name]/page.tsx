@@ -33,27 +33,35 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
   // Try to load profile by id first, then by slug
   const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(name);
 
-  const { data: profile, isLoading: isLoadingProfile } = useFindUniqueprofiles({
-    where: isUUID ? { id: name } : { id: name },
-    select: {
-      id: true,
-      first_name: true,
-      last_name: true,
-      company_name: true,
-      is_company: true,
-      avatar_url: true,
-      about: true,
-      phone_number: true,
-      created_at: true,
-      role: true,
+  // Загружаем профиль с оптимизированным кэшированием
+  const { data: profile, isLoading: isLoadingProfile } = useFindUniqueprofiles(
+    {
+      where: isUUID ? { id: name } : { id: name },
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        company_name: true,
+        is_company: true,
+        avatar_url: true,
+        about: true,
+        phone_number: true,
+        created_at: true,
+        role: true,
+      },
     },
-  });
+    {
+      staleTime: 10 * 60 * 1000, // 10 минут
+      gcTime: 30 * 60 * 1000, // 30 минут
+    }
+  );
 
-  // Load user's listings
+  // Загружаем listings параллельно с профилем (используем name как user_id если это UUID)
+  // Это устраняет каскадную загрузку (waterfall)
   const { data: listings, isLoading: isLoadingListings } = useFindManylistings(
     {
       where: {
-        user_id: profile?.id,
+        user_id: isUUID ? name : undefined,
         is_active: true,
         status: "active",
       },
@@ -68,7 +76,11 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
       },
       orderBy: { created_at: "desc" },
     },
-    { enabled: !!profile?.id }
+    {
+      enabled: isUUID, // Загружаем только если это UUID
+      staleTime: 5 * 60 * 1000, // 5 минут
+      gcTime: 15 * 60 * 1000, // 15 минут
+    }
   );
 
   if (isLoadingProfile) {
