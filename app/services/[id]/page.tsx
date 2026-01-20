@@ -17,10 +17,12 @@ import { ServiceRequestModal } from "@/components/service-request-modal";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { ChevronLeft, MapPin, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass, Eye } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
+import { ImageLightbox } from "@/components/image-lightbox";
 import { useFindUniquelistings } from "@/lib/hooks/listings";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
 import { Decimal } from "@prisma/client/runtime/library";
+import { formatListingPrice } from "@/lib/utils";
 
 // Storage key for pending requests
 const PENDING_REQUESTS_KEY = "uilchilgee_pending_requests";
@@ -67,19 +69,6 @@ function formatTimeRemaining(expiresAt: number): string {
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function formatPrice(price: Decimal | null, currency: string, isNegotiable: boolean): string {
-  if (isNegotiable) return "Тохиролцоно";
-  if (!price) return "Үнэгүй";
-
-  const numPrice = Number(price);
-  const formatted = new Intl.NumberFormat("mn-MN").format(numPrice);
-
-  if (currency === "MNT") {
-    return `${formatted}₮`;
-  }
-  return `$${formatted}`;
-}
-
 function getProviderName(user: { first_name: string | null; last_name: string | null; company_name: string | null; is_company: boolean }): string {
   if (user.is_company && user.company_name) {
     return user.company_name;
@@ -111,12 +100,14 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [requestModalOpen, setRequestModalOpen] = React.useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = React.useState(false);
   const [requestPending, setRequestPending] = React.useState(false);
   const [timeRemaining, setTimeRemaining] = React.useState<string | null>(null);
   const [expiresAt, setExpiresAt] = React.useState<number | null>(null);
+  const [lightboxOpen, setLightboxOpen] = React.useState(false);
+  const [lightboxIndex, setLightboxIndex] = React.useState(0);
 
   // Загрузка объявления из БД по slug
   const { data: listing, isLoading, refetch } = useFindUniquelistings({
@@ -323,10 +314,11 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
   }
 
   const providerName = getProviderName(listing.user);
-  const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+  const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const locationDisplay = formatLocation(listing);
   const imageUrl = getFirstImageUrl(listing.images);
   const memberSince = new Date(listing.user.created_at).getFullYear().toString();
+  const isOwnListing = user?.id === listing.user.id;
 
   // Mock provider data (в будущем можно добавить реальную статистику)
   const providerStats = {
@@ -374,16 +366,23 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Image */}
-            <div className="relative aspect-video rounded-xl md:rounded-2xl overflow-hidden">
+            <div
+              className="relative aspect-video rounded-xl md:rounded-2xl overflow-hidden cursor-pointer group"
+              onClick={() => {
+                setLightboxIndex(0);
+                setLightboxOpen(true);
+              }}
+            >
               <Image
                 src={imageUrl}
                 alt={listing.title}
                 fill
                 sizes="(max-width: 1024px) 100vw, 66vw"
-                className="object-cover"
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
               />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
               <span className="absolute top-2 left-2 md:top-4 md:left-4 bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium">
-                {listing.category.name}
+                {listing.category?.name}
               </span>
             </div>
 
@@ -450,12 +449,14 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                 </div>
               </div>
 
-              <Link href={`/account/${listing.user.id}`}>
-                <Button variant="outline" className="w-full" size="sm">
-                  <UserCircle className="h-4 w-4 mr-2" />
-                  Профиль харах
-                </Button>
-              </Link>
+              {!isOwnListing && (
+                <Link href={`/account/${listing.user.id}`}>
+                  <Button variant="outline" className="w-full" size="sm">
+                    <UserCircle className="h-4 w-4 mr-2" />
+                    Профиль харах
+                  </Button>
+                </Link>
+              )}
             </div>
 
             {/* Description */}
@@ -466,20 +467,28 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               </p>
             </div>
 
-            {/* Gallery */}
+            {/* Gallery - без главного фото */}
             {listing.images.length > 1 && (
               <div className="space-y-2 md:space-y-3">
-                <h2 className="text-base md:text-lg font-semibold">Зургууд</h2>
+                <h2 className="text-base md:text-lg font-semibold">Зургууд ({listing.images.length - 1})</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {listing.images.map((image) => (
-                    <div key={image.id} className="relative aspect-4/3 rounded-lg overflow-hidden">
+                  {listing.images.slice(1).map((image, index) => (
+                    <div
+                      key={image.id}
+                      className="relative aspect-4/3 rounded-lg overflow-hidden cursor-pointer group"
+                      onClick={() => {
+                        setLightboxIndex(index + 1);
+                        setLightboxOpen(true);
+                      }}
+                    >
                       <Image
                         src={image.url}
                         alt={image.alt || listing.title}
                         fill
                         sizes="(max-width: 768px) 50vw, 33vw"
-                        className="object-cover"
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                     </div>
                   ))}
                 </div>
@@ -552,12 +561,14 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                     Үйлчилгээ авах
                   </Button>
                 )}
-                <Link href={`/account/${listing.user.id}`}>
-                  <Button variant="ghost" className="w-full" size="lg">
-                    <UserCircle className="h-4 w-4 mr-2" />
-                    Профиль харах
-                  </Button>
-                </Link>
+                {!isOwnListing && (
+                  <Link href={`/account/${listing.user.id}`}>
+                    <Button variant="ghost" className="w-full" size="lg">
+                      <UserCircle className="h-4 w-4 mr-2" />
+                      Профиль харах
+                    </Button>
+                  </Link>
+                )}
               </div>
 
               {/* Reviews placeholder */}
@@ -616,6 +627,14 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
         open={showLoginPrompt}
         onOpenChange={setShowLoginPrompt}
         onSuccess={() => setRequestModalOpen(true)}
+      />
+
+      {/* Image Lightbox */}
+      <ImageLightbox
+        images={listing.images}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
       />
     </div>
   );

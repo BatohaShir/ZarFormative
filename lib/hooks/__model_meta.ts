@@ -648,6 +648,7 @@ const metadata: ModelMeta = {
                 }, category_id: {
                     name: "category_id",
                     type: "String",
+                    isOptional: true,
                     isForeignKey: true,
                     relationField: 'category',
                 }, title: {
@@ -745,6 +746,7 @@ const metadata: ModelMeta = {
                     name: "category",
                     type: "categories",
                     isDataModel: true,
+                    isOptional: true,
                     backLink: 'listings',
                     isRelationOwner: true,
                     foreignKeyMapping: { "id": "category_id" },

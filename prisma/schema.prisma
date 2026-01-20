@@ -225,7 +225,7 @@ model profiles_work_experiences {
 model listings {
   id              String                   @id() @default(cuid())
   user_id         String                   @db.Uuid()
-  category_id     String
+  category_id     String?
   title           String
   slug            String                   @unique()
   description     String                   @db.Text()
@@ -247,7 +247,7 @@ model listings {
   updated_at      DateTime                 @updatedAt()
   published_at    DateTime?
   user            profiles                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category        categories               @relation(fields: [category_id], references: [id])
+  category        categories?              @relation(fields: [category_id], references: [id])
   aimag           aimags?                  @relation(fields: [aimag_id], references: [id])
   district        districts?               @relation(fields: [district_id], references: [id])
   khoroo          khoroos?                 @relation(fields: [khoroo_id], references: [id])
@@ -267,6 +267,9 @@ model listings {
   @@index([user_id, status, is_active])
   @@index([status, is_active, views_count(sort: Desc)])
   @@index([status, is_active, price])
+  @@index([user_id, status, updated_at(sort: Desc)])
+  @@index([status, is_active, published_at(sort: Desc)])
+  @@index([status, is_active, favorites_count(sort: Desc)])
   @@map("listings")
 }
 

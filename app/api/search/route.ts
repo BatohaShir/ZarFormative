@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, Prisma } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
+import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
+  // Rate limit: 30 requests per minute per IP
+  const rateLimitResult = withRateLimit(request, undefined, { limit: 30, windowSeconds: 60 });
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult);
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get("q")?.trim();
@@ -18,8 +24,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Преобразуем запрос для tsquery (добавляем :* для prefix matching)
-    const tsQuery = query
+    // Sanitize query for tsquery - remove special characters that could break parsing
+    // This prevents SQL injection through tsquery syntax
+    const sanitizedQuery = query
+      .replace(/[&|!():*<>'"\\]/g, " ") // Remove tsquery special chars
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!sanitizedQuery) {
+      return NextResponse.json({
+        results: [],
+        total: 0,
+        query: query,
+      });
+    }
+
+    // Use plainto_tsquery for safer user input handling (auto-escapes special chars)
+    // We still create tsQuery for prefix matching but with sanitized input
+    const tsQuery = sanitizedQuery
       .split(/\s+/)
       .filter(Boolean)
       .map((word) => `${word}:*`)

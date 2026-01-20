@@ -48,22 +48,32 @@ export async function uploadListingImage(
   // Валидация
   const validationError = validateImageFile(file);
   if (validationError) {
+    console.error("[Storage] Validation error:", validationError);
     return { url: null, error: validationError };
   }
 
   const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const filePath = `${userId}/${listingId}/${uuid}.${fileExt}`;
 
-  const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
+  console.log("[Storage] Uploading to path:", filePath);
+  console.log("[Storage] File info:", { name: file.name, size: file.size, type: file.type });
+
+  const { error, data: uploadData } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
     cacheControl: "3600",
     upsert: false, // Не перезаписывать существующие
   });
 
   if (error) {
+    console.error("[Storage] Upload error:", error);
+    console.error("[Storage] Error details:", JSON.stringify(error, null, 2));
     return { url: null, error: error.message };
   }
 
+  console.log("[Storage] Upload successful, data:", uploadData);
+
   const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+  console.log("[Storage] Public URL:", data.publicUrl);
+
   return { url: data.publicUrl, error: null };
 }
 

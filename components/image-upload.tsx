@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, DragEvent } from "react";
+import { useState, useRef, useEffect, DragEvent } from "react";
 import { X, Upload, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { toast } from "sonner";
 
 export interface ImageFile {
   id: string;
@@ -29,6 +30,19 @@ export function ImageUpload({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Cleanup blob URLs when component unmounts or images change
+  // This prevents memory leaks from orphaned object URLs
+  useEffect(() => {
+    return () => {
+      // Revoke all blob URLs on unmount
+      images.forEach((img) => {
+        if (img.preview.startsWith("blob:")) {
+          URL.revokeObjectURL(img.preview);
+        }
+      });
+    };
+  }, []); // Only on unmount
+
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
 
@@ -40,13 +54,13 @@ export function ImageUpload({
     filesToAdd.forEach((file) => {
       // Валидация типа
       if (!file.type.startsWith("image/")) {
-        alert(`${file.name} не является изображением`);
+        toast.error(`${file.name} зураг биш байна`);
         return;
       }
 
       // Валидация размера
       if (file.size > maxSizeMB * 1024 * 1024) {
-        alert(`${file.name} превышает ${maxSizeMB}MB`);
+        toast.error(`${file.name} ${maxSizeMB}MB-ээс их байна`);
         return;
       }
 
@@ -138,7 +152,7 @@ export function ImageUpload({
               />
               {index === 0 && (
                 <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded">
-                  Обложка
+                  Нүүр зураг
                 </div>
               )}
               <button
@@ -186,11 +200,11 @@ export function ImageUpload({
             <div className="space-y-1">
               <p className="text-sm font-medium">
                 {images.length === 0
-                  ? "Перетащите фото или нажмите для загрузки"
-                  : `Добавьте еще ${maxImages - images.length} фото`}
+                  ? "Зураг чирж оруулах эсвэл дарж сонгоно уу"
+                  : `Дахиж ${maxImages - images.length} зураг нэмнэ үү`}
               </p>
               <p className="text-xs text-muted-foreground">
-                {images.length}/{maxImages} фото • Макс. {maxSizeMB}MB каждое
+                {images.length}/{maxImages} зураг • Дээд хэмжээ {maxSizeMB}MB
               </p>
             </div>
 
@@ -200,7 +214,7 @@ export function ImageUpload({
               size="sm"
               onClick={() => fileInputRef.current?.click()}
             >
-              Выбрать файлы
+              Файл сонгох
             </Button>
           </div>
         </div>
@@ -208,7 +222,7 @@ export function ImageUpload({
 
       {images.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Перетащите фото для изменения порядка. Первое фото будет обложкой.
+          Дарааллыг өөрчлөхийн тулд зургийг чирнэ үү. Эхний зураг нүүр зураг болно.
         </p>
       )}
     </div>

@@ -417,7 +417,7 @@ model profiles_work_experiences {
 model listings {
   id            String        @id @default(cuid())
   user_id       String        @db.Uuid
-  category_id   String
+  category_id   String?
 
   // Контент
   title         String                    // Заголовок объявления
@@ -455,7 +455,7 @@ model listings {
 
   // Relations
   user          profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category      categories    @relation(fields: [category_id], references: [id])
+  category      categories?   @relation(fields: [category_id], references: [id])
   aimag         aimags?       @relation(fields: [aimag_id], references: [id])
   district      districts?    @relation(fields: [district_id], references: [id])
   khoroo        khoroos?      @relation(fields: [khoroo_id], references: [id])
@@ -477,6 +477,12 @@ model listings {
   @@index([user_id, status, is_active])           // Профиль пользователя
   @@index([status, is_active, views_count(sort: Desc)])  // Сортировка по популярности
   @@index([status, is_active, price])             // Фильтрация по цене
+  // NEW: Оптимизация черновиков (страница создания объявления)
+  @@index([user_id, status, updated_at(sort: Desc)])  // Черновики с сортировкой
+  // NEW: Публичные объявления с датой публикации
+  @@index([status, is_active, published_at(sort: Desc)])  // Новые объявления
+  // NEW: Сортировка по избранным
+  @@index([status, is_active, favorites_count(sort: Desc)])  // Популярные по лайкам
 
   @@map("listings")
 

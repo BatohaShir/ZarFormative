@@ -7,6 +7,7 @@ import { Heart, MapPin, Eye } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
 import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { formatListingPrice } from "@/lib/utils";
 
 // Тип объявления с включёнными связями
 export type ListingWithRelations = listings & {
@@ -20,20 +21,6 @@ export type ListingWithRelations = listings & {
 
 interface ListingCardProps {
   listing: ListingWithRelations;
-}
-
-// Форматирование цены
-function formatPrice(price: Decimal | null, currency: string, isNegotiable: boolean): string {
-  if (isNegotiable) return "Тохиролцоно";
-  if (!price) return "Үнэгүй";
-
-  const numPrice = Number(price);
-  const formatted = new Intl.NumberFormat("mn-MN").format(numPrice);
-
-  if (currency === "MNT") {
-    return `${formatted}₮`;
-  }
-  return `$${formatted}`;
 }
 
 // Получить имя провайдера
@@ -93,7 +80,7 @@ export const ListingCard = React.memo(function ListingCard({
 
   const providerName = getProviderName(listing.user);
   const imageUrl = getFirstImageUrl(listing.images);
-  const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+  const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const locationDisplay = formatLocation(listing);
 
   return (

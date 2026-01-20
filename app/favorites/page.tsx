@@ -21,21 +21,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useFavorites, type FavoriteWithListing } from "@/contexts/favorites-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
-import { Decimal } from "@prisma/client/runtime/library";
-
-// Форматирование цены
-function formatPrice(price: Decimal | null, currency: string, isNegotiable: boolean): string {
-  if (isNegotiable) return "Тохиролцоно";
-  if (!price) return "Үнэгүй";
-
-  const numPrice = Number(price);
-  const formatted = new Intl.NumberFormat("mn-MN").format(numPrice);
-
-  if (currency === "MNT") {
-    return `${formatted}₮`;
-  }
-  return `$${formatted}`;
-}
+import { formatListingPrice } from "@/lib/utils";
 
 // Skeleton для загрузки
 function FavoriteCardSkeleton() {
@@ -64,7 +50,7 @@ function FavoriteCard({
 }) {
   const listing = favorite.listing;
   const imageUrl = listing.images?.[0]?.url || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
-  const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+  const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
 
   // Получить имя провайдера
   const providerName = React.useMemo(() => {
@@ -178,19 +164,18 @@ function FavoriteCard({
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Image
-        src="/icons/7486744.png"
-        alt="Пустая коробка"
-        width={80}
-        height={80}
-        className="mb-4 opacity-70"
-      />
-      <p className="text-muted-foreground mb-2">Таалагдсан зүйлс хоосон байна</p>
-      <p className="text-muted-foreground/70 text-sm mb-4">
-        Үйлчилгээнүүдийг үзэж, таалагдсан зүйлсээ хадгалаарай
+      <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg shadow-pink-500/25 mb-6">
+        <Heart className="h-10 w-10 text-white" />
+      </div>
+      <h3 className="text-lg font-semibold mb-2">Таалагдсан зүйлс хоосон байна</h3>
+      <p className="text-muted-foreground text-sm mb-6 max-w-sm">
+        Үйлчилгээнүүдийг үзэж, зүрхэн дээр дарж таалагдсан зүйлсээ хадгалаарай
       </p>
-      <Link href="/services">
-        <Button>Үйлчилгээ хайх</Button>
+      <Link href="/">
+        <Button className="bg-linear-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white shadow-lg shadow-pink-500/25">
+          <Heart className="h-4 w-4 mr-2" />
+          Үйлчилгээ хайх
+        </Button>
       </Link>
     </div>
   );
@@ -230,13 +215,9 @@ export default function FavoritesPage() {
       <>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <div className="text-center max-w-md">
-            <Image
-              src="/icons/7486744.png"
-              alt="Пустая коробка"
-              width={80}
-              height={80}
-              className="mx-auto mb-4 opacity-70"
-            />
+            <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg shadow-pink-500/25 mx-auto mb-6">
+              <Heart className="h-10 w-10 text-white" />
+            </div>
             <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
             <p className="text-muted-foreground text-sm">
               Дуртай үйлчилгээнүүдээ хадгалж, хүссэн үедээ үзэхийн тулд нэвтрэх шаардлагатай
@@ -281,18 +262,23 @@ export default function FavoritesPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-4 md:py-6">
+      <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Page Title */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl md:text-2xl font-bold">Таалагдсан</h2>
-            {isToggling && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
+        <div className="flex items-center gap-4 mb-6 md:mb-8">
+          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg shadow-pink-500/25">
+            <Heart className="h-6 w-6 md:h-7 md:w-7 text-white" />
           </div>
-          <p className="text-sm text-muted-foreground">
-            {isLoading ? "Ачааллаж байна..." : `${count} үйлчилгээ`}
-          </p>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl md:text-2xl font-bold">Таалагдсан</h2>
+              {isToggling && (
+                <Loader2 className="h-4 w-4 animate-spin text-pink-500" />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isLoading ? "Ачааллаж байна..." : `${count} үйлчилгээ хадгалсан`}
+            </p>
+          </div>
         </div>
 
         {/* Loading State */}

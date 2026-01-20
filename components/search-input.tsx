@@ -6,22 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Search, Eye } from "lucide-react";
 import Link from "next/link";
 import { useSearch } from "@/hooks/use-search";
+import { formatListingPrice } from "@/lib/utils";
 
 interface SearchInputProps {
   className?: string;
-}
-
-// Форматирование цены
-function formatPrice(price: number | null, currency: string, isNegotiable: boolean): string {
-  if (isNegotiable) return "Тохиролцоно";
-  if (!price) return "Үнэгүй";
-
-  const formatted = new Intl.NumberFormat("mn-MN").format(price);
-
-  if (currency === "MNT") {
-    return `${formatted}₮`;
-  }
-  return `$${formatted}`;
 }
 
 export const SearchInput = React.memo(function SearchInput({
@@ -99,7 +87,7 @@ export const SearchInput = React.memo(function SearchInput({
 
           {!isLoading && hasResults && results.map((listing) => {
             const imageUrl = listing.cover_image || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
-            const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+            const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
 
             return (
               <Link

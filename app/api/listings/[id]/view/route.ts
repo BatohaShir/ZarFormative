@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
+import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // Период уникальности просмотра (24 часа)
 const VIEW_UNIQUENESS_PERIOD_HOURS = 24;
@@ -11,6 +11,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit: 60 view requests per minute per IP (prevent view farming)
+  const rateLimitResult = withRateLimit(request, undefined, { limit: 60, windowSeconds: 60 });
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult);
+  }
+
   try {
     const { id: slug } = await params;
 

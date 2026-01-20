@@ -262,9 +262,6 @@ export function ServiceRequestModal({
 
   const formatAddress = (addr: AddressData): string => {
     const parts = [addr.city, addr.district, addr.khoroo];
-    if (addr.street) parts.push(addr.street);
-    if (addr.building) parts.push(addr.building);
-    if (addr.apartment) parts.push(addr.apartment);
     return parts.join(", ");
   };
 
