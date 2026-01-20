@@ -65,17 +65,23 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [showAimagList, setShowAimagList] = React.useState(true);
 
-  // Загружаем аймаги из БД
-  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags({
-    where: {
-      is_active: true,
+  // Загружаем аймаги из БД (кэш 24 часа - редко меняются)
+  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags(
+    {
+      where: {
+        is_active: true,
+      },
+      orderBy: {
+        sort_order: "asc",
+      },
     },
-    orderBy: {
-      sort_order: "asc",
-    },
-  });
+    {
+      staleTime: 24 * 60 * 60 * 1000, // 24 часа
+      gcTime: 48 * 60 * 60 * 1000, // 48 часов
+    }
+  );
 
-  // Загружаем дүүрэги для выбранного аймага
+  // Загружаем дүүрэги для выбранного аймага (кэш 24 часа)
   const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
     {
       where: {
@@ -88,6 +94,8 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
     },
     {
       enabled: !!selectedAimag,
+      staleTime: 24 * 60 * 60 * 1000, // 24 часа
+      gcTime: 48 * 60 * 60 * 1000, // 48 часов
     }
   );
 

@@ -34,14 +34,16 @@ export function RecommendedListings() {
         },
       },
       images: {
+        where: {
+          is_cover: true,
+        },
         select: {
           id: true,
           url: true,
           sort_order: true,
+          is_cover: true,
         },
-        orderBy: {
-          sort_order: "asc",
-        },
+        take: 1,
       },
       aimag: {
         select: {

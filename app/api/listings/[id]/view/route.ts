@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 
 const prisma = new PrismaClient();
@@ -49,52 +49,58 @@ export async function POST(
       });
     }
 
-    // Проверяем, был ли уже просмотр за последние 24 часа
-    const viewCutoff = new Date();
-    viewCutoff.setHours(viewCutoff.getHours() - VIEW_UNIQUENESS_PERIOD_HOURS);
+    // Оптимизированный запрос: проверка + вставка + инкремент в одном SQL
+    // Это устраняет race condition и уменьшает количество round-trips
+    const result = await prisma.$queryRaw<{ views_count: number; inserted: boolean }[]>`
+      WITH check_existing AS (
+        SELECT id FROM listings_views
+        WHERE listing_id = ${listing.id}
+          AND viewed_at > NOW() - INTERVAL '${Prisma.raw(String(VIEW_UNIQUENESS_PERIOD_HOURS))} hours'
+          AND (
+            ${viewerId ? Prisma.sql`viewer_id = ${viewerId}::uuid` : Prisma.sql`viewer_id IS NULL AND ip_address = ${ip}`}
+          )
+        LIMIT 1
+      ),
+      insert_view AS (
+        INSERT INTO listings_views (id, listing_id, viewer_id, ip_address, viewed_at)
+        SELECT
+          gen_random_uuid(),
+          ${listing.id},
+          ${viewerId ? Prisma.sql`${viewerId}::uuid` : Prisma.sql`NULL`},
+          ${viewerId ? Prisma.sql`NULL` : Prisma.sql`${ip}`},
+          NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM check_existing)
+        RETURNING id
+      ),
+      update_count AS (
+        UPDATE listings
+        SET views_count = views_count + 1
+        WHERE id = ${listing.id}
+          AND EXISTS (SELECT 1 FROM insert_view)
+        RETURNING views_count
+      )
+      SELECT
+        COALESCE(
+          (SELECT views_count FROM update_count),
+          ${listing.views_count}
+        ) as views_count,
+        EXISTS (SELECT 1 FROM insert_view) as inserted
+    `;
 
-    const existingView = await prisma.listings_views.findFirst({
-      where: {
-        listing_id: listing.id,
-        viewed_at: { gte: viewCutoff },
-        OR: [
-          // Если авторизован - проверяем по user_id
-          ...(viewerId ? [{ viewer_id: viewerId }] : []),
-          // Если гость - проверяем по IP
-          ...(!viewerId ? [{ ip_address: ip, viewer_id: null }] : []),
-        ],
-      },
-    });
+    const { views_count, inserted } = result[0];
 
-    if (existingView) {
-      // Уже просмотрено за последние 24 часа
+    if (!inserted) {
       return NextResponse.json({
         success: true,
-        views_count: listing.views_count,
+        views_count,
         skipped: true,
         reason: "already_viewed",
       });
     }
 
-    // Создаём запись о просмотре и увеличиваем счётчик в транзакции
-    const [, updated] = await prisma.$transaction([
-      prisma.listings_views.create({
-        data: {
-          listing_id: listing.id,
-          viewer_id: viewerId,
-          ip_address: viewerId ? null : ip, // IP только для гостей
-        },
-      }),
-      prisma.listings.update({
-        where: { id: listing.id },
-        data: { views_count: { increment: 1 } },
-        select: { views_count: true },
-      }),
-    ]);
-
     return NextResponse.json({
       success: true,
-      views_count: updated.views_count,
+      views_count,
     });
   } catch (error) {
     console.error("Error tracking view:", error);

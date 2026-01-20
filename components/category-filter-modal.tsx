@@ -40,11 +40,17 @@ export function CategoryFilterModal({
   const [tempSelectedCategories, setTempSelectedCategories] = React.useState<string[]>(selectedCategories);
   const [expandedCategory, setExpandedCategory] = React.useState<CategoryWithChildren | Category | null>(null);
 
-  // Загружаем категории из БД
-  const { data: fetchedCategories } = useFindManycategories({
-    where: { is_active: true },
-    orderBy: { sort_order: "asc" },
-  });
+  // Загружаем категории из БД (кэш 1 час - относительно редко меняются)
+  const { data: fetchedCategories } = useFindManycategories(
+    {
+      where: { is_active: true },
+      orderBy: { sort_order: "asc" },
+    },
+    {
+      staleTime: 60 * 60 * 1000, // 1 час
+      gcTime: 2 * 60 * 60 * 1000, // 2 часа
+    }
+  );
 
   const allCategoriesFlat = fetchedCategories || [];
   const categoryTree = fetchedCategories ? buildCategoryTree(fetchedCategories) : [];

@@ -14,11 +14,17 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function CategoriesSection() {
-  // Получаем все категории из БД
-  const { data: categoriesData, isLoading } = useFindManycategories({
-    where: { is_active: true },
-    orderBy: { sort_order: "asc" },
-  });
+  // Получаем все категории из БД (кэш 1 час)
+  const { data: categoriesData, isLoading } = useFindManycategories(
+    {
+      where: { is_active: true },
+      orderBy: { sort_order: "asc" },
+    },
+    {
+      staleTime: 60 * 60 * 1000, // 1 час
+      gcTime: 2 * 60 * 60 * 1000, // 2 часа
+    }
+  );
 
   // Строим иерархию и берём только корневые
   const categoryTree = categoriesData ? buildCategoryTree(categoriesData) : [];

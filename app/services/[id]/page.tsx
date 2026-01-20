@@ -18,6 +18,7 @@ import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { ChevronLeft, MapPin, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass, Eye } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { useFindUniquelistings } from "@/lib/hooks/listings";
+import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
 import { Decimal } from "@prisma/client/runtime/library";
 
@@ -173,6 +174,13 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
 
   // Числовой хеш для избранного
   const numericId = listing ? Math.abs(listing.id.split("").reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0)) : 0;
+
+  // Real-time обновление счётчика просмотров
+  const { viewsCount } = useRealtimeViews({
+    listingId: listing?.id || "",
+    initialCount: listing?.views_count || 0,
+    enabled: !!listing?.id,
+  });
 
   // Check pending status on mount
   React.useEffect(() => {
@@ -411,7 +419,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               </div>
               <div className="flex items-center gap-2">
                 <Eye className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                <span>{listing.views_count} үзсэн</span>
+                <span>{viewsCount} үзсэн</span>
               </div>
             </div>
 

@@ -439,6 +439,9 @@ model listings {
   // Статистика
   views_count   Int           @default(0)         // Количество просмотров
 
+  // Full-text поиск (обновляется триггером PostgreSQL)
+  search_vector Unsupported("tsvector")?
+
   // Метаданные
   created_at    DateTime      @default(now())
   updated_at    DateTime      @updatedAt
@@ -463,6 +466,10 @@ model listings {
   @@index([created_at(sort: Desc)])               // Сортировка по дате
   @@index([status, aimag_id, category_id])        // Комбинированный фильтр
   @@index([slug])                                 // Быстрый поиск по slug
+  // Оптимизация: индексы для профиля и сортировок
+  @@index([user_id, status, is_active])           // Профиль пользователя
+  @@index([status, is_active, views_count(sort: Desc)])  // Сортировка по популярности
+  @@index([status, is_active, price])             // Фильтрация по цене
 
   @@map("listings")
 
@@ -548,6 +555,10 @@ model listings_views {
   @@index([listing_id, viewer_id])
   @@index([listing_id, ip_address])
   @@index([viewed_at])
+  // Оптимизация: индексы для дедупликации просмотров за 24 часа
+  @@index([listing_id, viewed_at(sort: Desc)])
+  @@index([listing_id, viewer_id, viewed_at(sort: Desc)])
+  @@index([listing_id, ip_address, viewed_at(sort: Desc)])
 
   @@map("listings_views")
 
