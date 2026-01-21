@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -11,6 +12,8 @@ import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   Package,
@@ -21,6 +24,9 @@ import {
   Pencil,
   Plus,
   Heart,
+  CheckCircle,
+  PauseCircle,
+  LayoutGrid,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -36,11 +42,20 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import { formatListingPrice } from "@/lib/utils";
-import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { deleteAllListingImages } from "@/lib/storage/listings";
 import type { listings } from "@prisma/client";
 
+// Lazy load LoginPromptModal
+const LoginPromptModal = dynamic(
+  () => import("@/components/login-prompt-modal").then((mod) => ({ default: mod.LoginPromptModal })),
+  { ssr: false }
+);
+
+// Локальный placeholder вместо Unsplash
+const PLACEHOLDER_IMAGE = "/images/placeholder-listing.svg";
+
 type ListingStatus = "draft" | "active" | "paused" | "archived" | "deleted";
+type FilterStatus = "all" | "active" | "paused";
 
 interface ListingWithRelations extends listings {
   category?: { name: string; slug: string } | null;
@@ -71,15 +86,15 @@ const ServiceCard = React.memo(function ServiceCard({
   onToggleActive,
   onEdit,
   onDelete,
-  isUpdating,
+  isUpdatingThisCard,
 }: {
   listing: ListingWithRelations;
   onToggleActive: (id: string, status: ListingStatus) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
-  isUpdating: boolean;
+  isUpdatingThisCard: boolean;
 }) {
-  const imageUrl = listing.images?.[0]?.url || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
+  const imageUrl = listing.images?.[0]?.url || PLACEHOLDER_IMAGE;
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const status = listing.status as ListingStatus;
   const isActive = status === "active";
@@ -116,7 +131,7 @@ const ServiceCard = React.memo(function ServiceCard({
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
 
         {/* Category badge */}
         {listing.category && (
@@ -197,9 +212,12 @@ const ServiceCard = React.memo(function ServiceCard({
             </span>
             <Switch
               checked={isActive}
-              disabled={isUpdating}
+              disabled={isUpdatingThisCard}
               className="data-[state=checked]:bg-green-500"
             />
+            {isUpdatingThisCard && (
+              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+            )}
           </div>
         </div>
       </div>
@@ -208,18 +226,29 @@ const ServiceCard = React.memo(function ServiceCard({
 });
 
 // Пустое состояние - мемоизированный компонент
-const EmptyState = React.memo(function EmptyState() {
+const EmptyState = React.memo(function EmptyState({ filter }: { filter: FilterStatus }) {
+  const getMessage = () => {
+    switch (filter) {
+      case "active":
+        return "Идэвхтэй зар байхгүй";
+      case "paused":
+        return "Түр зогсоосон зар байхгүй";
+      default:
+        return "Зар байхгүй байна";
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mb-6">
         <Package className="h-10 w-10 text-white" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">Зар байхгүй байна</h3>
+      <h3 className="text-lg font-semibold mb-2">{getMessage()}</h3>
       <p className="text-muted-foreground text-sm mb-6 max-w-sm">
         Өөрийн үйлчилгээг нэмж, олон хүнд хүргээрэй
       </p>
       <Link href="/services/create">
-        <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/25">
+        <Button className="bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/25">
           <Plus className="h-4 w-4 mr-2" />
           Зар нэмэх
         </Button>
@@ -230,11 +259,20 @@ const EmptyState = React.memo(function EmptyState() {
 
 export default function MyServicesPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [listingToDelete, setListingToDelete] = React.useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [isDeletingStorage, setIsDeletingStorage] = React.useState(false);
+  const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("all");
+
+  // Query key для cache updates
+  const queryKey = React.useMemo(
+    () => ["listings", { where: { user_id: user?.id } }],
+    [user?.id]
+  );
 
   // Show login modal if not authenticated
   React.useEffect(() => {
@@ -244,7 +282,7 @@ export default function MyServicesPage() {
   }, [isAuthenticated]);
 
   // Загружаем услуги пользователя
-  const { data: listings, isLoading: isLoadingListings, refetch } = useFindManylistings(
+  const { data: listings, isLoading: isLoadingListings } = useFindManylistings(
     {
       where: {
         user_id: user?.id,
@@ -267,39 +305,79 @@ export default function MyServicesPage() {
   );
 
   // Мутации
-  const { mutateAsync: updateListing, isPending: isUpdating } = useUpdatelistings();
+  const { mutateAsync: updateListing } = useUpdatelistings();
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeletelistings();
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = React.useCallback(() => {
     setShowLoginModal(false);
-  };
+  }, []);
 
-  const handleLoginModalClose = (open: boolean) => {
+  const handleLoginModalClose = React.useCallback((open: boolean) => {
     if (!open && !isAuthenticated) {
       router.push("/");
     } else {
       setShowLoginModal(open);
     }
-  };
+  }, [isAuthenticated, router]);
 
-  // Handlers - мемоизированные с useCallback
+  // Optimistic update для toggle
   const handleToggleActive = React.useCallback(async (id: string, currentStatus: ListingStatus) => {
     const newStatus = currentStatus === "active" ? "paused" : "active";
+    const oldStatus = currentStatus;
+
+    // Set updating ID for this specific card
+    setUpdatingId(id);
+
+    // Optimistic update - мгновенно обновляем cache
+    queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
+      if (!old) return old;
+      return old.map((listing) =>
+        listing.id === id ? { ...listing, status: newStatus } : listing
+      );
+    });
+
     try {
       await updateListing({
         where: { id },
         data: { status: newStatus },
       });
-      toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо");
-      refetch();
+      toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо", {
+        action: {
+          label: "Буцаах",
+          onClick: () => {
+            // Revert optimistically
+            queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
+              if (!old) return old;
+              return old.map((listing) =>
+                listing.id === id ? { ...listing, status: oldStatus } : listing
+              );
+            });
+            // Then sync with server
+            updateListing({
+              where: { id },
+              data: { status: oldStatus },
+            });
+          },
+        },
+      });
     } catch {
+      // Revert on error
+      queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
+        if (!old) return old;
+        return old.map((listing) =>
+          listing.id === id ? { ...listing, status: oldStatus } : listing
+        );
+      });
       toast.error("Алдаа гарлаа");
+    } finally {
+      setUpdatingId(null);
     }
-  }, [updateListing, refetch]);
+  }, [updateListing, queryClient, queryKey]);
 
+  // SPA навигация вместо full page reload
   const handleEdit = React.useCallback((id: string) => {
-    window.location.href = `/services/edit/${id}`;
-  }, []);
+    router.push(`/services/edit/${id}`);
+  }, [router]);
 
   const handleDelete = React.useCallback(async () => {
     if (!listingToDelete || !user?.id) return;
@@ -311,30 +389,53 @@ export default function MyServicesPage() {
       const storageResult = await deleteAllListingImages(user.id, listingToDelete);
       if (storageResult.error) {
         console.warn("Storage deletion warning:", storageResult.error);
-        // Продолжаем удаление даже если storage не удалился
       }
 
-      // 2. Затем удаляем запись из БД (cascade удалит связанные images записи)
+      // 2. Затем удаляем запись из БД
       await deleteListing({
         where: { id: listingToDelete },
+      });
+
+      // 3. Удаляем из cache
+      queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
+        if (!old) return old;
+        return old.filter((listing) => listing.id !== listingToDelete);
       });
 
       toast.success("Зар болон зургууд устгагдлаа");
       setDeleteDialogOpen(false);
       setListingToDelete(null);
-      refetch();
     } catch (error) {
       console.error("Delete error:", error);
       toast.error("Устгахад алдаа гарлаа");
     } finally {
       setIsDeletingStorage(false);
     }
-  }, [listingToDelete, user?.id, deleteListing, refetch]);
+  }, [listingToDelete, user?.id, deleteListing, queryClient, queryKey]);
 
   const openDeleteDialog = React.useCallback((id: string) => {
     setListingToDelete(id);
     setDeleteDialogOpen(true);
   }, []);
+
+  // Мемоизированный фильтрованный список
+  const filteredListings = React.useMemo(() => {
+    const data = (listings || []) as ListingWithRelations[];
+    if (filterStatus === "all") return data;
+    if (filterStatus === "active") return data.filter((l) => l.status === "active");
+    if (filterStatus === "paused") return data.filter((l) => l.status === "paused");
+    return data;
+  }, [listings, filterStatus]);
+
+  // Counts for tabs
+  const counts = React.useMemo(() => {
+    const data = (listings || []) as ListingWithRelations[];
+    return {
+      all: data.length,
+      active: data.filter((l) => l.status === "active").length,
+      paused: data.filter((l) => l.status === "paused").length,
+    };
+  }, [listings]);
 
   // Not authenticated - show login prompt
   if (!isAuthenticated) {
@@ -351,20 +452,19 @@ export default function MyServicesPage() {
             </p>
           </div>
         </div>
-        <LoginPromptModal
-          open={showLoginModal}
-          onOpenChange={handleLoginModalClose}
-          onSuccess={handleLoginSuccess}
-          title="Миний зарууд"
-          description="Өөрийн зарууддаа хандахын тулд нэвтрэх шаардлагатай."
-          icon={Package}
-        />
+        {showLoginModal && (
+          <LoginPromptModal
+            open={showLoginModal}
+            onOpenChange={handleLoginModalClose}
+            onSuccess={handleLoginSuccess}
+            title="Миний зарууд"
+            description="Өөрийн зарууддаа хандахын тулд нэвтрэх шаардлагатай."
+            icon={Package}
+          />
+        )}
       </>
     );
   }
-
-  const listingsData = (listings || []) as ListingWithRelations[];
-  const count = listingsData.length;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -416,15 +516,50 @@ export default function MyServicesPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <h2 className="text-xl md:text-2xl font-bold">Миний зарууд</h2>
-              {isUpdating && (
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              )}
             </div>
             <p className="text-sm text-muted-foreground">
-              {isLoadingListings ? "Ачааллаж байна..." : `${count} зар байна`}
+              {isLoadingListings ? "Ачааллаж байна..." : `${counts.all} зар байна`}
             </p>
           </div>
         </div>
+
+        {/* Filter Tabs */}
+        {!isLoadingListings && counts.all > 0 && (
+          <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)} className="mb-6">
+            <TabsList className="inline-flex p-1 h-10 bg-muted/50 rounded-full">
+              <TabsTrigger
+                value="all"
+                className="rounded-full px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Бүгд
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
+                  {counts.all}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="active"
+                className="rounded-full px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
+              >
+                <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                Идэвхтэй
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 text-xs font-semibold">
+                  {counts.active}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="paused"
+                className="rounded-full px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
+              >
+                <PauseCircle className="h-4 w-4 mr-2 text-orange-500" />
+                Зогсоосон
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 text-xs font-semibold">
+                  {counts.paused}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
 
         {/* Loading State */}
         {isLoadingListings ? (
@@ -433,29 +568,28 @@ export default function MyServicesPage() {
               <ServiceCardSkeleton key={i} />
             ))}
           </div>
-        ) : listingsData.length > 0 ? (
+        ) : filteredListings.length > 0 ? (
           /* Services Grid */
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {listingsData.map((listing) => (
+            {filteredListings.map((listing) => (
               <ServiceCard
                 key={listing.id}
                 listing={listing}
                 onToggleActive={handleToggleActive}
                 onEdit={handleEdit}
                 onDelete={openDeleteDialog}
-                isUpdating={isUpdating}
+                isUpdatingThisCard={updatingId === listing.id}
               />
             ))}
           </div>
         ) : (
           /* Empty State */
-          <EmptyState />
+          <EmptyState filter={filterStatus} />
         )}
       </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
-        // Не закрывать диалог во время удаления
         if (!isDeletingStorage && !isDeleting) {
           setDeleteDialogOpen(open);
         }
