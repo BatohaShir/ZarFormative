@@ -27,6 +27,16 @@ enum ListingStatus {
   deleted
 }
 
+enum AimagType {
+  aimag
+  capital
+}
+
+enum DistrictType {
+  duureg
+  sum
+}
+
 model categories {
   id         String       @id() @default(cuid())
   slug       String       @unique()
@@ -198,4 +208,60 @@ model listings_images {
   @@index([listing_id, sort_order])
   @@index([listing_id, is_cover])
   @@map("listings_images")
+}
+
+model aimags {
+  id         String      @id() @default(cuid())
+  name       String
+  name_en    String?
+  code       String      @unique()
+  type       AimagType   @default(aimag)
+  sort_order Int         @default(0)
+  is_active  Boolean     @default(true)
+  created_at DateTime    @default(now())
+  updated_at DateTime    @updatedAt()
+  districts  districts[]
+
+  @@index([code])
+  @@index([is_active, sort_order])
+  @@index([type])
+  @@map("aimags")
+}
+
+model districts {
+  id         String       @id() @default(cuid())
+  aimag_id   String
+  name       String
+  name_en    String?
+  type       DistrictType @default(duureg)
+  sort_order Int          @default(0)
+  is_active  Boolean      @default(true)
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt()
+  aimag      aimags       @relation(fields: [aimag_id], references: [id], onDelete: Cascade)
+  khoroos    khoroos[]
+
+  @@index([aimag_id])
+  @@index([aimag_id, sort_order])
+  @@index([is_active])
+  @@index([type])
+  @@map("districts")
+}
+
+model khoroos {
+  id          String    @id() @default(cuid())
+  district_id String
+  name        String
+  number      Int?
+  sort_order  Int       @default(0)
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt()
+  district    districts @relation(fields: [district_id], references: [id], onDelete: Cascade)
+
+  @@index([district_id])
+  @@index([district_id, sort_order])
+  @@index([is_active])
+  @@index([number])
+  @@map("khoroos")
 }

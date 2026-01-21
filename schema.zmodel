@@ -407,3 +407,108 @@ model listings_images {
   // Admin может всё
   @@allow('create,update,delete', auth().role == admin)
 }
+
+// ============================================
+// Aimags - Аймаги/Столица Монголии
+// ============================================
+
+enum AimagType {
+  aimag    // Аймаг
+  capital  // Столица (Улаанбаатар)
+}
+
+model aimags {
+  id          String     @id @default(cuid())
+  name        String                    // "Улаанбаатар", "Дархан-Уул" и т.д.
+  name_en     String?                   // English name
+  code        String     @unique        // "UB", "DU" и т.д.
+  type        AimagType  @default(aimag)
+  sort_order  Int        @default(0)
+  is_active   Boolean    @default(true)
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+
+  // Relations
+  districts   districts[]
+
+  // Indexes
+  @@index([code])
+  @@index([is_active, sort_order])
+  @@index([type])
+
+  @@map("aimags")
+
+  // === RBAC Rules ===
+  @@allow('read', true)
+  @@allow('create,update', auth().role in [admin, manager])
+  @@allow('delete', auth().role == admin)
+}
+
+// ============================================
+// Districts - Дүүрэг/Сум
+// ============================================
+
+enum DistrictType {
+  duureg  // Дүүрэг (для столицы)
+  sum     // Сум (для аймагов)
+}
+
+model districts {
+  id          String       @id @default(cuid())
+  aimag_id    String
+  name        String                    // "Баянгол", "Хан-Уул" и т.д.
+  name_en     String?                   // English name
+  type        DistrictType @default(duureg)
+  sort_order  Int          @default(0)
+  is_active   Boolean      @default(true)
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  // Relations
+  aimag       aimags       @relation(fields: [aimag_id], references: [id], onDelete: Cascade)
+  khoroos     khoroos[]
+
+  // Indexes
+  @@index([aimag_id])
+  @@index([aimag_id, sort_order])
+  @@index([is_active])
+  @@index([type])
+
+  @@map("districts")
+
+  // === RBAC Rules ===
+  @@allow('read', true)
+  @@allow('create,update', auth().role in [admin, manager])
+  @@allow('delete', auth().role == admin)
+}
+
+// ============================================
+// Khoroos - Хороо/Баг
+// ============================================
+
+model khoroos {
+  id          String    @id @default(cuid())
+  district_id String
+  name        String                    // "1-р хороо", "2-р баг" и т.д.
+  number      Int?                      // Номер хороо/баг (1, 2, 3...)
+  sort_order  Int       @default(0)
+  is_active   Boolean   @default(true)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  // Relations
+  district    districts @relation(fields: [district_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([district_id])
+  @@index([district_id, sort_order])
+  @@index([is_active])
+  @@index([number])
+
+  @@map("khoroos")
+
+  // === RBAC Rules ===
+  @@allow('read', true)
+  @@allow('create,update', auth().role in [admin, manager])
+  @@allow('delete', auth().role == admin)
+}

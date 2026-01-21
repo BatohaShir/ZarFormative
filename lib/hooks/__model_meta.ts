@@ -585,11 +585,179 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        aimags: {
+            name: 'aimags', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, name_en: {
+                    name: "name_en",
+                    type: "String",
+                    isOptional: true,
+                }, code: {
+                    name: "code",
+                    type: "String",
+                }, type: {
+                    name: "type",
+                    type: "AimagType",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, districts: {
+                    name: "districts",
+                    type: "districts",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'aimag',
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, code: {
+                    name: "code",
+                    fields: ["code"]
+                },
+            },
+        },
+        districts: {
+            name: 'districts', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, aimag_id: {
+                    name: "aimag_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'aimag',
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, name_en: {
+                    name: "name_en",
+                    type: "String",
+                    isOptional: true,
+                }, type: {
+                    name: "type",
+                    type: "DistrictType",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, aimag: {
+                    name: "aimag",
+                    type: "aimags",
+                    isDataModel: true,
+                    backLink: 'districts',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "aimag_id" },
+                }, khoroos: {
+                    name: "khoroos",
+                    type: "khoroos",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'district',
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
+        khoroos: {
+            name: 'khoroos', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, district_id: {
+                    name: "district_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'district',
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, number: {
+                    name: "number",
+                    type: "Int",
+                    isOptional: true,
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, district: {
+                    name: "district",
+                    type: "districts",
+                    isDataModel: true,
+                    backLink: 'khoroos',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "district_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
         profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings'],
         listings: ['listings_images'],
+        aimags: ['districts'],
+        districts: ['khoroos'],
 
     },
     authModel: 'profiles'

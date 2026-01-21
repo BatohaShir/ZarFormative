@@ -23,6 +23,10 @@ export function useCurrentUser() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const supabase = createClient();
 
+  // ВАЖНО: Мутационный хук должен вызываться ДО условного запроса,
+  // чтобы порядок хуков был стабильным независимо от состояния user
+  const updateProfileMutation = useUpdateprofiles();
+
   // Fetch profile using ZenStack hook - optimized with select
   const {
     data: profile,
@@ -48,9 +52,6 @@ export function useCurrentUser() {
     },
     { enabled: !!user?.id }
   );
-
-  // Update profile mutation
-  const updateProfileMutation = useUpdateprofiles();
 
   const updateProfile = async (data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>) => {
     if (!user?.id) return { error: "Not authenticated" };
