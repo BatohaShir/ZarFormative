@@ -30,6 +30,7 @@ import {
   Building2,
   Hash,
   Settings,
+  Package,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
@@ -596,13 +597,19 @@ export default function MyProfilePage() {
 
             {/* Quick Actions - Desktop */}
             <div className="hidden lg:flex flex-col gap-2">
+              <Button variant="default" className="gap-2" asChild>
+                <Link href="/account/me/services">
+                  <Package className="h-4 w-4" />
+                  Миний үйлчилгээнүүд
+                </Link>
+              </Button>
               <Button variant="outline" className="gap-2" asChild>
                 <Link href="/account/me/settings">
                   <Settings className="h-4 w-4" />
                   Апп тохиргоо
                 </Link>
               </Button>
-              <Button onClick={() => setShowEditProfileModal(true)} className="gap-2">
+              <Button variant="outline" onClick={() => setShowEditProfileModal(true)} className="gap-2">
                 <Pencil className="h-4 w-4" />
                 Засварлах
               </Button>
@@ -777,6 +784,16 @@ export default function MyProfilePage() {
             {/* Mobile Action Buttons */}
             <div className="lg:hidden space-y-2">
               <Button
+                className="w-full gap-2"
+                asChild
+              >
+                <Link href="/account/me/services">
+                  <Package className="h-4 w-4" />
+                  Миний үйлчилгээнүүд
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
                 className="w-full gap-2"
                 onClick={() => setShowEditProfileModal(true)}
               >
