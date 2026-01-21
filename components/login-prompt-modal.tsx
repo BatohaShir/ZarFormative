@@ -10,16 +10,26 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Mail, Lock, Eye, EyeOff, MessageCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, LogIn, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
 interface LoginPromptModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  title?: string;
+  description?: string;
+  icon?: LucideIcon;
 }
 
-export function LoginPromptModal({ open, onOpenChange, onSuccess }: LoginPromptModalProps) {
+export function LoginPromptModal({
+  open,
+  onOpenChange,
+  onSuccess,
+  title = "Нэвтэрнэ үү",
+  description = "Үргэлжлүүлэхийн тулд нэвтрэх шаардлагатай.",
+  icon: Icon = LogIn,
+}: LoginPromptModalProps) {
   const { signIn } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -57,11 +67,11 @@ export function LoginPromptModal({ open, onOpenChange, onSuccess }: LoginPromptM
       <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-xl p-4 sm:p-6">
         <DialogHeader className="text-center">
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
-            <MessageCircle className="h-6 w-6 text-primary" />
+            <Icon className="h-6 w-6 text-primary" />
           </div>
-          <DialogTitle className="text-lg">Мессеж бичихийн тулд нэвтэрнэ үү</DialogTitle>
+          <DialogTitle className="text-lg">{title}</DialogTitle>
           <DialogDescription className="text-sm">
-            Үйлчилгээ үзүүлэгчтэй холбогдохын тулд эхлээд нэвтрэх шаардлагатай.
+            {description}
           </DialogDescription>
         </DialogHeader>
 

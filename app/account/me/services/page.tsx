@@ -20,6 +20,7 @@ import {
   Trash2,
   Pencil,
   Plus,
+  Heart,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -36,6 +37,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import { formatListingPrice } from "@/lib/utils";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { deleteAllListingImages } from "@/lib/storage/listings";
 import type { listings } from "@prisma/client";
 
 type ListingStatus = "draft" | "active" | "paused" | "archived" | "deleted";
@@ -46,7 +48,7 @@ interface ListingWithRelations extends listings {
   aimag?: { name: string } | null;
 }
 
-// Skeleton для загрузки
+// Skeleton для загрузки карточки
 function ServiceCardSkeleton() {
   return (
     <div className="rounded-xl md:rounded-2xl overflow-hidden border">
@@ -55,23 +57,25 @@ function ServiceCardSkeleton() {
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-3 w-full" />
         <div className="flex items-center gap-2 mt-2">
-          <Skeleton className="h-5 w-16 rounded-full" />
-          <Skeleton className="h-5 w-10" />
+          <Skeleton className="h-5 w-5 rounded-full" />
+          <Skeleton className="h-3 w-20" />
         </div>
       </div>
     </div>
   );
 }
 
-// Карточка услуги
-function ServiceCard({
+// Карточка услуги - мемоизированный компонент
+const ServiceCard = React.memo(function ServiceCard({
   listing,
   onToggleActive,
+  onEdit,
   onDelete,
   isUpdating,
 }: {
   listing: ListingWithRelations;
   onToggleActive: (id: string, status: ListingStatus) => void;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   isUpdating: boolean;
 }) {
@@ -80,17 +84,23 @@ function ServiceCard({
   const status = listing.status as ListingStatus;
   const isActive = status === "active";
 
-  const handleToggle = (e: React.MouseEvent) => {
+  const handleEdit = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onToggleActive(listing.id, status);
-  };
+    onEdit(listing.id);
+  }, [onEdit, listing.id]);
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     onDelete(listing.id);
-  };
+  }, [onDelete, listing.id]);
+
+  const handleToggle = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleActive(listing.id, status);
+  }, [onToggleActive, listing.id, status]);
 
   return (
     <Link
@@ -115,14 +125,14 @@ function ServiceCard({
           </span>
         )}
 
-        {/* Status badge */}
-        <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[10px] md:text-[11px] px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm ${
+        {/* Status indicator */}
+        <div className={`absolute top-2 right-2 md:top-3 md:right-3 px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-medium ${
           isActive
             ? "bg-green-500/90 text-white"
             : "bg-orange-500/90 text-white"
         }`}>
-          {isActive ? "Идэвхтэй" : "Түр зогссон"}
-        </span>
+          {isActive ? "Идэвхтэй" : "Идэвхгүй"}
+        </div>
 
         {/* Price */}
         <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3">
@@ -142,65 +152,66 @@ function ServiceCard({
         </p>
 
         {/* Stats */}
-        <div className="flex items-center gap-2 mt-2 text-[9px] md:text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-0.5">
-            <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
-            {listing.views_count || 0}
-          </span>
-          {listing.aimag && (
+        <div className="flex items-center justify-between mt-2 gap-2">
+          <div className="flex items-center gap-1.5 md:gap-2 text-[9px] md:text-[10px] text-muted-foreground">
             <span className="flex items-center gap-0.5">
-              <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
-              {listing.aimag.name}
+              <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              {listing.views_count || 0}
             </span>
+            <span className="flex items-center gap-0.5 text-pink-500">
+              <Heart className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
+              {listing.favorites_count || 0}
+            </span>
+          </div>
+          {listing.aimag && (
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              <span className="text-[10px] md:text-[11px] line-clamp-1">
+                {listing.aimag.name}
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Action buttons */}
+        {/* Actions */}
         <div className="flex items-center justify-between mt-3 pt-3 border-t">
-          {/* Active toggle */}
-          <div className="flex items-center gap-2" onClick={handleToggle}>
-            <Switch
-              checked={isActive}
-              disabled={isUpdating}
-              className="data-[state=checked]:bg-green-500"
-            />
-            <span className="text-[10px] md:text-xs text-muted-foreground">
-              {isActive ? "Идэвхтэй" : "Идэвхгүй"}
-            </span>
-          </div>
-
-          {/* Edit & Delete */}
           <div className="flex items-center gap-1">
             <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.location.href = `/services/edit/${listing.id}`;
-              }}
-              className="p-1.5 md:p-2 rounded-full hover:bg-muted transition-colors"
+              onClick={handleEdit}
+              className="p-1.5 md:p-2 rounded-lg hover:bg-muted transition-colors"
               title="Засварлах"
             >
-              <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground" />
+              <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground hover:text-foreground" />
             </button>
             <button
               onClick={handleDelete}
-              className="p-1.5 md:p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              className="p-1.5 md:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
               title="Устгах"
             >
               <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
             </button>
           </div>
+          <div className="flex items-center gap-2" onClick={handleToggle}>
+            <span className="text-[10px] md:text-xs text-muted-foreground">
+              {isActive ? "Идэвхтэй" : "Идэвхгүй"}
+            </span>
+            <Switch
+              checked={isActive}
+              disabled={isUpdating}
+              className="data-[state=checked]:bg-green-500"
+            />
+          </div>
         </div>
       </div>
     </Link>
   );
-}
+});
 
-// Пустое состояние
-function EmptyState() {
+// Пустое состояние - мемоизированный компонент
+const EmptyState = React.memo(function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mb-6">
+      <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mb-6">
         <Package className="h-10 w-10 text-white" />
       </div>
       <h3 className="text-lg font-semibold mb-2">Зар байхгүй байна</h3>
@@ -215,7 +226,7 @@ function EmptyState() {
       </Link>
     </div>
   );
-}
+});
 
 export default function MyServicesPage() {
   const router = useRouter();
@@ -223,6 +234,7 @@ export default function MyServicesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [listingToDelete, setListingToDelete] = React.useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
+  const [isDeletingStorage, setIsDeletingStorage] = React.useState(false);
 
   // Show login modal if not authenticated
   React.useEffect(() => {
@@ -270,8 +282,8 @@ export default function MyServicesPage() {
     }
   };
 
-  // Handlers
-  const handleToggleActive = async (id: string, currentStatus: ListingStatus) => {
+  // Handlers - мемоизированные с useCallback
+  const handleToggleActive = React.useCallback(async (id: string, currentStatus: ListingStatus) => {
     const newStatus = currentStatus === "active" ? "paused" : "active";
     try {
       await updateListing({
@@ -283,27 +295,46 @@ export default function MyServicesPage() {
     } catch {
       toast.error("Алдаа гарлаа");
     }
-  };
+  }, [updateListing, refetch]);
 
-  const handleDelete = async () => {
-    if (!listingToDelete) return;
+  const handleEdit = React.useCallback((id: string) => {
+    window.location.href = `/services/edit/${id}`;
+  }, []);
+
+  const handleDelete = React.useCallback(async () => {
+    if (!listingToDelete || !user?.id) return;
+
+    setIsDeletingStorage(true);
+
     try {
+      // 1. Сначала удаляем фото из Supabase Storage
+      const storageResult = await deleteAllListingImages(user.id, listingToDelete);
+      if (storageResult.error) {
+        console.warn("Storage deletion warning:", storageResult.error);
+        // Продолжаем удаление даже если storage не удалился
+      }
+
+      // 2. Затем удаляем запись из БД (cascade удалит связанные images записи)
       await deleteListing({
         where: { id: listingToDelete },
       });
-      toast.success("Устгагдлаа");
+
+      toast.success("Зар болон зургууд устгагдлаа");
       setDeleteDialogOpen(false);
       setListingToDelete(null);
       refetch();
-    } catch {
+    } catch (error) {
+      console.error("Delete error:", error);
       toast.error("Устгахад алдаа гарлаа");
+    } finally {
+      setIsDeletingStorage(false);
     }
-  };
+  }, [listingToDelete, user?.id, deleteListing, refetch]);
 
-  const openDeleteDialog = (id: string) => {
+  const openDeleteDialog = React.useCallback((id: string) => {
     setListingToDelete(id);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
   // Not authenticated - show login prompt
   if (!isAuthenticated) {
@@ -311,7 +342,7 @@ export default function MyServicesPage() {
       <>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <div className="text-center max-w-md">
-            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mx-auto mb-6">
+            <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mx-auto mb-6">
               <Package className="h-10 w-10 text-white" />
             </div>
             <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
@@ -324,6 +355,9 @@ export default function MyServicesPage() {
           open={showLoginModal}
           onOpenChange={handleLoginModalClose}
           onSuccess={handleLoginSuccess}
+          title="Миний зарууд"
+          description="Өөрийн зарууддаа хандахын тулд нэвтрэх шаардлагатай."
+          icon={Package}
         />
       </>
     );
@@ -338,14 +372,11 @@ export default function MyServicesPage() {
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 md:h-10 md:w-10"
-              onClick={() => router.back()}
-            >
-              <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10">
+                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
+              </Button>
+            </Link>
             <Link href="/">
               <h1 className="text-lg md:text-2xl font-bold">
                 <span className="text-[#c4272f]">Uilc</span>
@@ -379,7 +410,7 @@ export default function MyServicesPage() {
       <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Page Title */}
         <div className="flex items-center gap-4 mb-6 md:mb-8">
-          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
+          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
             <Package className="h-6 w-6 md:h-7 md:w-7 text-white" />
           </div>
           <div className="flex-1">
@@ -410,6 +441,7 @@ export default function MyServicesPage() {
                 key={listing.id}
                 listing={listing}
                 onToggleActive={handleToggleActive}
+                onEdit={handleEdit}
                 onDelete={openDeleteDialog}
                 isUpdating={isUpdating}
               />
@@ -422,25 +454,37 @@ export default function MyServicesPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => {
+        // Не закрывать диалог во время удаления
+        if (!isDeletingStorage && !isDeleting) {
+          setDeleteDialogOpen(open);
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Устгах уу?</AlertDialogTitle>
             <AlertDialogDescription>
-              Энэ үйлдлийг буцаах боломжгүй. Таны зар бүрмөсөн устгагдах болно.
+              Энэ үйлдлийг буцаах боломжгүй. Таны зар болон бүх зургууд бүрмөсөн устгагдах болно.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Болих</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingStorage || isDeleting}>
+              Болих
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={isDeletingStorage || isDeleting}
               className="bg-red-600 hover:bg-red-700"
             >
-              {isDeleting ? (
+              {isDeletingStorage ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Устгаж байна...
+                  Зураг устгаж байна...
+                </>
+              ) : isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Зар устгаж байна...
                 </>
               ) : (
                 "Устгах"

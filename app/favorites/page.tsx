@@ -228,6 +228,9 @@ export default function FavoritesPage() {
           open={showLoginModal}
           onOpenChange={handleLoginModalClose}
           onSuccess={handleLoginSuccess}
+          title="Таалагдсан"
+          description="Дуртай үйлчилгээнүүдээ хадгалахын тулд нэвтрэх шаардлагатай."
+          icon={Heart}
         />
       </>
     );

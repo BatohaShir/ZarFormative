@@ -178,6 +178,26 @@ export default function CreateListingPage() {
 
   const watchIsNegotiable = watch("is_negotiable");
 
+  // Show login modal if not authenticated
+  React.useEffect(() => {
+    if (!user) {
+      setShowLoginModal(true);
+    }
+  }, [user]);
+
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+    window.location.reload();
+  };
+
+  const handleLoginModalClose = (open: boolean) => {
+    if (!open && !user) {
+      router.push("/");
+    } else {
+      setShowLoginModal(open);
+    }
+  };
+
   // Обработчик выбора категории
   const handleCategorySelect = (category: CategoryData) => {
     setSelectedCategory(category);
@@ -517,52 +537,24 @@ export default function CreateListingPage() {
   if (!user) {
     return (
       <>
-        <div className="min-h-screen bg-background pb-20 md:pb-0">
-          {/* Header */}
-          <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-            <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 md:gap-4">
-                <Link href="/">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10">
-                    <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-                  </Button>
-                </Link>
-                <Link href="/">
-                  <h1 className="text-lg md:text-2xl font-bold">
-                    <span className="text-[#c4272f]">Uilc</span>
-                    <span className="text-[#015197]">hilge</span>
-                    <span className="text-[#c4272f]">e.mn</span>
-                  </h1>
-                </Link>
-              </div>
-              {/* Desktop Nav */}
-              <nav className="hidden md:flex items-center gap-4">
-                <RequestsButton />
-                <FavoritesButton />
-                <ThemeToggle />
-                <AuthModal />
-              </nav>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mx-auto mb-6">
+              <Plus className="h-10 w-10 text-white" />
             </div>
-          </header>
-
-          <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
-            <Card className="w-full max-w-md">
-              <CardContent className="pt-6 text-center">
-                <p className="mb-4">Зар нэмэхийн тулд нэвтэрнэ үү.</p>
-                <Button onClick={() => setShowLoginModal(true)}>
-                  Нэвтрэх
-                </Button>
-              </CardContent>
-            </Card>
+            <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
+            <p className="text-muted-foreground text-sm">
+              Зар нэмэхийн тулд нэвтрэх шаардлагатай
+            </p>
           </div>
         </div>
         <LoginPromptModal
           open={showLoginModal}
-          onOpenChange={setShowLoginModal}
-          onSuccess={() => {
-            setShowLoginModal(false);
-            window.location.reload();
-          }}
+          onOpenChange={handleLoginModalClose}
+          onSuccess={handleLoginSuccess}
+          title="Зар нэмэхийн тулд нэвтэрнэ үү"
+          description="Шинэ зар нэмэхийн тулд эхлээд нэвтрэх шаардлагатай."
+          icon={Plus}
         />
       </>
     );
@@ -598,24 +590,22 @@ export default function CreateListingPage() {
       </header>
 
       <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Page Title - Modern Style */}
-        <div className="max-w-3xl mx-auto mb-8">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-linear-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg shadow-primary/25">
-              {editingDraftId ? (
-                <Edit3 className="h-7 w-7 text-white" />
-              ) : (
-                <Plus className="h-7 w-7 text-white" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-                {editingDraftId ? "Черновик засах" : "Шинэ зар"}
-              </h2>
-              <p className="text-muted-foreground mt-1">
-                {editingDraftId ? "Черновикоо засаад нийтлэнэ үү" : "Үйлчилгээний мэдээллээ оруулна уу"}
-              </p>
-            </div>
+        {/* Page Title */}
+        <div className="flex items-center gap-4 mb-6 md:mb-8 max-w-3xl mx-auto">
+          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
+            {editingDraftId ? (
+              <Edit3 className="h-6 w-6 md:h-7 md:w-7 text-white" />
+            ) : (
+              <Plus className="h-6 w-6 md:h-7 md:w-7 text-white" />
+            )}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl md:text-2xl font-bold">
+              {editingDraftId ? "Черновик засах" : "Шинэ зар"}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {editingDraftId ? "Черновикоо засаад нийтлэнэ үү" : "Үйлчилгээний мэдээллээ оруулна уу"}
+            </p>
           </div>
         </div>
 
