@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
@@ -17,11 +18,21 @@ import {
   Eye,
   Loader2,
   Trash2,
+  Undo2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useFavorites, type FavoriteWithListing } from "@/contexts/favorites-context";
-import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { formatListingPrice } from "@/lib/utils";
+import { toast } from "sonner";
+
+// Lazy load LoginPromptModal - not loaded until needed
+const LoginPromptModal = dynamic(
+  () => import("@/components/login-prompt-modal").then((mod) => ({ default: mod.LoginPromptModal })),
+  { ssr: false }
+);
+
+// Локальный placeholder вместо Unsplash
+const PLACEHOLDER_IMAGE = "/images/placeholder-listing.svg";
 
 // Skeleton для загрузки
 function FavoriteCardSkeleton() {
@@ -46,10 +57,10 @@ const FavoriteCard = React.memo(function FavoriteCard({
   onRemove,
 }: {
   favorite: FavoriteWithListing;
-  onRemove: (id: string) => void;
+  onRemove: (id: string, title: string) => void;
 }) {
   const listing = favorite.listing;
-  const imageUrl = listing.images?.[0]?.url || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
+  const imageUrl = listing.images?.[0]?.url || PLACEHOLDER_IMAGE;
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
 
   // Получить имя провайдера
@@ -64,8 +75,8 @@ const FavoriteCard = React.memo(function FavoriteCard({
   const handleRemove = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onRemove(listing.id);
-  }, [onRemove, listing.id]);
+    onRemove(listing.id, listing.title);
+  }, [onRemove, listing.id, listing.title]);
 
   return (
     <Link
@@ -188,26 +199,58 @@ export default function FavoritesPage() {
   const { favorites, isLoading, toggleFavorite, count, isToggling } = useFavorites();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
 
+  // Track removed items for Undo functionality
+  const undoTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
   React.useEffect(() => {
     if (!isAuthenticated) {
       setShowLoginModal(true);
     }
   }, [isAuthenticated]);
 
-  const handleLoginSuccess = () => {
-    setShowLoginModal(false);
-  };
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+    };
+  }, []);
 
-  const handleLoginModalClose = (open: boolean) => {
+  const handleLoginSuccess = React.useCallback(() => {
+    setShowLoginModal(false);
+  }, []);
+
+  const handleLoginModalClose = React.useCallback((open: boolean) => {
     if (!open && !isAuthenticated) {
       router.push("/");
     } else {
       setShowLoginModal(open);
     }
-  };
+  }, [isAuthenticated, router]);
 
-  const handleRemoveFavorite = React.useCallback((listingId: string) => {
+  // Remove favorite with Undo toast
+  const handleRemoveFavorite = React.useCallback((listingId: string, title: string) => {
+    // Optimistically remove (context already handles this)
     toggleFavorite(listingId);
+
+    // Show toast with Undo button
+    toast.success(
+      <div className="flex items-center gap-2">
+        <span className="truncate max-w-50">&quot;{title}&quot; хасагдлаа</span>
+      </div>,
+      {
+        duration: 5000,
+        action: {
+          label: "Буцаах",
+          onClick: () => {
+            // Re-add to favorites
+            toggleFavorite(listingId);
+          },
+        },
+        icon: <Heart className="w-4 h-4 text-pink-500" />,
+      }
+    );
   }, [toggleFavorite]);
 
   // Не авторизован
@@ -225,14 +268,16 @@ export default function FavoritesPage() {
             </p>
           </div>
         </div>
-        <LoginPromptModal
-          open={showLoginModal}
-          onOpenChange={handleLoginModalClose}
-          onSuccess={handleLoginSuccess}
-          title="Таалагдсан"
-          description="Дуртай үйлчилгээнүүдээ хадгалахын тулд нэвтрэх шаардлагатай."
-          icon={Heart}
-        />
+        {showLoginModal && (
+          <LoginPromptModal
+            open={showLoginModal}
+            onOpenChange={handleLoginModalClose}
+            onSuccess={handleLoginSuccess}
+            title="Таалагдсан"
+            description="Дуртай үйлчилгээнүүдээ хадгалахын тулд нэвтрэх шаардлагатай."
+            icon={Heart}
+          />
+        )}
       </>
     );
   }
