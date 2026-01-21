@@ -32,15 +32,19 @@ export const ServiceCard = React.memo(function ServiceCard({
   const serviceId = String(service.id);
   const isLiked = isFavorite(serviceId);
 
+  // Используем ref для isToggling чтобы избежать пересоздания callback
+  const isTogglingRef = React.useRef(isToggling);
+  isTogglingRef.current = isToggling;
+
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!isToggling) {
+      if (!isTogglingRef.current) {
         toggleFavorite(serviceId);
       }
     },
-    [toggleFavorite, serviceId, isToggling]
+    [toggleFavorite, serviceId]
   );
 
   return (
@@ -55,6 +59,7 @@ export const ServiceCard = React.memo(function ServiceCard({
           alt={service.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          loading="lazy"
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />

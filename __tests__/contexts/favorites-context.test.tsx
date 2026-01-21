@@ -67,7 +67,7 @@ describe("FavoritesContext", () => {
 
     expect(() => {
       renderHook(() => useFavorites());
-    }).toThrow("useFavorites must be used within a FavoritesProvider");
+    }).toThrow("must be used within a FavoritesProvider");
 
     spy.mockRestore();
   });

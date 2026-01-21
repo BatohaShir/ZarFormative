@@ -477,6 +477,8 @@ model listings {
   @@index([user_id, status, is_active])           // Профиль пользователя
   @@index([status, is_active, views_count(sort: Desc)])  // Сортировка по популярности
   @@index([status, is_active, price])             // Фильтрация по цене
+  // OPTIMIZATION: Составной индекс для фильтрации по категории с ценой
+  @@index([status, is_active, category_id, price])  // Фильтр категория + цена
   // NEW: Оптимизация черновиков (страница создания объявления)
   @@index([user_id, status, updated_at(sort: Desc)])  // Черновики с сортировкой
   // NEW: Публичные объявления с датой публикации

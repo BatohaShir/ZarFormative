@@ -8,6 +8,7 @@ import { useFavorites } from "@/contexts/favorites-context";
 import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice } from "@/lib/utils";
+import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
 // Тип объявления с включёнными связями
 export type ListingWithRelations = listings & {
@@ -23,63 +24,35 @@ interface ListingCardProps {
   listing: ListingWithRelations;
 }
 
-// Получить имя провайдера
-function getProviderName(user: ListingWithRelations["user"]): string {
-  if (user.is_company && user.company_name) {
-    return user.company_name;
-  }
-  if (user.first_name || user.last_name) {
-    return [user.first_name, user.last_name].filter(Boolean).join(" ");
-  }
-  return "Хэрэглэгч";
-}
-
-// Получить URL первого изображения
-function getFirstImageUrl(images: ListingWithRelations["images"]): string {
-  if (images.length === 0) {
-    return "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
-  }
-  // Сортируем по sort_order и берём первое
-  const sorted = [...images].sort((a, b) => a.sort_order - b.sort_order);
-  return sorted[0].url;
-}
-
-// Форматирование локации
-function formatLocation(listing: ListingWithRelations): string {
-  const parts: string[] = [];
-
-  if (listing.aimag?.name) {
-    parts.push(listing.aimag.name);
-  }
-  if (listing.district?.name) {
-    parts.push(listing.district.name);
-  }
-  if (listing.khoroo?.name) {
-    parts.push(listing.khoroo.name);
-  }
-
-  return parts.length > 0 ? parts.join(", ") : "Байршил тодорхойгүй";
-}
-
 export const ListingCard = React.memo(function ListingCard({
   listing,
 }: ListingCardProps) {
   const { toggleFavorite, isFavorite, isToggling } = useFavorites();
   const isLiked = isFavorite(listing.id);
 
+  // Используем ref для isToggling чтобы избежать пересоздания callback
+  const isTogglingRef = React.useRef(isToggling);
+  isTogglingRef.current = isToggling;
+
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!isToggling) {
+      if (!isTogglingRef.current) {
         toggleFavorite(listing.id);
       }
     },
-    [toggleFavorite, listing.id, isToggling]
+    [toggleFavorite, listing.id]
   );
 
   const providerName = getProviderName(listing.user);
-  const imageUrl = getFirstImageUrl(listing.images);
+
+  // Мемоизация URL изображения - избегаем сортировки на каждый рендер
+  const imageUrl = React.useMemo(
+    () => getFirstImageUrl(listing.images),
+    [listing.images]
+  );
+
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const locationDisplay = formatLocation(listing);
 
@@ -95,6 +68,7 @@ export const ListingCard = React.memo(function ListingCard({
           alt={listing.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          loading="lazy"
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />

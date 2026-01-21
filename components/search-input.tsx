@@ -19,13 +19,24 @@ export const SearchInput = React.memo(function SearchInput({
   const [isOpen, setIsOpen] = React.useState(false);
   const [debouncedQuery, setDebouncedQuery] = React.useState("");
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce поискового запроса
+  // Оптимизированный debounce с useRef - один таймер вместо создания нового на каждое изменение
   React.useEffect(() => {
-    const timer = setTimeout(() => {
+    // Очищаем предыдущий таймер
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
       setDebouncedQuery(query);
     }, 300);
-    return () => clearTimeout(timer);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [query]);
 
   // Full-text поиск через API с tsvector

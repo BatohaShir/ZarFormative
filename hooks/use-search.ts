@@ -52,15 +52,17 @@ export function useSearch({
 }: UseSearchOptions) {
   return useQuery<SearchResponse>({
     queryKey: ["search", query, limit, offset],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const params = new URLSearchParams({
         q: query,
         limit: limit.toString(),
         offset: offset.toString(),
       });
 
+      // AbortController signal - автоматически отменяет запрос при навигации или новом поиске
       const response = await fetch(`/api/search?${params}`, {
         credentials: "include",
+        signal, // Передаём signal от React Query для отмены запроса
       });
 
       if (!response.ok) {

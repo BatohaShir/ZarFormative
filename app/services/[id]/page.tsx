@@ -4,6 +4,7 @@ import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,8 +14,13 @@ import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
-import { ServiceRequestModal } from "@/components/service-request-modal";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+
+// Lazy load модальных окон - не загружаются до открытия (~20KB экономии)
+const ServiceRequestModal = dynamic(
+  () => import("@/components/service-request-modal").then((mod) => ({ default: mod.ServiceRequestModal })),
+  { ssr: false }
+);
 import { ChevronLeft, MapPin, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass, Eye } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { ImageLightbox } from "@/components/image-lightbox";
@@ -23,6 +29,7 @@ import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
 import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice } from "@/lib/utils";
+import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
 // Storage key for pending requests
 const PENDING_REQUESTS_KEY = "uilchilgee_pending_requests";
@@ -67,32 +74,6 @@ function formatTimeRemaining(expiresAt: number): string {
   const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
 
   return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-}
-
-function getProviderName(user: { first_name: string | null; last_name: string | null; company_name: string | null; is_company: boolean }): string {
-  if (user.is_company && user.company_name) {
-    return user.company_name;
-  }
-  if (user.first_name || user.last_name) {
-    return [user.first_name, user.last_name].filter(Boolean).join(" ");
-  }
-  return "Хэрэглэгч";
-}
-
-function formatLocation(listing: { aimag?: { name: string } | null; district?: { name: string } | null; khoroo?: { name: string } | null; address?: string | null }): string {
-  const parts: string[] = [];
-  if (listing.aimag?.name) parts.push(listing.aimag.name);
-  if (listing.district?.name) parts.push(listing.district.name);
-  if (listing.khoroo?.name) parts.push(listing.khoroo.name);
-  return parts.length > 0 ? parts.join(", ") : "Байршил тодорхойгүй";
-}
-
-function getFirstImageUrl(images: { url: string; sort_order: number }[]): string {
-  if (images.length === 0) {
-    return "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&h=600&fit=crop";
-  }
-  const sorted = [...images].sort((a, b) => a.sort_order - b.sort_order);
-  return sorted[0].url;
 }
 
 export default function ServicePage({ params }: { params: Promise<{ id: string }> }) {

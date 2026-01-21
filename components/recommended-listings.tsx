@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
 import { useFindManylistings } from "@/lib/hooks/listings";
+import { CACHE_TIMES } from "@/lib/react-query-config";
 
 export function RecommendedListings() {
   // Загружаем активные объявления из БД с оптимизированным кэшированием
@@ -71,8 +72,7 @@ export function RecommendedListings() {
       take: 8,
     },
     {
-      staleTime: 2 * 60 * 1000, // 2 минуты - рекомендации обновляются не часто
-      gcTime: 10 * 60 * 1000, // 10 минут в памяти
+      ...CACHE_TIMES.RECOMMENDATIONS,
     }
   );
 

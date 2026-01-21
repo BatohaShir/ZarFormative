@@ -267,6 +267,7 @@ model listings {
   @@index([user_id, status, is_active])
   @@index([status, is_active, views_count(sort: Desc)])
   @@index([status, is_active, price])
+  @@index([status, is_active, category_id, price])
   @@index([user_id, status, updated_at(sort: Desc)])
   @@index([status, is_active, published_at(sort: Desc)])
   @@index([status, is_active, favorites_count(sort: Desc)])

@@ -8,6 +8,7 @@ import {
   useCreateuser_favorites,
   useDeleteuser_favorites,
 } from "@/lib/hooks/user-favorites";
+import { CACHE_TIMES } from "@/lib/react-query-config";
 import type { listings, categories, aimags, listings_images, profiles } from "@prisma/client";
 
 const FAVORITES_STORAGE_KEY = "favorites_guest";
@@ -26,34 +27,62 @@ export interface FavoriteWithListing {
   };
 }
 
-interface FavoritesContextType {
-  favorites: FavoriteWithListing[];
+// ========== РАЗДЕЛЁННЫЕ КОНТЕКСТЫ ==========
+// Разделяем на 3 контекста чтобы уменьшить re-renders:
+// 1. FavoritesIdsContext - для проверки isFavorite (используется в каждой карточке)
+// 2. FavoritesActionsContext - для toggleFavorite (стабильная ссылка)
+// 3. FavoritesDataContext - для полного списка избранного (используется только на странице избранного)
+
+// Контекст 1: Только IDs для быстрой проверки (O(1))
+interface FavoritesIdsContextType {
   favoriteListingIds: Set<string>;
-  isLoading: boolean;
-  toggleFavorite: (listingId: string) => void; // Изменено: не возвращает Promise
   isFavorite: (listingId: string) => boolean;
   count: number;
+}
+
+// Контекст 2: Действия (мутации)
+interface FavoritesActionsContextType {
+  toggleFavorite: (listingId: string) => void;
   isToggling: boolean;
 }
 
-const FavoritesContext = React.createContext<FavoritesContextType | undefined>(
-  undefined
-);
+// Контекст 3: Полные данные избранных (для страницы /favorites)
+interface FavoritesDataContextType {
+  favorites: FavoriteWithListing[];
+  isLoading: boolean;
+}
 
-// Получить гостевые избранные из localStorage
+const FavoritesIdsContext = React.createContext<FavoritesIdsContextType | undefined>(undefined);
+const FavoritesActionsContext = React.createContext<FavoritesActionsContextType | undefined>(undefined);
+const FavoritesDataContext = React.createContext<FavoritesDataContextType | undefined>(undefined);
+
+// Кэш для localStorage - избегаем JSON.parse на каждый вызов
+let cachedGuestFavorites: string[] | null = null;
+
+// Получить гостевые избранные из localStorage (с кэшированием)
 function getGuestFavorites(): string[] {
   if (typeof window === "undefined") return [];
+
+  // Возвращаем из кэша если есть
+  if (cachedGuestFavorites !== null) {
+    return cachedGuestFavorites;
+  }
+
   try {
     const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    const parsed: string[] = stored ? JSON.parse(stored) : [];
+    cachedGuestFavorites = parsed;
+    return parsed;
   } catch {
+    cachedGuestFavorites = [];
     return [];
   }
 }
 
-// Сохранить гостевые избранные в localStorage
+// Сохранить гостевые избранные в localStorage (обновляем кэш)
 function setGuestFavorites(favorites: string[]) {
   if (typeof window === "undefined") return;
+  cachedGuestFavorites = favorites; // Обновляем кэш
   localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
 }
 
@@ -128,8 +157,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     },
     {
       enabled: isAuthenticated && !!user?.id,
-      staleTime: 5 * 60 * 1000, // 5 минут
-      gcTime: 30 * 60 * 1000, // 30 минут в кэше
+      ...CACHE_TIMES.FAVORITES,
     }
   );
 
@@ -169,7 +197,15 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     [favoriteListingIds]
   );
 
+  // Ref для dbFavorites чтобы toggleFavorite не пересоздавался при изменении данных
+  const dbFavoritesRef = React.useRef(dbFavorites);
+  dbFavoritesRef.current = dbFavorites;
+
+  const optimisticIdsRef = React.useRef(optimisticIds);
+  optimisticIdsRef.current = optimisticIds;
+
   // Добавить/удалить из избранного - МГНОВЕННО обновляет UI
+  // Используем useRef для стабильной ссылки на функцию
   const toggleFavorite = React.useCallback(
     (listingId: string) => {
       if (!isAuthenticated || !user?.id) {
@@ -188,7 +224,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Optimistic update - мгновенно обновляем UI
-      const isCurrentlyFavorite = optimisticIds.has(listingId);
+      const isCurrentlyFavorite = optimisticIdsRef.current.has(listingId);
 
       setOptimisticIds((prev) => {
         const next = new Set(prev);
@@ -203,7 +239,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       // Фоновая синхронизация с сервером (без await)
       if (isCurrentlyFavorite) {
         // Удаляем - ищем в dbFavorites
-        const existingFavorite = (dbFavorites as FavoriteWithListing[]).find(
+        const existingFavorite = (dbFavoritesRef.current as FavoriteWithListing[]).find(
           (f) => f.listing_id === listingId
         );
         if (existingFavorite) {
@@ -221,7 +257,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [isAuthenticated, user?.id, dbFavorites, optimisticIds, createFavorite, deleteFavorite]
+    [isAuthenticated, user?.id, createFavorite, deleteFavorite]
   );
 
   // Количество избранных
@@ -235,40 +271,97 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     );
   }, [dbFavorites, optimisticIds, isAuthenticated]);
 
-  const value = React.useMemo(
+  // ========== МЕМОИЗИРОВАННЫЕ ЗНАЧЕНИЯ ДЛЯ КАЖДОГО КОНТЕКСТА ==========
+
+  // Контекст IDs - обновляется только при изменении избранных
+  const idsValue = React.useMemo<FavoritesIdsContextType>(
     () => ({
-      favorites: optimisticFavorites,
       favoriteListingIds,
-      isLoading: isAuthenticated ? isLoading : false,
-      toggleFavorite,
       isFavorite,
       count,
+    }),
+    [favoriteListingIds, isFavorite, count]
+  );
+
+  // Контекст Actions - максимально стабильная ссылка
+  const actionsValue = React.useMemo<FavoritesActionsContextType>(
+    () => ({
+      toggleFavorite,
       isToggling: createFavorite.isPending || deleteFavorite.isPending,
     }),
-    [
-      optimisticFavorites,
-      favoriteListingIds,
-      isLoading,
-      isAuthenticated,
-      toggleFavorite,
-      isFavorite,
-      count,
-      createFavorite.isPending,
-      deleteFavorite.isPending,
-    ]
+    [toggleFavorite, createFavorite.isPending, deleteFavorite.isPending]
+  );
+
+  // Контекст Data - обновляется только при изменении списка
+  const dataValue = React.useMemo<FavoritesDataContextType>(
+    () => ({
+      favorites: optimisticFavorites,
+      isLoading: isAuthenticated ? isLoading : false,
+    }),
+    [optimisticFavorites, isLoading, isAuthenticated]
   );
 
   return (
-    <FavoritesContext.Provider value={value}>
-      {children}
-    </FavoritesContext.Provider>
+    <FavoritesIdsContext.Provider value={idsValue}>
+      <FavoritesActionsContext.Provider value={actionsValue}>
+        <FavoritesDataContext.Provider value={dataValue}>
+          {children}
+        </FavoritesDataContext.Provider>
+      </FavoritesActionsContext.Provider>
+    </FavoritesIdsContext.Provider>
   );
 }
 
-export function useFavorites() {
-  const context = React.useContext(FavoritesContext);
+// ========== ХУКИ ДЛЯ ИСПОЛЬЗОВАНИЯ ==========
+
+/**
+ * Хук для проверки избранного - используется в карточках
+ * Минимальные re-renders: только при изменении списка IDs
+ */
+export function useFavoriteIds() {
+  const context = React.useContext(FavoritesIdsContext);
   if (context === undefined) {
-    throw new Error("useFavorites must be used within a FavoritesProvider");
+    throw new Error("useFavoriteIds must be used within a FavoritesProvider");
   }
   return context;
+}
+
+/**
+ * Хук для действий - используется для кнопки лайка
+ * Стабильная ссылка на toggleFavorite
+ */
+export function useFavoriteActions() {
+  const context = React.useContext(FavoritesActionsContext);
+  if (context === undefined) {
+    throw new Error("useFavoriteActions must be used within a FavoritesProvider");
+  }
+  return context;
+}
+
+/**
+ * Хук для полных данных - используется на странице /favorites
+ * Содержит все данные избранных листингов
+ */
+export function useFavoriteData() {
+  const context = React.useContext(FavoritesDataContext);
+  if (context === undefined) {
+    throw new Error("useFavoriteData must be used within a FavoritesProvider");
+  }
+  return context;
+}
+
+/**
+ * Комбинированный хук для обратной совместимости
+ * Используйте отдельные хуки для лучшей производительности
+ */
+export function useFavorites() {
+  const ids = useFavoriteIds();
+  const actions = useFavoriteActions();
+  const data = useFavoriteData();
+
+  return {
+    ...ids,
+    ...actions,
+    ...data,
+  };
 }

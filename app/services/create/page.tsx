@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -35,8 +36,20 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
-import { AddressSelectModal, AddressData } from "@/components/address-select-modal";
-import { CategorySelectModal, CategoryData } from "@/components/category-select-modal";
+
+// Типы для модальных окон (импортируем только типы для TypeScript)
+import type { AddressData } from "@/components/address-select-modal";
+import type { CategoryData } from "@/components/category-select-modal";
+
+// Lazy load модальных окон - не загружаются до открытия (~30KB экономии)
+const AddressSelectModal = dynamic(
+  () => import("@/components/address-select-modal").then((mod) => ({ default: mod.AddressSelectModal })),
+  { ssr: false }
+);
+const CategorySelectModal = dynamic(
+  () => import("@/components/category-select-modal").then((mod) => ({ default: mod.CategorySelectModal })),
+  { ssr: false }
+);
 
 import { useCreatelistings, useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import { useDeletelistings_images } from "@/lib/hooks/listings-images";
@@ -464,26 +477,20 @@ export default function CreateListingPage() {
 
         // Загружаем фото параллельно (batch upload + batch DB insert)
         if (images.length > 0) {
-          console.log(`[Upload] Starting upload of ${images.length} images for listing ${listingId}`);
-
           // Параллельная загрузка файлов в storage
           const uploadResults = await Promise.all(
             images.map(async (image, i) => {
               const uuid = crypto.randomUUID();
-              console.log(`[Upload] Uploading image ${i + 1}: ${image.file.name}`);
               const { url, error } = await uploadListingImage(user.id, listingId, image.file, uuid);
               if (error || !url) {
-                console.error(`[Upload] ERROR uploading image ${i + 1}:`, error);
                 return null;
               }
-              console.log(`[Upload] Image ${i + 1} uploaded successfully:`, url);
               return { url, sort_order: i, is_cover: i === 0 };
             })
           );
 
           // Batch insert в БД (1 запрос вместо N)
           const validImages = uploadResults.filter((r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null);
-          console.log(`[Upload] Completed: ${validImages.length}/${images.length} images uploaded successfully`);
 
           if (validImages.length === 0 && images.length > 0) {
             throw new Error("Зураг оруулахад алдаа гарлаа! Storage-д хандах эрх шалгана уу.");

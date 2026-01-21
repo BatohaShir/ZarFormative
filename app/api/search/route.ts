@@ -111,34 +111,42 @@ export async function GET(request: NextRequest) {
     // Получаем total из первого результата (оптимизация: 1 запрос вместо 2)
     const total = results.length > 0 ? Number(results[0].total_count) : 0;
 
-    return NextResponse.json({
-      results: results.map((r) => ({
-        id: r.id,
-        title: r.title,
-        slug: r.slug,
-        description: r.description?.substring(0, 150) + (r.description?.length > 150 ? "..." : ""),
-        price: r.price,
-        currency: r.currency,
-        is_negotiable: r.is_negotiable,
-        views_count: r.views_count,
-        created_at: r.created_at,
-        category: {
-          name: r.category_name,
-          slug: r.category_slug,
+    // Кэшируем результаты поиска на 30 секунд (клиент) / 60 секунд (CDN)
+    return NextResponse.json(
+      {
+        results: results.map((r) => ({
+          id: r.id,
+          title: r.title,
+          slug: r.slug,
+          description: r.description?.substring(0, 150) + (r.description?.length > 150 ? "..." : ""),
+          price: r.price,
+          currency: r.currency,
+          is_negotiable: r.is_negotiable,
+          views_count: r.views_count,
+          created_at: r.created_at,
+          category: {
+            name: r.category_name,
+            slug: r.category_slug,
+          },
+          cover_image: r.cover_image_url,
+          aimag: r.aimag_name,
+          user: {
+            name: r.user_name,
+            avatar: r.user_avatar,
+          },
+          relevance: r.rank,
+        })),
+        total,
+        query,
+        limit,
+        offset,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=120",
         },
-        cover_image: r.cover_image_url,
-        aimag: r.aimag_name,
-        user: {
-          name: r.user_name,
-          avatar: r.user_avatar,
-        },
-        relevance: r.rank,
-      })),
-      total,
-      query,
-      limit,
-      offset,
-    });
+      }
+    );
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(

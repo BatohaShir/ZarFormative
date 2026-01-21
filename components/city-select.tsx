@@ -81,11 +81,11 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
     }
   );
 
-  // Загружаем дүүрэги для выбранного аймага (кэш 24 часа)
-  const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
+  // Pre-fetch всех районов при открытии диалога (устраняет waterfall)
+  // Загружаем все районы сразу и фильтруем на клиенте
+  const { data: allDistrictsData, isLoading: isLoadingDistricts } = useFindManydistricts(
     {
       where: {
-        aimag_id: selectedAimag?.id,
         is_active: true,
       },
       orderBy: {
@@ -93,14 +93,19 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
       },
     },
     {
-      enabled: !!selectedAimag,
       staleTime: 24 * 60 * 60 * 1000, // 24 часа
       gcTime: 48 * 60 * 60 * 1000, // 48 часов
     }
   );
 
   const aimags = aimagsData || [];
-  const districts = districtsData || [];
+  const allDistricts = allDistrictsData || [];
+
+  // Фильтруем районы на клиенте по выбранному аймагу
+  const districts = React.useMemo(() => {
+    if (!selectedAimag) return [];
+    return allDistricts.filter((d) => d.aimag_id === selectedAimag.id);
+  }, [selectedAimag, allDistricts]);
 
   // Initialize from localStorage on mount
   React.useEffect(() => {
