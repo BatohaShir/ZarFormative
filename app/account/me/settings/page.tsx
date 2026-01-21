@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -14,7 +13,6 @@ import {
   Sun,
   Monitor,
   Palette,
-  ChevronRight,
   Check,
   Loader2,
   Sparkles,
@@ -32,45 +30,12 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { useTheme } from "next-themes";
+import { usePushSubscription } from "@/hooks/use-push-subscription";
 import {
-  isPushSupported,
-  getNotificationPermission,
-  requestNotificationPermission,
-  registerServiceWorker,
-  subscribeToPush,
-  unsubscribeFromPush,
-} from "@/lib/notifications";
+  useNotificationSettings,
+  type NotificationSettings,
+} from "@/hooks/use-notification-settings";
 import { cn } from "@/lib/utils";
-
-interface NotificationSettings {
-  pushEnabled: boolean;
-  emailEnabled: boolean;
-  pushNewRequests: boolean;
-  pushNewMessages: boolean;
-  pushStatusChanges: boolean;
-  emailNewRequests: boolean;
-  emailNewMessages: boolean;
-  emailDigest: boolean;
-  emailDigestFrequency: "daily" | "weekly" | "never";
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-}
-
-const defaultSettings: NotificationSettings = {
-  pushEnabled: false,
-  emailEnabled: true,
-  pushNewRequests: true,
-  pushNewMessages: true,
-  pushStatusChanges: true,
-  emailNewRequests: true,
-  emailNewMessages: true,
-  emailDigest: true,
-  emailDigestFrequency: "daily",
-  quietHoursEnabled: false,
-  quietHoursStart: "22:00",
-  quietHoursEnd: "08:00",
-};
 
 // Setting Item Component
 function SettingItem({
@@ -89,15 +54,19 @@ function SettingItem({
   className?: string;
 }) {
   return (
-    <div className={cn(
-      "flex items-center justify-between p-4 bg-card rounded-xl border transition-all hover:shadow-sm",
-      className
-    )}>
+    <div
+      className={cn(
+        "flex items-center justify-between p-4 bg-card rounded-xl border transition-all hover:shadow-sm",
+        className
+      )}
+    >
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className={cn(
-          "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
-          iconColor || "bg-primary/10"
-        )}>
+        <div
+          className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center shrink-0",
+            iconColor || "bg-primary/10"
+          )}
+        >
           <Icon className={cn("h-5 w-5", iconColor ? "text-white" : "text-primary")} />
         </div>
         <div className="flex-1 min-w-0">
@@ -136,7 +105,13 @@ function SubSettingItem({
 }
 
 // Theme Selector Component
-function ThemeSelector({ value, onChange }: { value: string | undefined; onChange: (v: string) => void }) {
+function ThemeSelector({
+  value,
+  onChange,
+}: {
+  value: string | undefined;
+  onChange: (v: string) => void;
+}) {
   const themes = [
     { value: "light", label: "Цайвар", icon: Sun, color: "bg-amber-500" },
     { value: "dark", label: "Бараан", icon: Moon, color: "bg-slate-700" },
@@ -173,95 +148,32 @@ function ThemeSelector({ value, onChange }: { value: string | undefined; onChang
 
 export default function AppSettingsPage() {
   const router = useRouter();
-  const { isAuthenticated, user, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { theme, setTheme } = useTheme();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
-  const [settings, setSettings] = React.useState<NotificationSettings>(defaultSettings);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [isLoadingSettings, setIsLoadingSettings] = React.useState(true);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
-  const [pushSupported, setPushSupported] = React.useState(false);
-  const [pushPermission, setPushPermission] = React.useState<NotificationPermission | "unsupported">("default");
   const [mounted, setMounted] = React.useState(false);
+
+  // Use ZenStack hooks for notification settings
+  const { settings, updateSetting, saveSettings, isLoading, isSaving } = useNotificationSettings();
+
+  // Use ZenStack hook for push subscription
+  const {
+    isSupported: pushSupported,
+    permission: pushPermission,
+    isLoading: pushLoading,
+    subscribe,
+    unsubscribe,
+  } = usePushSubscription();
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Load settings from server (for authenticated users) or localStorage
-  React.useEffect(() => {
-    async function loadSettings() {
-      setIsLoadingSettings(true);
-
-      try {
-        // If authenticated, try to load from server first
-        if (isAuthenticated && user) {
-          const response = await fetch("/api/notifications/settings");
-          if (response.ok) {
-            const data = await response.json();
-            if (data.settings) {
-              // Map server response to local settings format
-              const serverSettings: Partial<NotificationSettings> = {
-                pushEnabled: data.settings.push_enabled ?? defaultSettings.pushEnabled,
-                emailEnabled: data.settings.email_enabled ?? defaultSettings.emailEnabled,
-                pushNewRequests: data.settings.push_new_requests ?? defaultSettings.pushNewRequests,
-                pushNewMessages: data.settings.push_new_messages ?? defaultSettings.pushNewMessages,
-                pushStatusChanges: data.settings.push_status_changes ?? defaultSettings.pushStatusChanges,
-                emailNewRequests: data.settings.email_new_requests ?? defaultSettings.emailNewRequests,
-                emailNewMessages: data.settings.email_new_messages ?? defaultSettings.emailNewMessages,
-                emailDigest: data.settings.email_digest ?? defaultSettings.emailDigest,
-                emailDigestFrequency: data.settings.email_digest_frequency ?? defaultSettings.emailDigestFrequency,
-                quietHoursEnabled: data.settings.quiet_hours_enabled ?? defaultSettings.quietHoursEnabled,
-                quietHoursStart: data.settings.quiet_hours_start ?? defaultSettings.quietHoursStart,
-                quietHoursEnd: data.settings.quiet_hours_end ?? defaultSettings.quietHoursEnd,
-              };
-              setSettings({ ...defaultSettings, ...serverSettings });
-              // Also update localStorage to keep in sync
-              localStorage.setItem("notification-settings", JSON.stringify({ ...defaultSettings, ...serverSettings }));
-              setIsLoadingSettings(false);
-              return;
-            }
-          }
-        }
-
-        // Fallback to localStorage
-        const savedSettings = localStorage.getItem("notification-settings");
-        if (savedSettings) {
-          setSettings({ ...defaultSettings, ...JSON.parse(savedSettings) });
-        }
-      } catch (e) {
-        console.error("Error loading settings:", e);
-        // Fallback to localStorage on error
-        const savedSettings = localStorage.getItem("notification-settings");
-        if (savedSettings) {
-          try {
-            setSettings({ ...defaultSettings, ...JSON.parse(savedSettings) });
-          } catch {
-            // Use defaults if localStorage is corrupted
-          }
-        }
-      } finally {
-        setIsLoadingSettings(false);
-      }
-    }
-
-    if (!authLoading) {
-      loadSettings();
-    }
-  }, [authLoading, isAuthenticated, user]);
-
-  // Handle auth state and push notifications setup
+  // Handle auth state
   React.useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       setShowLoginModal(true);
-    }
-
-    const supported = isPushSupported();
-    setPushSupported(supported);
-
-    if (supported) {
-      setPushPermission(getNotificationPermission());
-      registerServiceWorker();
     }
   }, [authLoading, isAuthenticated]);
 
@@ -275,28 +187,13 @@ export default function AppSettingsPage() {
 
   const handlePushToggle = async (enabled: boolean) => {
     if (enabled) {
-      const permission = await requestNotificationPermission();
-      setPushPermission(permission);
-
-      if (permission === "granted") {
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (vapidPublicKey && user) {
-          const subscription = await subscribeToPush(vapidPublicKey);
-          if (subscription) {
-            await fetch("/api/notifications/subscribe", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                subscription: subscription.toJSON(),
-              }),
-            });
-          }
-        }
-        setSettings(prev => ({ ...prev, pushEnabled: true }));
+      const success = await subscribe();
+      if (success) {
+        updateSetting("pushEnabled", true);
       }
     } else {
-      await unsubscribeFromPush();
-      setSettings(prev => ({ ...prev, pushEnabled: false }));
+      await unsubscribe();
+      updateSetting("pushEnabled", false);
     }
   };
 
@@ -304,33 +201,21 @@ export default function AppSettingsPage() {
     key: K,
     value: NotificationSettings[K]
   ) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    updateSetting(key, value);
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
     setSaveSuccess(false);
     try {
-      localStorage.setItem("notification-settings", JSON.stringify(settings));
-
-      if (user) {
-        await fetch("/api/notifications/settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ settings }),
-        });
-      }
-
+      await saveSettings();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (error) {
       console.error("Error saving settings:", error);
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  if (authLoading || isLoadingSettings) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -362,7 +247,9 @@ export default function AppSettingsPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <Palette className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Харагдац</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Харагдац
+            </h2>
           </div>
 
           <div className="bg-card rounded-2xl border p-4 space-y-4">
@@ -377,13 +264,17 @@ export default function AppSettingsPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <Bell className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Push мэдэгдэл</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Push мэдэгдэл
+            </h2>
           </div>
 
           <div className="bg-card rounded-2xl border overflow-hidden">
             <SettingItem
               icon={settings.pushEnabled && pushPermission === "granted" ? Bell : BellOff}
-              iconColor={settings.pushEnabled && pushPermission === "granted" ? "bg-green-500" : "bg-gray-400"}
+              iconColor={
+                settings.pushEnabled && pushPermission === "granted" ? "bg-green-500" : "bg-gray-400"
+              }
               title="Push мэдэгдэл"
               description={
                 !pushSupported
@@ -399,7 +290,7 @@ export default function AppSettingsPage() {
               <Switch
                 checked={settings.pushEnabled && pushPermission === "granted"}
                 onCheckedChange={handlePushToggle}
-                disabled={!pushSupported || pushPermission === "denied"}
+                disabled={!pushSupported || pushPermission === "denied" || pushLoading}
               />
             </SettingItem>
 
@@ -432,7 +323,9 @@ export default function AppSettingsPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <Mail className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Имэйл мэдэгдэл</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Имэйл мэдэгдэл
+            </h2>
           </div>
 
           <div className="bg-card rounded-2xl border overflow-hidden">
@@ -475,7 +368,9 @@ export default function AppSettingsPage() {
                     <span className="text-sm text-muted-foreground">Тоймын давтамж</span>
                     <Select
                       value={settings.emailDigestFrequency}
-                      onValueChange={(v) => handleSettingChange("emailDigestFrequency", v as "daily" | "weekly" | "never")}
+                      onValueChange={(v) =>
+                        handleSettingChange("emailDigestFrequency", v as "daily" | "weekly" | "never")
+                      }
                     >
                       <SelectTrigger className="w-32 h-9">
                         <SelectValue />
@@ -497,7 +392,9 @@ export default function AppSettingsPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
             <Moon className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Тайван цаг</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Тайван цаг
+            </h2>
           </div>
 
           <div className="bg-card rounded-2xl border overflow-hidden">
@@ -575,10 +472,7 @@ export default function AppSettingsPage() {
       </div>
 
       {/* Login Modal */}
-      <LoginPromptModal
-        open={showLoginModal}
-        onOpenChange={handleLoginModalClose}
-      />
+      <LoginPromptModal open={showLoginModal} onOpenChange={handleLoginModalClose} />
     </div>
   );
 }

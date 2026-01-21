@@ -1,4 +1,5 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCreateManylistings_images } from "@/lib/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface BatchImageData {
   url: string;
@@ -12,39 +13,35 @@ interface BatchCreateImagesParams {
   images: BatchImageData[];
 }
 
-interface BatchCreateImagesResponse {
-  success: boolean;
-  count: number;
-}
-
 /**
- * Hook for batch creating listing images
+ * Hook for batch creating listing images using ZenStack
  * Reduces N database queries to 1 for better performance
  */
 export function useBatchCreateImages() {
   const queryClient = useQueryClient();
+  const createMany = useCreateManylistings_images();
 
-  return useMutation({
-    mutationFn: async (params: BatchCreateImagesParams): Promise<BatchCreateImagesResponse> => {
-      const response = await fetch("/api/listings/images", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(params),
+  return {
+    ...createMany,
+    mutateAsync: async (params: BatchCreateImagesParams) => {
+      const result = await createMany.mutateAsync({
+        data: params.images.map((img) => ({
+          listing_id: params.listing_id,
+          url: img.url,
+          alt: img.alt || null,
+          sort_order: img.sort_order,
+          is_cover: img.is_cover,
+        })),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create images");
-      }
-
-      return response.json();
-    },
-    onSuccess: () => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["listings_images"] });
       queryClient.invalidateQueries({ queryKey: ["listings"] });
+
+      return {
+        success: true,
+        count: result.count,
+      };
     },
-  });
+  };
 }

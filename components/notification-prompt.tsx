@@ -3,14 +3,8 @@
 import * as React from "react";
 import { Bell, BellOff, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  isPushSupported,
-  getNotificationPermission,
-  requestNotificationPermission,
-  registerServiceWorker,
-  subscribeToPush,
-} from "@/lib/notifications";
 import { useAuth } from "@/contexts/auth-context";
+import { usePushSubscription } from "@/hooks/use-push-subscription";
 
 interface NotificationPromptProps {
   variant?: "banner" | "modal" | "inline";
@@ -18,57 +12,21 @@ interface NotificationPromptProps {
 }
 
 export function NotificationPrompt({ variant = "banner", onClose }: NotificationPromptProps) {
-  const { isAuthenticated, user } = useAuth();
-  const [isSupported, setIsSupported] = React.useState(false);
-  const [permission, setPermission] = React.useState<NotificationPermission | "unsupported">("default");
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { isAuthenticated } = useAuth();
+  const { isSupported, permission, isLoading, subscribe } = usePushSubscription();
   const [dismissed, setDismissed] = React.useState(false);
 
   React.useEffect(() => {
-    // Check if push is supported
-    const supported = isPushSupported();
-    setIsSupported(supported);
-
-    if (supported) {
-      setPermission(getNotificationPermission());
-    } else {
-      setPermission("unsupported");
-    }
-
     // Check if user has dismissed the prompt
     const isDismissed = localStorage.getItem("notification-prompt-dismissed") === "true";
     setDismissed(isDismissed);
-
-    // Register service worker on mount
-    if (supported) {
-      registerServiceWorker();
-    }
   }, []);
 
   const handleEnableNotifications = async () => {
-    setIsLoading(true);
-
-    try {
-      // Request permission
-      const newPermission = await requestNotificationPermission();
-      setPermission(newPermission);
-
-      if (newPermission === "granted") {
-        // Subscribe to push notifications
-        // Note: VAPID public key should come from environment variable
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (vapidPublicKey) {
-          const subscription = await subscribeToPush(vapidPublicKey);
-          if (subscription && user) {
-            // Save subscription to backend
-            await saveSubscriptionToBackend(subscription, user.id);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error enabling notifications:", error);
-    } finally {
-      setIsLoading(false);
+    const success = await subscribe();
+    if (success) {
+      // Close prompt on success
+      onClose?.();
     }
   };
 
@@ -79,7 +37,13 @@ export function NotificationPrompt({ variant = "banner", onClose }: Notification
   };
 
   // Don't show if not authenticated, not supported, already granted, or dismissed
-  if (!isAuthenticated || !isSupported || permission === "granted" || permission === "unsupported" || dismissed) {
+  if (
+    !isAuthenticated ||
+    !isSupported ||
+    permission === "granted" ||
+    permission === "unsupported" ||
+    dismissed
+  ) {
     return null;
   }
 
@@ -163,49 +127,14 @@ interface NotificationToggleProps {
 }
 
 export function NotificationToggle({ className }: NotificationToggleProps) {
-  const { isAuthenticated, user } = useAuth();
-  const [isSupported, setIsSupported] = React.useState(false);
-  const [permission, setPermission] = React.useState<NotificationPermission | "unsupported">("default");
-  const [isLoading, setIsLoading] = React.useState(false);
-
-  React.useEffect(() => {
-    const supported = isPushSupported();
-    setIsSupported(supported);
-
-    if (supported) {
-      setPermission(getNotificationPermission());
-      registerServiceWorker();
-    } else {
-      setPermission("unsupported");
-    }
-  }, []);
+  const { isSupported, permission, isLoading, subscribe } = usePushSubscription();
 
   const handleToggle = async () => {
     if (permission === "granted") {
       // Already enabled - show info
       return;
     }
-
-    setIsLoading(true);
-
-    try {
-      const newPermission = await requestNotificationPermission();
-      setPermission(newPermission);
-
-      if (newPermission === "granted") {
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (vapidPublicKey) {
-          const subscription = await subscribeToPush(vapidPublicKey);
-          if (subscription && user) {
-            await saveSubscriptionToBackend(subscription, user.id);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error toggling notifications:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    await subscribe();
   };
 
   const isEnabled = permission === "granted";
@@ -245,31 +174,4 @@ export function NotificationToggle({ className }: NotificationToggleProps) {
       )}
     </div>
   );
-}
-
-// Helper function to save subscription to backend
-async function saveSubscriptionToBackend(
-  subscription: PushSubscription,
-  userId: string
-): Promise<void> {
-  try {
-    const response = await fetch("/api/notifications/subscribe", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        subscription: subscription.toJSON(),
-        userId,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to save subscription");
-    }
-
-    console.log("Subscription saved to backend");
-  } catch (error) {
-    console.error("Error saving subscription:", error);
-  }
 }

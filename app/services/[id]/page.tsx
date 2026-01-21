@@ -4,7 +4,6 @@ import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,14 +13,9 @@ import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
-import { LoginPromptModal } from "@/components/login-prompt-modal";
 
-// Lazy load модальных окон - не загружаются до открытия (~20KB экономии)
-const ServiceRequestModal = dynamic(
-  () => import("@/components/service-request-modal").then((mod) => ({ default: mod.ServiceRequestModal })),
-  { ssr: false }
-);
-import { ChevronLeft, MapPin, Heart, Clock, Star, CheckCircle, ThumbsUp, ThumbsDown, MessageSquare, UserCircle, Hourglass, Eye } from "lucide-react";
+import { RequestForm } from "@/components/request-form";
+import { ChevronLeft, MapPin, Heart, Clock, MessageSquare, UserCircle, Eye } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { ImageLightbox } from "@/components/image-lightbox";
 import { useFindUniquelistings } from "@/lib/hooks/listings";
@@ -31,62 +25,13 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
-// Storage key for pending requests
-const PENDING_REQUESTS_KEY = "uilchilgee_pending_requests";
-
-interface PendingRequest {
-  serviceId: string;
-  expiresAt: number;
-}
-
-function getPendingRequests(): PendingRequest[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = localStorage.getItem(PENDING_REQUESTS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function savePendingRequest(serviceId: string) {
-  const requests = getPendingRequests().filter(r => r.serviceId !== serviceId);
-  const expiresAt = Date.now() + 2 * 60 * 60 * 1000;
-  requests.push({ serviceId, expiresAt });
-  localStorage.setItem(PENDING_REQUESTS_KEY, JSON.stringify(requests));
-}
-
-function isPendingRequest(serviceId: string): { pending: boolean; expiresAt: number | null } {
-  const requests = getPendingRequests();
-  const request = requests.find(r => r.serviceId === serviceId);
-  if (request && request.expiresAt > Date.now()) {
-    return { pending: true, expiresAt: request.expiresAt };
-  }
-  return { pending: false, expiresAt: null };
-}
-
-function formatTimeRemaining(expiresAt: number): string {
-  const remaining = expiresAt - Date.now();
-  if (remaining <= 0) return "00:00:00";
-
-  const hours = Math.floor(remaining / (1000 * 60 * 60));
-  const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-
-  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-}
 
 export default function ServicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toggleFavorite, isFavorite } = useFavorites();
-  const { isAuthenticated, user } = useAuth();
-  const [requestModalOpen, setRequestModalOpen] = React.useState(false);
-  const [showLoginPrompt, setShowLoginPrompt] = React.useState(false);
-  const [requestPending, setRequestPending] = React.useState(false);
-  const [timeRemaining, setTimeRemaining] = React.useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = React.useState<number | null>(null);
+  const { user } = useAuth();
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
   const [lightboxIndex, setLightboxIndex] = React.useState(0);
 
@@ -154,37 +99,6 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
     enabled: !!listing?.id,
   });
 
-  // Check pending status on mount
-  React.useEffect(() => {
-    if (listing) {
-      const status = isPendingRequest(listing.id);
-      if (status.pending && status.expiresAt) {
-        setRequestPending(true);
-        setExpiresAt(status.expiresAt);
-      }
-    }
-  }, [listing]);
-
-  // Timer update
-  React.useEffect(() => {
-    if (!requestPending || !expiresAt) return;
-
-    const updateTimer = () => {
-      const remaining = expiresAt - Date.now();
-      if (remaining <= 0) {
-        setRequestPending(false);
-        setExpiresAt(null);
-        setTimeRemaining(null);
-      } else {
-        setTimeRemaining(formatTimeRemaining(expiresAt));
-      }
-    };
-
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [requestPending, expiresAt]);
-
   // Track view when page loads (only once per session)
   const viewTrackedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
@@ -210,23 +124,6 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
         console.error("Failed to track view:", err);
       });
   }, [id, refetch, queryClient]);
-
-  const handleServiceRequest = () => {
-    if (isAuthenticated) {
-      setRequestModalOpen(true);
-    } else {
-      setShowLoginPrompt(true);
-    }
-  };
-
-  const handleRequestSent = () => {
-    if (listing) {
-      savePendingRequest(listing.id);
-      const newExpiresAt = Date.now() + 2 * 60 * 60 * 1000;
-      setRequestPending(true);
-      setExpiresAt(newExpiresAt);
-    }
-  };
 
   const handleSave = () => {
     if (listing) {
@@ -300,15 +197,6 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
   const imageUrl = getFirstImageUrl(listing.images);
   const memberSince = new Date(listing.user.created_at).getFullYear().toString();
   const isOwnListing = user?.id === listing.user.id;
-
-  // Mock provider data (в будущем можно добавить реальную статистику)
-  const providerStats = {
-    successfulServices: 0,
-    failedServices: 0,
-    likes: 0,
-    rating: 0,
-    reviews: 0,
-  };
 
   return (
     <div className="min-h-screen bg-background pb-32 md:pb-20 lg:pb-0">
@@ -520,27 +408,13 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               </div>
 
               <div className="space-y-3 pt-2">
-                {requestPending ? (
-                  <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg space-y-3">
-                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                      <Hourglass className="h-5 w-5 animate-pulse" />
-                      <span className="font-medium">Хүсэлт илгээгдсэн</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Та {providerName}-д хүсэлт илгээсэн байна. Баталгаажуулалт болон харилцаа эхлэхийг хүлээнэ үү.
-                    </p>
-                    <div className="flex items-center justify-center gap-2 p-3 bg-background rounded-lg">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-mono text-lg font-bold">{timeRemaining || "02:00:00"}</span>
-                    </div>
-                    <p className="text-xs text-center text-muted-foreground">
-                      Хугацаа дуусахад дахин хүсэлт илгээх боломжтой
-                    </p>
-                  </div>
-                ) : (
-                  <Button className="w-full" size="lg" onClick={handleServiceRequest}>
-                    Үйлчилгээ авах
-                  </Button>
+                {!isOwnListing && (
+                  <RequestForm
+                    listingId={listing.id}
+                    listingTitle={listing.title}
+                    providerId={listing.user.id}
+                    providerName={providerName}
+                  />
                 )}
                 {!isOwnListing && (
                   <Link href={`/account/${listing.user.id}`}>
@@ -571,44 +445,16 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
       </main>
 
       {/* Mobile Fixed Bottom Bar */}
-      <div className="md:hidden fixed bottom-16 left-0 right-0 bg-background border-t p-3 z-40">
-        {requestPending ? (
-          <div className="flex items-center justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
-              <Hourglass className="h-4 w-4 animate-pulse" />
-              <span className="text-sm font-medium">Хүсэлт илгээгдсэн</span>
-            </div>
-            <div className="flex items-center gap-1.5 font-mono font-bold">
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{timeRemaining || "02:00:00"}</span>
-            </div>
-          </div>
-        ) : (
-          <Button className="w-full" size="default" onClick={handleServiceRequest}>
-            Үйлчилгээ авах
-          </Button>
-        )}
-      </div>
-
-      {/* Service Request Modal */}
-      <ServiceRequestModal
-        open={requestModalOpen}
-        onOpenChange={setRequestModalOpen}
-        provider={{
-          name: providerName,
-          avatar: listing.user.avatar_url || "",
-          rating: providerStats.rating,
-        }}
-        serviceTitle={listing.title}
-        onRequestSent={handleRequestSent}
-      />
-
-      {/* Login Prompt Modal */}
-      <LoginPromptModal
-        open={showLoginPrompt}
-        onOpenChange={setShowLoginPrompt}
-        onSuccess={() => setRequestModalOpen(true)}
-      />
+      {!isOwnListing && (
+        <div className="md:hidden fixed bottom-16 left-0 right-0 bg-background border-t p-3 z-40">
+          <RequestForm
+            listingId={listing.id}
+            listingTitle={listing.title}
+            providerId={listing.user.id}
+            providerName={providerName}
+          />
+        </div>
+      )}
 
       {/* Image Lightbox */}
       <ImageLightbox

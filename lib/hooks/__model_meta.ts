@@ -370,6 +370,18 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'user',
+                }, sent_requests: {
+                    name: "sent_requests",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'client',
+                }, received_requests: {
+                    name: "received_requests",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'provider',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -792,6 +804,12 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'listing',
+                }, requests: {
+                    name: "requests",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'listing',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -949,13 +967,94 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        listing_requests: {
+            name: 'listing_requests', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, listing_id: {
+                    name: "listing_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'listing',
+                }, client_id: {
+                    name: "client_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'client',
+                }, provider_id: {
+                    name: "provider_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'provider',
+                }, message: {
+                    name: "message",
+                    type: "String",
+                }, status: {
+                    name: "status",
+                    type: "RequestStatus",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, provider_response: {
+                    name: "provider_response",
+                    type: "String",
+                    isOptional: true,
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, accepted_at: {
+                    name: "accepted_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, completed_at: {
+                    name: "completed_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, listing: {
+                    name: "listing",
+                    type: "listings",
+                    isDataModel: true,
+                    backLink: 'requests',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "listing_id" },
+                }, client: {
+                    name: "client",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'sent_requests',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "client_id" },
+                }, provider: {
+                    name: "provider",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'received_requests',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "provider_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
         aimags: ['districts'],
         districts: ['khoroos'],
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites'],
-        listings: ['listings_images', 'listings_views', 'user_favorites'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests'],
+        listings: ['listings_images', 'listings_views', 'user_favorites', 'listing_requests'],
 
     },
     authModel: 'profiles'

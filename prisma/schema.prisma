@@ -27,6 +27,16 @@ enum ListingStatus {
   deleted
 }
 
+enum RequestStatus {
+  pending
+  accepted
+  rejected
+  in_progress
+  completed
+  cancelled
+  disputed
+}
+
 enum AimagType {
   aimag
   capital
@@ -136,6 +146,8 @@ model profiles {
   listings              listings[]
   viewed_listings       listings_views[]
   favorites             user_favorites[]
+  sent_requests         listing_requests[]              @relation("ClientRequests")
+  received_requests     listing_requests[]              @relation("ProviderRequests")
 
   @@index([is_deleted])
   @@index([is_company])
@@ -254,6 +266,7 @@ model listings {
   images          listings_images[]
   views           listings_views[]
   favorites       user_favorites[]
+  requests        listing_requests[]
 
   @@index([user_id])
   @@index([category_id])
@@ -317,4 +330,29 @@ model user_favorites {
   @@index([user_id, created_at(sort: Desc)])
   @@index([listing_id])
   @@map("user_favorites")
+}
+
+model listing_requests {
+  id                String        @id() @default(cuid())
+  listing_id        String
+  client_id         String        @db.Uuid()
+  provider_id       String        @db.Uuid()
+  message           String        @db.Text()
+  status            RequestStatus @default(pending)
+  provider_response String?       @db.Text()
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt()
+  accepted_at       DateTime?
+  completed_at      DateTime?
+  listing           listings      @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  client            profiles      @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
+  provider          profiles      @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
+
+  @@index([listing_id])
+  @@index([client_id, status])
+  @@index([provider_id, status])
+  @@index([client_id, created_at(sort: Desc)])
+  @@index([provider_id, created_at(sort: Desc)])
+  @@index([status, created_at(sort: Desc)])
+  @@map("listing_requests")
 }

@@ -45,6 +45,20 @@ enum ListingStatus {
 }
 
 // ============================================
+// Request Status - статусы заявок
+// ============================================
+
+enum RequestStatus {
+  pending      // Ожидает ответа исполнителя
+  accepted     // Принята исполнителем
+  rejected     // Отклонена исполнителем
+  in_progress  // В работе
+  completed    // Выполнена
+  cancelled    // Отменена клиентом
+  disputed     // Спор
+}
+
+// ============================================
 // Aimag Type - тип административной единицы
 // ============================================
 
@@ -223,6 +237,8 @@ model profiles {
   listings               listings[]
   viewed_listings        listings_views[]
   favorites              user_favorites[]
+  sent_requests          listing_requests[] @relation("ClientRequests")    // Заявки, которые я отправил
+  received_requests      listing_requests[] @relation("ProviderRequests")  // Заявки, которые я получил
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -462,6 +478,7 @@ model listings {
   images        listings_images[]
   views         listings_views[]
   favorites     user_favorites[]
+  requests      listing_requests[]  // Заявки на это объявление
 
   // Indexes для оптимизации запросов
   @@index([user_id])                              // Мои объявления
@@ -615,4 +632,66 @@ model user_favorites {
 
   // Admin видит все избранные (для аналитики)
   @@allow('read', auth().role == admin)
+}
+
+// ============================================
+// Listing Requests - заявки на услуги
+// ============================================
+
+model listing_requests {
+  id           String        @id @default(cuid())
+  listing_id   String
+  client_id    String        @db.Uuid  // Кто отправил заявку
+  provider_id  String        @db.Uuid  // Владелец объявления (денормализация для быстрых запросов)
+  message      String        @db.Text  // Сообщение клиента
+  status       RequestStatus @default(pending)
+
+  // Ответ исполнителя (опционально)
+  provider_response String?  @db.Text
+
+  // Timestamps
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  accepted_at  DateTime?
+  completed_at DateTime?
+
+  // Relations
+  listing      listings  @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  client       profiles  @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
+  provider     profiles  @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
+
+  // Уникальность: одна активная заявка на объявление от клиента
+  // Реализуется в API логике (проверка pending/accepted/in_progress)
+
+  // Indexes для оптимизации
+  @@index([listing_id])                           // Заявки на объявление
+  @@index([client_id, status])                    // Мои заявки (как клиент)
+  @@index([provider_id, status])                  // Входящие заявки (как исполнитель)
+  @@index([client_id, created_at(sort: Desc)])    // Сортировка по дате
+  @@index([provider_id, created_at(sort: Desc)])  // Сортировка по дате
+  @@index([status, created_at(sort: Desc)])       // Фильтр по статусу
+
+  @@map("listing_requests")
+
+  // === RBAC Rules ===
+  // Клиент может создавать заявки (если авторизован и не владелец объявления)
+  @@allow('create', auth() != null && auth().id == client_id && auth().id != provider_id)
+
+  // Клиент видит свои заявки
+  @@allow('read', auth() != null && auth().id == client_id)
+
+  // Исполнитель видит заявки на свои объявления
+  @@allow('read', auth() != null && auth().id == provider_id)
+
+  // Клиент может отменить свою заявку (статус cancelled)
+  @@allow('update', auth() != null && auth().id == client_id)
+
+  // Исполнитель может менять статус (accepted, rejected, in_progress, completed)
+  @@allow('update', auth() != null && auth().id == provider_id)
+
+  // Admin видит и может редактировать все заявки
+  @@allow('read,update', auth().role == admin)
+
+  // Manager может только просматривать
+  @@allow('read', auth().role == manager)
 }
