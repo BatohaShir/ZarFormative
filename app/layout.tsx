@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FavoritesProvider } from "@/contexts/favorites-context";
 import { AuthProvider } from "@/contexts/auth-context";
-import { MessagesProvider } from "@/contexts/messages-context";
+import { LazyMessagesProvider } from "@/components/lazy-providers";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { NotificationBanner } from "@/components/notification-banner";
 import { QueryProvider } from "@/providers/query-provider";
@@ -124,12 +124,12 @@ export default function RootLayout({
           >
             <AuthProvider>
               <FavoritesProvider>
-                <MessagesProvider>
+                <LazyMessagesProvider>
                   {children}
                   <MobileBottomNav />
                   <NotificationBanner />
                   <Toaster position="top-center" richColors closeButton />
-                </MessagesProvider>
+                </LazyMessagesProvider>
               </FavoritesProvider>
             </AuthProvider>
           </ThemeProvider>

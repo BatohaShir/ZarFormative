@@ -139,10 +139,30 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Дефолтные значения для гостей (когда MessagesProvider не загружен)
+const defaultGuestContext: MessagesContextType = {
+  conversations: [],
+  archivedConversations: [],
+  acceptedConversations: new Set(),
+  totalUnreadCount: 0,
+  markAsRead: () => {},
+  archiveConversation: () => {},
+  unarchiveConversation: () => {},
+  deleteConversation: () => {},
+  acceptRequest: () => {},
+  declineRequest: () => {},
+  isAccepted: () => false,
+};
+
+/**
+ * Хук для сообщений - безопасен для гостей
+ * Возвращает пустые данные если MessagesProvider не загружен
+ */
 export function useMessages() {
   const context = React.useContext(MessagesContext);
+  // Для гостей возвращаем дефолтный контекст вместо ошибки
   if (context === undefined) {
-    throw new Error("useMessages must be used within a MessagesProvider");
+    return defaultGuestContext;
   }
   return context;
 }
