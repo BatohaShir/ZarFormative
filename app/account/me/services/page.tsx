@@ -40,6 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import type { listings } from "@prisma/client";
@@ -133,29 +134,44 @@ export default function MyServicesPage() {
 
   // Handlers
   const handleArchive = async (id: string) => {
-    await updateListing({
-      where: { id },
-      data: { status: "archived" },
-    });
-    refetch();
+    try {
+      await updateListing({
+        where: { id },
+        data: { status: "archived" },
+      });
+      toast.success("Үйлчилгээ архивлагдлаа");
+      refetch();
+    } catch {
+      toast.error("Архивлахад алдаа гарлаа");
+    }
   };
 
   const handleActivate = async (id: string) => {
-    await updateListing({
-      where: { id },
-      data: { status: "active" },
-    });
-    refetch();
+    try {
+      await updateListing({
+        where: { id },
+        data: { status: "active" },
+      });
+      toast.success("Үйлчилгээ идэвхжүүллээ");
+      refetch();
+    } catch {
+      toast.error("Идэвхжүүлэхэд алдаа гарлаа");
+    }
   };
 
   const handleDelete = async () => {
     if (!listingToDelete) return;
-    await deleteListing({
-      where: { id: listingToDelete },
-    });
-    setDeleteDialogOpen(false);
-    setListingToDelete(null);
-    refetch();
+    try {
+      await deleteListing({
+        where: { id: listingToDelete },
+      });
+      toast.success("Үйлчилгээ устгагдлаа");
+      setDeleteDialogOpen(false);
+      setListingToDelete(null);
+      refetch();
+    } catch {
+      toast.error("Устгахад алдаа гарлаа");
+    }
   };
 
   const openDeleteDialog = (id: string) => {
