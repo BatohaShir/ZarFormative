@@ -78,8 +78,14 @@ async function getServicesData() {
     }),
   ]);
 
+  // Сериализуем Decimal в number для Client Components
+  const serializedListings = listingsData.map((listing) => ({
+    ...listing,
+    price: listing.price ? Number(listing.price) : null,
+  }));
+
   return {
-    listings: listingsData as ListingWithRelations[],
+    listings: serializedListings as ListingWithRelations[],
     totalCount,
   };
 }

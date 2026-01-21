@@ -67,7 +67,13 @@ async function getListingBySlug(slug: string) {
     },
   });
 
-  return listing as ServiceDetailListing | null;
+  if (!listing) return null;
+
+  // Сериализуем Decimal в number для Client Components
+  return {
+    ...listing,
+    price: listing.price ? Number(listing.price) : null,
+  } as ServiceDetailListing;
 }
 
 // Dynamic SEO metadata для каждого объявления

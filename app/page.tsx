@@ -91,10 +91,16 @@ async function getHomePageData() {
     ? buildCategoryTree(categoriesData)
     : fallbackCategories as unknown as CategoryWithChildren[];
 
+  // Сериализуем Decimal в number для Client Components
+  const serializedListings = listingsData.map((listing) => ({
+    ...listing,
+    price: listing.price ? Number(listing.price) : null,
+  }));
+
   return {
     categories: categoryTree,
     allCategories: categoriesData,
-    listings: listingsData as ListingWithRelations[],
+    listings: serializedListings as ListingWithRelations[],
   };
 }
 
