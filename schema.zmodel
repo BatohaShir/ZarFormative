@@ -60,6 +60,15 @@ enum RequestStatus {
 }
 
 // ============================================
+// Service Type - тип оказания услуги
+// ============================================
+
+enum ServiceType {
+  on_site    // На месте у клиента (с выездом к клиенту)
+  remote     // Удалённо / в офисе исполнителя
+}
+
+// ============================================
 // Aimag Type - тип административной единицы
 // ============================================
 
@@ -456,6 +465,9 @@ model listings {
   work_hours_start  String?   @default("09:00")   // Начало рабочего дня "HH:mm"
   work_hours_end    String?   @default("18:00")   // Конец рабочего дня "HH:mm"
 
+  // Тип оказания услуги
+  service_type      ServiceType @default(on_site) // На месте или удалённо
+
   // Локация (связь с справочниками)
   aimag_id      String?                   // Аймаг/Столица
   district_id   String?                   // Дүүрэг/Сум
@@ -657,10 +669,11 @@ model listing_requests {
   message      String        @db.Text  // Сообщение клиента
   status       RequestStatus @default(pending)
 
-  // Адрес оказания услуги (опционально)
-  aimag_id     String?
-  district_id  String?
-  khoroo_id    String?
+  // Адрес оказания услуги (опционально, для услуг с выездом)
+  aimag_id       String?
+  district_id    String?
+  khoroo_id      String?
+  address_detail String?       // Детальный адрес (дом, подъезд, квартира)
 
   // Желаемые дата и время (опционально)
   preferred_date DateTime?
@@ -668,6 +681,9 @@ model listing_requests {
 
   // Заметка (опционально)
   note         String?       @db.Text
+
+  // Фото от клиента (опционально)
+  image_url    String?
 
   // Ответ исполнителя (опционально)
   provider_response String?  @db.Text

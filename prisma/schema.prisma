@@ -38,6 +38,11 @@ enum RequestStatus {
   disputed
 }
 
+enum ServiceType {
+  on_site
+  remote
+}
+
 enum AimagType {
   aimag
   capital
@@ -251,6 +256,7 @@ model listings {
   duration_minutes Int?
   work_hours_start String?                  @default("09:00")
   work_hours_end   String?                  @default("18:00")
+  service_type     ServiceType              @default(on_site)
   aimag_id         String?
   district_id      String?
   khoroo_id        String?
@@ -349,9 +355,11 @@ model listing_requests {
   aimag_id          String?
   district_id       String?
   khoroo_id         String?
+  address_detail    String?
   preferred_date    DateTime?
   preferred_time    String?
   note              String?       @db.Text()
+  image_url         String?
   provider_response String?       @db.Text()
   created_at        DateTime      @default(now())
   updated_at        DateTime      @updatedAt()

@@ -326,9 +326,9 @@ export function useSuspenseCountlistings<TArgs extends Prisma.listingsCountArgs,
     const { endpoint, fetch } = getHooksContext();
     return useSuspenseModelQuery<TQueryFnData, TData, TError>('listings', `${endpoint}/listings/count`, args, options, fetch);
 }
-import type { ListingStatus } from '@prisma/client';
+import type { ServiceType, ListingStatus } from '@prisma/client';
 
-export function useChecklistings<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; user_id?: string; category_id?: string; title?: string; slug?: string; description?: string; currency?: string; is_negotiable?: boolean; duration_minutes?: number; work_hours_start?: string; work_hours_end?: string; aimag_id?: string; district_id?: string; khoroo_id?: string; address?: string; status?: ListingStatus; is_active?: boolean; views_count?: number; favorites_count?: number }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
+export function useChecklistings<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; user_id?: string; category_id?: string; title?: string; slug?: string; description?: string; currency?: string; is_negotiable?: boolean; duration_minutes?: number; work_hours_start?: string; work_hours_end?: string; service_type?: ServiceType; aimag_id?: string; district_id?: string; khoroo_id?: string; address?: string; status?: ListingStatus; is_active?: boolean; views_count?: number; favorites_count?: number }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
     const { endpoint, fetch } = getHooksContext();
     return useModelQuery<boolean, boolean, TError>('listings', `${endpoint}/listings/check`, args, options, fetch);
 }

@@ -25,7 +25,10 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  ImageIcon,
 } from "lucide-react";
+import Image from "next/image";
+import { uploadRequestImage } from "@/lib/storage/requests";
 import {
   useCreatelisting_requests,
   useFindFirstlisting_requests,
@@ -38,6 +41,7 @@ interface RequestFormProps {
   listingTitle: string;
   providerId: string;
   providerName: string;
+  serviceType?: "on_site" | "remote"; // Тип услуги - с выездом или на месте
 }
 
 interface ScheduleData {
@@ -93,6 +97,7 @@ export function RequestForm({
   listingTitle,
   providerId,
   providerName,
+  serviceType = "on_site",
 }: RequestFormProps) {
   const { user, isAuthenticated } = useAuth();
   const [open, setOpen] = React.useState(false);
@@ -101,8 +106,9 @@ export function RequestForm({
   const [message, setMessage] = React.useState("");
   const [isSuccess, setIsSuccess] = React.useState(false);
 
-  // Address state
+  // Address state (только для услуг с выездом)
   const [selectedAddress, setSelectedAddress] = React.useState<AddressData | null>(null);
+  const [addressDetail, setAddressDetail] = React.useState(""); // Детальный адрес
 
   // Date & Time state
   const today = new Date();
@@ -116,6 +122,12 @@ export function RequestForm({
   // Schedule state
   const [scheduleData, setScheduleData] = React.useState<ScheduleData | null>(null);
   const [isLoadingSchedule, setIsLoadingSchedule] = React.useState(false);
+
+  // Image state
+  const [selectedImage, setSelectedImage] = React.useState<File | null>(null);
+  const [imagePreview, setImagePreview] = React.useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Check if user is the owner of the listing
   const isOwner = user?.id === providerId;
@@ -207,12 +219,55 @@ export function RequestForm({
       // Reset form when closing
       setMessage("");
       setSelectedAddress(null);
+      setAddressDetail("");
       setSelectedDate(null);
       setSelectedTime("");
       setShowCalendar(false);
       setShowTimeSelector(false);
       setIsSuccess(false);
       setScheduleData(null);
+      // Cleanup image
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+      setSelectedImage(null);
+      setImagePreview(null);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Зөвхөн зураг файл оруулна уу");
+      return;
+    }
+
+    // Validate size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Зураг 5MB-ээс бага байх ёстой");
+      return;
+    }
+
+    // Cleanup old preview
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setSelectedImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleRemoveImage = () => {
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -317,6 +372,12 @@ export function RequestForm({
       return;
     }
 
+    // Проверка обязательности адреса для услуг с выездом
+    if (serviceType === "on_site" && !selectedAddress) {
+      toast.error("Байршил сонгоно уу");
+      return;
+    }
+
     // Проверка занятости слота перед отправкой
     if (selectedTime && isTimeSlotUnavailable(selectedTime)) {
       toast.error("Энэ цаг завгүй байна. Өөр цаг сонгоно уу.");
@@ -324,6 +385,21 @@ export function RequestForm({
     }
 
     try {
+      // Upload image first if selected
+      let uploadedImageUrl: string | null = null;
+      if (selectedImage) {
+        setIsUploadingImage(true);
+        const uuid = crypto.randomUUID();
+        const result = await uploadRequestImage(user.id, selectedImage, uuid);
+        setIsUploadingImage(false);
+
+        if (result.error) {
+          toast.error(`Зураг оруулахад алдаа: ${result.error}`);
+          return;
+        }
+        uploadedImageUrl = result.url;
+      }
+
       await createRequest.mutateAsync({
         data: {
           listing_id: listingId,
@@ -331,12 +407,14 @@ export function RequestForm({
           provider_id: providerId,
           message: message.trim(),
           status: "pending",
-          aimag_id: selectedAddress?.cityId || null,
-          district_id: selectedAddress?.districtId || null,
-          khoroo_id: selectedAddress?.khorooId || null,
+          aimag_id: serviceType === "on_site" ? (selectedAddress?.cityId || null) : null,
+          district_id: serviceType === "on_site" ? (selectedAddress?.districtId || null) : null,
+          khoroo_id: serviceType === "on_site" ? (selectedAddress?.khorooId || null) : null,
+          address_detail: serviceType === "on_site" ? (addressDetail.trim() || null) : null,
           preferred_date: selectedDate || null,
           preferred_time: selectedTime || null,
           note: null,
+          image_url: uploadedImageUrl,
         },
       });
 
@@ -351,10 +429,17 @@ export function RequestForm({
         setOpen(false);
         setMessage("");
         setSelectedAddress(null);
+        setAddressDetail("");
         setSelectedDate(null);
         setSelectedTime("");
         setIsSuccess(false);
         setScheduleData(null);
+        // Cleanup image
+        if (imagePreview) {
+          URL.revokeObjectURL(imagePreview);
+        }
+        setSelectedImage(null);
+        setImagePreview(null);
       }, 2000);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Хүсэлт илгээхэд алдаа гарлаа");
@@ -419,56 +504,75 @@ export function RequestForm({
               </div>
 
               <form onSubmit={handleSubmit} className="p-5 space-y-5">
-                {/* Address Selection - Button to open modal */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    Байршил
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddressModal(true)}
-                    className={cn(
-                      "w-full flex items-center justify-between p-3.5 rounded-xl border-2 border-dashed transition-all text-left group",
-                      selectedAddress
-                        ? "bg-primary/5 border-primary/30 hover:border-primary/50"
-                        : "hover:bg-muted/50 hover:border-muted-foreground/30"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                {/* Address Selection - только для услуг с выездом */}
+                {serviceType === "on_site" && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Байршил <span className="text-destructive">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressModal(true)}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3.5 rounded-xl border-2 border-dashed transition-all text-left group",
                         selectedAddress
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                      )}>
-                        <MapPin className="h-5 w-5" />
+                          ? "bg-primary/5 border-primary/30 hover:border-primary/50"
+                          : "hover:bg-muted/50 hover:border-muted-foreground/30"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                          selectedAddress
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        )}>
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          {selectedAddress ? (
+                            <>
+                              <div className="text-sm font-medium">{selectedAddress.city}, {selectedAddress.district}</div>
+                              <div className="text-xs text-muted-foreground">{selectedAddress.khoroo}</div>
+                            </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Хаяг сонгох</span>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        {selectedAddress ? (
-                          <>
-                            <div className="text-sm font-medium">{selectedAddress.city}, {selectedAddress.district}</div>
-                            <div className="text-xs text-muted-foreground">{selectedAddress.khoroo}</div>
-                          </>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Хаяг сонгох</span>
-                        )}
-                      </div>
-                    </div>
+                      {selectedAddress && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAddress(null);
+                            setAddressDetail("");
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </button>
+
+                    {/* Детальный адрес - показываем после выбора района */}
                     {selectedAddress && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAddress(null);
-                        }}
-                        className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                      <div className="space-y-2">
+                        <label className="text-xs text-muted-foreground">
+                          Дэлгэрэнгүй хаяг (байр, орц, тоот)
+                        </label>
+                        <input
+                          type="text"
+                          value={addressDetail}
+                          onChange={(e) => setAddressDetail(e.target.value)}
+                          placeholder="Жишээ: 15-р байр, 3-р орц, 45 тоот"
+                          className="w-full px-3.5 py-2.5 rounded-xl border-2 border-dashed bg-transparent text-sm focus:border-primary/50 focus:outline-none transition-colors"
+                        />
+                      </div>
                     )}
-                  </button>
-                </div>
+                  </div>
+                )}
 
                 {/* Date Selection */}
                 <div className="space-y-2">
@@ -759,12 +863,62 @@ export function RequestForm({
                     onChange={(e) => setMessage(e.target.value)}
                     rows={4}
                     maxLength={2000}
-                    disabled={createRequest.isPending}
+                    disabled={createRequest.isPending || isUploadingImage}
                     className="resize-none rounded-xl border-2 focus:border-primary/50 transition-colors"
                   />
                   <p className="text-xs text-muted-foreground text-right">
                     {message.length}/2000
                   </p>
+                </div>
+
+                {/* Photo Upload */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4 text-primary" />
+                    Зураг
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="hidden"
+                    onChange={handleImageSelect}
+                  />
+                  {imagePreview ? (
+                    <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-primary/30 bg-muted">
+                      <Image
+                        src={imagePreview}
+                        alt="Preview"
+                        fill
+                        className="object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 bg-destructive text-destructive-foreground rounded-full p-1.5 hover:bg-destructive/90 transition-colors shadow-lg"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={createRequest.isPending || isUploadingImage}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-3 p-6 rounded-xl border-2 border-dashed transition-all group",
+                        "hover:bg-muted/50 hover:border-muted-foreground/30"
+                      )}
+                    >
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        <ImageIcon className="h-6 w-6" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Зураг оруулах</p>
+                        <p className="text-xs text-muted-foreground">JPG, PNG, WebP • 5MB хүртэл</p>
+                      </div>
+                    </button>
+                  )}
                 </div>
 
                 {/* Buttons */}
@@ -774,16 +928,21 @@ export function RequestForm({
                     variant="outline"
                     className="flex-1 h-12 rounded-xl"
                     onClick={() => setOpen(false)}
-                    disabled={createRequest.isPending}
+                    disabled={createRequest.isPending || isUploadingImage}
                   >
                     Болих
                   </Button>
                   <Button
                     type="submit"
                     className="flex-1 h-12 rounded-xl"
-                    disabled={createRequest.isPending || !message.trim()}
+                    disabled={createRequest.isPending || isUploadingImage || !message.trim()}
                   >
-                    {createRequest.isPending ? (
+                    {isUploadingImage ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Зураг оруулж байна...
+                      </>
+                    ) : createRequest.isPending ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Илгээж байна...

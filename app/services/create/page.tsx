@@ -24,6 +24,8 @@ import {
   AlertCircle,
   Clock,
   CalendarClock,
+  Briefcase,
+  Building2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -59,6 +61,7 @@ import { useFindManycategories } from "@/lib/hooks/categories";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { uploadListingImage, deleteAllListingImages } from "@/lib/storage/listings";
 import { generateUniqueSlug } from "@/lib/utils/slug";
+import { cn } from "@/lib/utils";
 import { useBatchCreateImages } from "@/hooks/use-batch-create-images";
 import { toast } from "sonner";
 
@@ -112,6 +115,7 @@ const listingSchema = z.object({
       val => !val || (/^\d+$/.test(val) && Number(val) >= 15 && Number(val) <= 1440),
       "Хугацаа 15-1440 минутын хооронд байх ёстой"
     ),
+  service_type: z.enum(["on_site", "remote"]),
   work_hours_start: z
     .string()
     .transform(val => val || "09:00")
@@ -198,6 +202,7 @@ export default function CreateListingPage() {
       price: "",
       is_negotiable: false,
       duration_minutes: "",
+      service_type: "on_site",
       work_hours_start: "09:00",
       work_hours_end: "18:00",
     },
@@ -271,6 +276,7 @@ export default function CreateListingPage() {
       price: priceValue,
       is_negotiable: draft.is_negotiable || false,
       duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
+      service_type: (draft.service_type as "on_site" | "remote") || "on_site",
       work_hours_start: draft.work_hours_start || "09:00",
       work_hours_end: draft.work_hours_end || "18:00",
     });
@@ -330,6 +336,7 @@ export default function CreateListingPage() {
           price: "",
           is_negotiable: false,
           duration_minutes: "",
+          service_type: "on_site",
           work_hours_start: "09:00",
           work_hours_end: "18:00",
         });
@@ -379,6 +386,7 @@ export default function CreateListingPage() {
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
           },
@@ -421,6 +429,7 @@ export default function CreateListingPage() {
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
             status: "draft",
@@ -496,6 +505,7 @@ export default function CreateListingPage() {
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
             status: "active",
@@ -546,6 +556,7 @@ export default function CreateListingPage() {
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
             status: "active",
@@ -778,6 +789,7 @@ export default function CreateListingPage() {
                       price: "",
                       is_negotiable: false,
                       duration_minutes: "",
+                      service_type: "on_site",
                       work_hours_start: "09:00",
                       work_hours_end: "18:00",
                     });
@@ -928,6 +940,65 @@ export default function CreateListingPage() {
                   Үйлчилгээний газар
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Тип услуги - отдельный блок */}
+          <div className="bg-card rounded-2xl border shadow-sm p-5 hover:border-primary/30 transition-colors">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
+                <Briefcase className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm">Үйлчилгээний төрөл</h3>
+                <p className="text-xs text-muted-foreground">Зочны газар эсвэл таны газар</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <label className={cn(
+                "flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                watch("service_type") === "on_site"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/30"
+              )}>
+                <input
+                  type="radio"
+                  value="on_site"
+                  {...register("service_type")}
+                  className="sr-only"
+                />
+                <MapPin className={cn(
+                  "h-6 w-6",
+                  watch("service_type") === "on_site" ? "text-primary" : "text-muted-foreground"
+                )} />
+                <span className={cn(
+                  "text-sm font-medium text-center",
+                  watch("service_type") === "on_site" ? "text-primary" : "text-muted-foreground"
+                )}>Зочны газар</span>
+                <span className="text-xs text-muted-foreground text-center">Үйлчлүүлэгч дээр очно</span>
+              </label>
+              <label className={cn(
+                "flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                watch("service_type") === "remote"
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/30"
+              )}>
+                <input
+                  type="radio"
+                  value="remote"
+                  {...register("service_type")}
+                  className="sr-only"
+                />
+                <Building2 className={cn(
+                  "h-6 w-6",
+                  watch("service_type") === "remote" ? "text-primary" : "text-muted-foreground"
+                )} />
+                <span className={cn(
+                  "text-sm font-medium text-center",
+                  watch("service_type") === "remote" ? "text-primary" : "text-muted-foreground"
+                )}>Миний газар</span>
+                <span className="text-xs text-muted-foreground text-center">Үйлчлүүлэгч ирнэ</span>
+              </label>
             </div>
           </div>
 

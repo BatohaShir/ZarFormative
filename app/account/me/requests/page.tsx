@@ -31,6 +31,7 @@ import {
   XCircle,
   MessageSquare,
   Loader2,
+  ImageIcon,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -63,6 +64,7 @@ interface RequestWithRelations {
   message: string;
   status: RequestStatus;
   provider_response: string | null;
+  image_url: string | null;
   preferred_date: Date | null;
   preferred_time: string | null;
   created_at: Date;
@@ -73,6 +75,7 @@ interface RequestWithRelations {
   aimag_id: string | null;
   district_id: string | null;
   khoroo_id: string | null;
+  address_detail: string | null;
   aimag: { id: string; name: string } | null;
   district: { id: string; name: string } | null;
   khoroo: { id: string; name: string } | null;
@@ -863,6 +866,24 @@ export default function RequestsPage() {
                 </p>
               </div>
 
+              {/* Client Image - показываем только для incoming заявок (исполнитель смотрит) */}
+              {selectedRequest.image_url && selectedRequest.provider_id === user?.id && (
+                <div className="border rounded-lg overflow-hidden">
+                  <p className="text-sm font-medium p-3 border-b bg-muted/30 flex items-center gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Зураг
+                  </p>
+                  <div className="relative w-full aspect-video">
+                    <Image
+                      src={selectedRequest.image_url}
+                      alt="Хүсэлтийн зураг"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Provider Response */}
               {selectedRequest.provider_response && (
                 <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-3">
@@ -980,6 +1001,12 @@ export default function RequestsPage() {
                         .filter(Boolean)
                         .join(", ")}
                     </p>
+                    {/* Детальный адрес */}
+                    {selectedRequest.address_detail && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {selectedRequest.address_detail}
+                      </p>
+                    )}
                   </div>
                   {/* Map with circle marker */}
                   <AddressMap

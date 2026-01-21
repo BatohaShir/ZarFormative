@@ -716,6 +716,10 @@ const metadata: ModelMeta = {
                     type: "String",
                     isOptional: true,
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "18:00" }] }],
+                }, service_type: {
+                    name: "service_type",
+                    type: "ServiceType",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
                 }, aimag_id: {
                     name: "aimag_id",
                     type: "String",
@@ -1046,6 +1050,10 @@ const metadata: ModelMeta = {
                     isOptional: true,
                     isForeignKey: true,
                     relationField: 'khoroo',
+                }, address_detail: {
+                    name: "address_detail",
+                    type: "String",
+                    isOptional: true,
                 }, preferred_date: {
                     name: "preferred_date",
                     type: "DateTime",
@@ -1056,6 +1064,10 @@ const metadata: ModelMeta = {
                     isOptional: true,
                 }, note: {
                     name: "note",
+                    type: "String",
+                    isOptional: true,
+                }, image_url: {
+                    name: "image_url",
                     type: "String",
                     isOptional: true,
                 }, provider_response: {
