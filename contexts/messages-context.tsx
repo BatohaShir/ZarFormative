@@ -190,22 +190,38 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     return acceptedConversations.has(conversationId);
   }, [acceptedConversations]);
 
+  // Мемоизируем context value чтобы предотвратить ненужные ре-рендеры потребителей
+  const contextValue = React.useMemo<MessagesContextType>(
+    () => ({
+      conversations,
+      archivedConversations,
+      acceptedConversations,
+      totalUnreadCount,
+      markAsRead,
+      archiveConversation,
+      unarchiveConversation,
+      deleteConversation,
+      acceptRequest,
+      declineRequest,
+      isAccepted,
+    }),
+    [
+      conversations,
+      archivedConversations,
+      acceptedConversations,
+      totalUnreadCount,
+      markAsRead,
+      archiveConversation,
+      unarchiveConversation,
+      deleteConversation,
+      acceptRequest,
+      declineRequest,
+      isAccepted,
+    ]
+  );
+
   return (
-    <MessagesContext.Provider
-      value={{
-        conversations,
-        archivedConversations,
-        acceptedConversations,
-        totalUnreadCount,
-        markAsRead,
-        archiveConversation,
-        unarchiveConversation,
-        deleteConversation,
-        acceptRequest,
-        declineRequest,
-        isAccepted,
-      }}
-    >
+    <MessagesContext.Provider value={contextValue}>
       {children}
     </MessagesContext.Provider>
   );

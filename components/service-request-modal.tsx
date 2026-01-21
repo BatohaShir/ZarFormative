@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -57,8 +58,8 @@ const weekDays = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
 const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0")); // 00-23
 const minutesList = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0")); // 00-59
 
-// iOS Style Scroll Picker Component
-function IOSPicker({
+// iOS Style Scroll Picker Component - мемоизирован для предотвращения лишних ре-рендеров
+const IOSPicker = React.memo(function IOSPicker({
   items,
   selectedIndex,
   onSelect,
@@ -150,7 +151,7 @@ function IOSPicker({
       </div>
     </div>
   );
-}
+});
 
 export function ServiceRequestModal({
   open,
@@ -175,27 +176,31 @@ export function ServiceRequestModal({
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [showTimePicker, setShowTimePicker] = React.useState(false);
 
-  const calendarDays = generateCalendarDays(currentYear, currentMonth);
+  // Мемоизируем генерацию дней календаря
+  const calendarDays = React.useMemo(
+    () => generateCalendarDays(currentYear, currentMonth),
+    [currentYear, currentMonth]
+  );
 
-  const handlePrevMonth = () => {
+  const handlePrevMonth = React.useCallback(() => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
+      setCurrentYear((y) => y - 1);
     } else {
-      setCurrentMonth(currentMonth - 1);
+      setCurrentMonth((m) => m - 1);
     }
-  };
+  }, [currentMonth]);
 
-  const handleNextMonth = () => {
+  const handleNextMonth = React.useCallback(() => {
     if (currentMonth === 11) {
       setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
+      setCurrentYear((y) => y + 1);
     } else {
-      setCurrentMonth(currentMonth + 1);
+      setCurrentMonth((m) => m + 1);
     }
-  };
+  }, [currentMonth]);
 
-  const handleDateSelect = (day: number) => {
+  const handleDateSelect = React.useCallback((day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     if (date >= todayStart) {
@@ -203,32 +208,32 @@ export function ServiceRequestModal({
       setShowCalendar(false);
       setShowTimePicker(true);
     }
-  };
+  }, [currentYear, currentMonth, today]);
 
-  const isDateDisabled = (day: number) => {
+  const isDateDisabled = React.useCallback((day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     return date < todayStart;
-  };
+  }, [currentYear, currentMonth, today]);
 
-  const isDateSelected = (day: number) => {
+  const isDateSelected = React.useCallback((day: number) => {
     if (!selectedDate) return false;
     return (
       selectedDate.getDate() === day &&
       selectedDate.getMonth() === currentMonth &&
       selectedDate.getFullYear() === currentYear
     );
-  };
+  }, [selectedDate, currentMonth, currentYear]);
 
-  const isToday = (day: number) => {
+  const isToday = React.useCallback((day: number) => {
     return (
       today.getDate() === day &&
       today.getMonth() === currentMonth &&
       today.getFullYear() === currentYear
     );
-  };
+  }, [today, currentMonth, currentYear]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = React.useCallback(async () => {
     if (!message.trim() || !selectedDate) return;
 
     setIsSubmitting(true);
@@ -236,9 +241,9 @@ export function ServiceRequestModal({
     setIsSubmitting(false);
     setIsSubmitted(true);
     onRequestSent?.();
-  };
+  }, [message, selectedDate, onRequestSent]);
 
-  const handleClose = () => {
+  const handleClose = React.useCallback(() => {
     onOpenChange(false);
     setTimeout(() => {
       setMessage("");
@@ -250,15 +255,15 @@ export function ServiceRequestModal({
       setShowTimePicker(false);
       setIsSubmitted(false);
     }, 300);
-  };
+  }, [onOpenChange]);
 
-  const handleAddressSelect = (selectedAddress: AddressData) => {
+  const handleAddressSelect = React.useCallback((selectedAddress: AddressData) => {
     setAddress(selectedAddress);
-  };
+  }, []);
 
-  const handleClearAddress = () => {
+  const handleClearAddress = React.useCallback(() => {
     setAddress(null);
-  };
+  }, []);
 
   const formatAddress = (addr: AddressData): string => {
     const parts = [addr.city, addr.district, addr.khoroo];
@@ -322,11 +327,14 @@ export function ServiceRequestModal({
 
               <div className="p-4 space-y-5">
                 {/* Provider Info Card */}
-                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-100 dark:border-blue-900">
+                <div className="flex items-center gap-3 p-4 bg-linear-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border border-blue-100 dark:border-blue-900">
                   <div className="relative">
-                    <img
+                    <Image
                       src={provider.avatar}
                       alt={provider.name}
+                      width={56}
+                      height={56}
+                      unoptimized={provider.avatar.includes("dicebear")}
                       className="w-14 h-14 rounded-full object-cover ring-2 ring-white dark:ring-gray-800 shadow-md"
                     />
                     <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800" />

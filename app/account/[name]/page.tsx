@@ -172,10 +172,14 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
             <div className="relative">
               <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl bg-muted">
                 {profile.avatar_url ? (
-                  <img
+                  <Image
                     src={profile.avatar_url}
                     alt={providerName}
+                    width={160}
+                    height={160}
+                    unoptimized={profile.avatar_url.includes("dicebear")}
                     className="w-full h-full object-cover"
+                    priority
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-muted-foreground">
@@ -295,12 +299,14 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
                     return (
                       <Link key={listing.id} href={`/services/${listing.slug}`}>
                         <div className="group border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
-                          <div className="aspect-video overflow-hidden bg-muted">
+                          <div className="aspect-video overflow-hidden bg-muted relative">
                             {coverImage?.url ? (
-                              <img
+                              <Image
                                 src={coverImage.url}
                                 alt={coverImage.alt || listing.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                fill
+                                sizes="(max-width: 640px) 100vw, 50vw"
+                                className="object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">

@@ -4,6 +4,7 @@ import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,13 +16,17 @@ import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 
 import { RequestForm } from "@/components/request-form";
-import { ChevronLeft, MapPin, Heart, Clock, MessageSquare, UserCircle, Eye } from "lucide-react";
+import { ChevronLeft, MapPin, Heart, Clock, MessageSquare, UserCircle, Eye, CalendarClock } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
-import { ImageLightbox } from "@/components/image-lightbox";
+
+// Dynamic import для ImageLightbox - загружается только когда открывается галерея
+const ImageLightbox = dynamic(
+  () => import("@/components/image-lightbox").then((mod) => mod.ImageLightbox),
+  { ssr: false }
+);
 import { useFindUniquelistings } from "@/lib/hooks/listings";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
-import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
@@ -36,58 +41,65 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
   const [lightboxIndex, setLightboxIndex] = React.useState(0);
 
   // Загрузка объявления из БД по slug
-  const { data: listing, isLoading, refetch } = useFindUniquelistings({
-    where: { slug: id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          company_name: true,
-          is_company: true,
-          created_at: true,
+  const { data: listing, isLoading } = useFindUniquelistings(
+    {
+      where: { slug: id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            company_name: true,
+            is_company: true,
+            created_at: true,
+          },
         },
-      },
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
         },
-      },
-      images: {
-        select: {
-          id: true,
-          url: true,
-          sort_order: true,
-          alt: true,
+        images: {
+          select: {
+            id: true,
+            url: true,
+            sort_order: true,
+            alt: true,
+          },
+          orderBy: {
+            sort_order: "asc",
+          },
         },
-        orderBy: {
-          sort_order: "asc",
+        aimag: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
-      },
-      aimag: {
-        select: {
-          id: true,
-          name: true,
+        district: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
-      },
-      district: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      khoroo: {
-        select: {
-          id: true,
-          name: true,
+        khoroo: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
     },
-  });
+    {
+      enabled: !!id,
+      staleTime: 5 * 60 * 1000, // 5 минут
+      gcTime: 15 * 60 * 1000, // 15 минут
+    }
+  );
 
   // ID объявления для избранного
   const listingId = listing?.id || "";
@@ -112,18 +124,21 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
     })
       .then((res) => res.json())
       .then((data) => {
-        // Если просмотр засчитан (не skipped), обновляем данные
-        if (data.success && !data.skipped) {
-          // Обновляем текущее объявление
-          refetch();
-          // Инвалидируем кэш списков чтобы на главной тоже обновилось
-          queryClient.invalidateQueries({ queryKey: ["listings", "findMany"] });
+        // Если просмотр засчитан (не skipped), оптимистично обновляем кэш
+        if (data.success && !data.skipped && data.views_count !== undefined) {
+          // Оптимистичное обновление кэша вместо полного рефетча
+          // Это предотвращает каскадную инвалидацию всех списков
+          queryClient.setQueryData(
+            ["listings", "findUnique", { where: { slug: id } }],
+            (oldData: typeof listing) =>
+              oldData ? { ...oldData, views_count: data.views_count } : oldData
+          );
         }
       })
       .catch((err) => {
         console.error("Failed to track view:", err);
       });
-  }, [id, refetch, queryClient]);
+  }, [id, queryClient]);
 
   const handleSave = () => {
     if (listing) {
@@ -291,6 +306,30 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
               </div>
             </div>
 
+            {/* Duration & Work Hours */}
+            {(listing.duration_minutes || listing.work_hours_start) && (
+              <div className="flex flex-wrap gap-3">
+                {listing.duration_minutes && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
+                    <Clock className="h-4 w-4" />
+                    <span className="font-medium">
+                      {listing.duration_minutes < 60
+                        ? `${listing.duration_minutes} мин`
+                        : listing.duration_minutes % 60 === 0
+                          ? `${Math.floor(listing.duration_minutes / 60)} цаг`
+                          : `${Math.floor(listing.duration_minutes / 60)} цаг ${listing.duration_minutes % 60} мин`}
+                    </span>
+                  </div>
+                )}
+                {listing.work_hours_start && listing.work_hours_end && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm">
+                    <CalendarClock className="h-4 w-4" />
+                    <span className="font-medium">Ажлын цаг: {listing.work_hours_start} - {listing.work_hours_end}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Mobile Provider Card */}
             <div className="lg:hidden border rounded-xl p-4 space-y-3">
               <div className="flex items-center gap-3">
@@ -301,6 +340,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                       alt={providerName}
                       width={48}
                       height={48}
+                      unoptimized={listing.user.avatar_url.includes("dicebear")}
                       className="rounded-full object-cover"
                     />
                   ) : (
@@ -390,6 +430,7 @@ export default function ServicePage({ params }: { params: Promise<{ id: string }
                       alt={providerName}
                       width={64}
                       height={64}
+                      unoptimized={listing.user.avatar_url.includes("dicebear")}
                       className="rounded-full object-cover"
                     />
                   ) : (

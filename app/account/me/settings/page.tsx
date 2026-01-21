@@ -16,6 +16,7 @@ import {
   Check,
   Loader2,
   Sparkles,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -148,11 +149,12 @@ function ThemeSelector({
 
 export default function AppSettingsPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
   // Use ZenStack hooks for notification settings
   const { settings, updateSetting, saveSettings, isLoading, isSaving } = useNotificationSettings();
@@ -212,6 +214,16 @@ export default function AppSettingsPage() {
       setTimeout(() => setSaveSuccess(false), 2000);
     } catch (error) {
       console.error("Error saving settings:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+      router.push("/");
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -440,6 +452,22 @@ export default function AppSettingsPage() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Logout Section */}
+        <section className="space-y-3 pt-4">
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center justify-center gap-2 p-4 bg-card rounded-2xl border text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-50"
+          >
+            {isLoggingOut ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <LogOut className="h-5 w-5" />
+            )}
+            <span className="font-medium">Гарах</span>
+          </button>
         </section>
       </div>
 

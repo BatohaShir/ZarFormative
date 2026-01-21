@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -82,7 +81,7 @@ export async function GET(request: NextRequest) {
         l.created_at,
         c.name as category_name,
         c.slug as category_slug,
-        (SELECT url FROM listings_images WHERE listing_id = l.id AND is_cover = true LIMIT 1) as cover_image_url,
+        li.url as cover_image_url,
         a.name as aimag_name,
         COALESCE(
           CASE WHEN p.is_company THEN p.company_name ELSE CONCAT(p.first_name, ' ', p.last_name) END,
@@ -96,6 +95,11 @@ export async function GET(request: NextRequest) {
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN aimags a ON l.aimag_id = a.id
       LEFT JOIN profiles p ON l.user_id = p.id
+      LEFT JOIN LATERAL (
+        SELECT url FROM listings_images
+        WHERE listing_id = l.id AND is_cover = true
+        LIMIT 1
+      ) li ON true
       WHERE
         l.status = 'active'
         AND l.is_active = true

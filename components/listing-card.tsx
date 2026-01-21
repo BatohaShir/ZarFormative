@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, MapPin, Eye } from "lucide-react";
+import { Heart, MapPin, Eye, Clock, CalendarClock } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
 import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -18,14 +18,20 @@ export type ListingWithRelations = listings & {
   aimag?: Pick<aimags, "id" | "name"> | null;
   district?: Pick<districts, "id" | "name"> | null;
   khoroo?: Pick<khoroos, "id" | "name"> | null;
+  duration_minutes?: number | null;
+  work_hours_start?: string | null;
+  work_hours_end?: string | null;
 };
 
 interface ListingCardProps {
   listing: ListingWithRelations;
+  /** Prioritize image loading for LCP optimization (first visible cards) */
+  priority?: boolean;
 }
 
 export const ListingCard = React.memo(function ListingCard({
   listing,
+  priority = false,
 }: ListingCardProps) {
   const { toggleFavorite, isFavorite, isToggling } = useFavorites();
   const isLiked = isFavorite(listing.id);
@@ -68,7 +74,8 @@ export const ListingCard = React.memo(function ListingCard({
           alt={listing.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          loading="lazy"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
@@ -113,6 +120,7 @@ export const ListingCard = React.memo(function ListingCard({
                 alt={providerName}
                 width={20}
                 height={20}
+                unoptimized={listing.user.avatar_url.includes("dicebear")}
                 className="rounded-full object-cover w-4 h-4 md:w-5 md:h-5"
               />
             ) : (
@@ -135,12 +143,35 @@ export const ListingCard = React.memo(function ListingCard({
             </span>
           </div>
         </div>
+        {/* Location */}
         <div className="flex items-center gap-1 mt-1.5 md:mt-2 text-muted-foreground">
           <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
           <span className="text-[10px] md:text-[11px] line-clamp-1">
             {locationDisplay}
           </span>
         </div>
+
+        {/* Duration and Work Hours */}
+        {(listing.duration_minutes || listing.work_hours_start) && (
+          <div className="flex items-center flex-wrap gap-2 md:gap-3 mt-1.5 md:mt-2 text-muted-foreground">
+            {listing.duration_minutes && (
+              <span className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-[11px]">
+                <Clock className="w-2.5 h-2.5 md:w-3 md:h-3 text-blue-500" />
+                {listing.duration_minutes < 60
+                  ? `${listing.duration_minutes} мин`
+                  : listing.duration_minutes % 60 === 0
+                    ? `${Math.floor(listing.duration_minutes / 60)} цаг`
+                    : `${Math.floor(listing.duration_minutes / 60)} ц ${listing.duration_minutes % 60} мин`}
+              </span>
+            )}
+            {listing.work_hours_start && listing.work_hours_end && (
+              <span className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-[11px]">
+                <CalendarClock className="w-2.5 h-2.5 md:w-3 md:h-3 text-indigo-500" />
+                {listing.work_hours_start} - {listing.work_hours_end}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Link>
   );

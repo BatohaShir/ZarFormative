@@ -29,6 +29,7 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { EducationSection } from "@/components/auth/education-section";
 import { WorkExperienceSection } from "@/components/auth/work-experience-section";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -92,12 +93,15 @@ export function UserMenu({
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="relative">
-              <img
+              <Image
                 src={avatarUrl}
                 alt={displayName}
+                width={36}
+                height={36}
+                unoptimized={avatarUrl.includes("dicebear")}
                 className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover border-2 border-blue-500"
               />
-              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-[2px] border-background" />
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-background" />
             </div>
             <span className="hidden md:block text-sm font-medium max-w-24 truncate">
               {displayName}
@@ -106,9 +110,12 @@ export function UserMenu({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <div className="flex items-center gap-3 p-3 border-b">
-            <img
+            <Image
               src={avatarUrl}
               alt={displayName}
+              width={40}
+              height={40}
+              unoptimized={avatarUrl.includes("dicebear")}
               className="w-10 h-10 rounded-full object-cover"
             />
             <div className="flex-1 min-w-0">
@@ -143,9 +150,12 @@ export function UserMenu({
             {/* Avatar and Name */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
-                <img
+                <Image
                   src={avatarUrl}
                   alt={displayName}
+                  width={96}
+                  height={96}
+                  unoptimized={avatarUrl.includes("dicebear")}
                   className="w-24 h-24 rounded-full object-cover border-[3px] border-blue-500"
                 />
                 {isUploadingAvatar ? (

@@ -144,8 +144,8 @@ export function RecommendedListings() {
         </Link>
       </div>
       <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-        {(listings as ListingWithRelations[]).map((listing) => (
-          <ListingCard key={listing.id} listing={listing} />
+        {(listings as ListingWithRelations[]).map((listing, index) => (
+          <ListingCard key={listing.id} listing={listing} priority={index < 4} />
         ))}
       </div>
     </section>

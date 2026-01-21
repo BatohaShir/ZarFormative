@@ -49,6 +49,9 @@ import {
   useUpdatelisting_requests,
   useDeletelisting_requests,
 } from "@/lib/hooks";
+import { CACHE_TIMES } from "@/lib/react-query-config";
+import { AddressMap } from "@/components/address-map";
+import { ActiveRequestsSidebar } from "@/components/active-requests-sidebar";
 import type { RequestStatus } from "@prisma/client";
 
 // Тип для заявки из БД
@@ -60,10 +63,19 @@ interface RequestWithRelations {
   message: string;
   status: RequestStatus;
   provider_response: string | null;
+  preferred_date: Date | null;
+  preferred_time: string | null;
   created_at: Date;
   updated_at: Date;
   accepted_at: Date | null;
   completed_at: Date | null;
+  // Адрес оказания услуги
+  aimag_id: string | null;
+  district_id: string | null;
+  khoroo_id: string | null;
+  aimag: { id: string; name: string } | null;
+  district: { id: string; name: string } | null;
+  khoroo: { id: string; name: string } | null;
   listing: {
     id: string;
     title: string;
@@ -114,7 +126,8 @@ function formatCreatedAt(date: Date | string): string {
   }
 }
 
-function getStatusBadge(status: RequestStatus) {
+// type: "sent" = я отправил заявку (я клиент), "received" = мне пришла заявка (я исполнитель)
+function getStatusBadge(status: RequestStatus, type: "sent" | "received" = "sent") {
   switch (status) {
     case "pending":
       return (
@@ -166,14 +179,28 @@ function getStatusBadge(status: RequestStatus) {
           Дууссан
         </Badge>
       );
-    case "cancelled":
+    case "cancelled_by_client":
+      // Если я в табе "Илгээсэн" (sent) - я отменил = "Цуцлагдсан"
+      // Если я в табе "Ирсэн" (received) - клиент отменил = "Захиалагч цуцалсан"
       return (
         <Badge
           variant="outline"
           className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400 dark:border-gray-800"
         >
           <X className="h-3 w-3 mr-1" />
-          Цуцалсан
+          {type === "sent" ? "Цуцлагдсан" : "Захиалагч цуцалсан"}
+        </Badge>
+      );
+    case "cancelled_by_provider":
+      // Если я в табе "Илгээсэн" (sent) - исполнитель отменил = "Гүйцэтгэгч цуцалсан"
+      // Если я в табе "Ирсэн" (received) - я отменил = "Цуцлагдсан"
+      return (
+        <Badge
+          variant="outline"
+          className="bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950/30 dark:text-gray-400 dark:border-gray-800"
+        >
+          <X className="h-3 w-3 mr-1" />
+          {type === "received" ? "Цуцлагдсан" : "Гүйцэтгэгч цуцалсан"}
         </Badge>
       );
     case "disputed":
@@ -209,6 +236,42 @@ function getListingImage(listing: RequestWithRelations["listing"]): string {
   return coverImage?.url || listing.images?.[0]?.url || "/placeholder-service.jpg";
 }
 
+function formatPreferredDateTime(date: Date | null, time: string | null): string | null {
+  if (!date) return null;
+  const d = new Date(date);
+  const dateStr = d.toLocaleDateString("mn-MN", {
+    month: "short",
+    day: "numeric",
+  });
+  if (time) {
+    return `${dateStr}, ${time}`;
+  }
+  return dateStr;
+}
+
+// Кнопка "Ажилд" для мобильного header
+function MobileActiveRequestsButton({ count }: { count: number }) {
+  if (count === 0) return null;
+
+  const handleClick = () => {
+    window.dispatchEvent(new CustomEvent("open-active-requests-sidebar"));
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="md:hidden relative h-9 w-9"
+      onClick={handleClick}
+    >
+      <Play className="h-5 w-5 text-blue-500" />
+      <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 bg-blue-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center">
+        {count > 99 ? "99+" : count}
+      </span>
+    </Button>
+  );
+}
+
 export default function RequestsPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -217,15 +280,19 @@ export default function RequestsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [requestToDelete, setRequestToDelete] = React.useState<string | null>(null);
 
-  // Fetch my sent requests (я как клиент)
+  // ОПТИМИЗАЦИЯ: Один запрос вместо двух с OR условием
+  // Это уменьшает количество round-trips к БД на 50%
   const {
-    data: myRequests,
-    isLoading: myRequestsLoading,
-    refetch: refetchMyRequests,
+    data: allRequests,
+    isLoading: requestsLoading,
+    refetch: refetchRequests,
   } = useFindManylisting_requests(
     {
       where: {
-        client_id: user?.id || "",
+        OR: [
+          { client_id: user?.id || "" },
+          { provider_id: user?.id || "" },
+        ],
       },
       include: {
         listing: {
@@ -260,64 +327,46 @@ export default function RequestsPage() {
             avatar_url: true,
           },
         },
+        // Адрес оказания услуги
+        aimag: {
+          select: { id: true, name: true },
+        },
+        district: {
+          select: { id: true, name: true },
+        },
+        khoroo: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: { created_at: "desc" },
     },
     {
       enabled: !!user?.id,
+      ...CACHE_TIMES.SERVICE_REQUESTS,
     }
   );
 
-  // Fetch incoming requests (я как provider)
-  const {
-    data: incomingRequests,
-    isLoading: incomingLoading,
-    refetch: refetchIncoming,
-  } = useFindManylisting_requests(
-    {
-      where: {
-        provider_id: user?.id || "",
-      },
-      include: {
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            images: {
-              select: { url: true, is_cover: true },
-              take: 1,
-              orderBy: { is_cover: "desc" },
-            },
-          },
-        },
-        client: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            company_name: true,
-            is_company: true,
-            avatar_url: true,
-          },
-        },
-        provider: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            company_name: true,
-            is_company: true,
-            avatar_url: true,
-          },
-        },
-      },
-      orderBy: { created_at: "desc" },
-    },
-    {
-      enabled: !!user?.id,
+  // Разделяем на клиентские и провайдерские на клиенте (O(n) один раз)
+  const { myRequests, incomingRequests } = React.useMemo(() => {
+    const all = (allRequests as RequestWithRelations[] | undefined) || [];
+    const my: RequestWithRelations[] = [];
+    const incoming: RequestWithRelations[] = [];
+
+    for (const req of all) {
+      if (req.client_id === user?.id) {
+        my.push(req);
+      }
+      if (req.provider_id === user?.id) {
+        incoming.push(req);
+      }
     }
-  );
+
+    return { myRequests: my, incomingRequests: incoming };
+  }, [allRequests, user?.id]);
+
+  // Алиасы для обратной совместимости с refetch
+  const refetchMyRequests = refetchRequests;
+  const refetchIncoming = refetchRequests;
 
   // Mutations
   const updateRequest = useUpdatelisting_requests();
@@ -342,21 +391,9 @@ export default function RequestsPage() {
     return null;
   }
 
-  // Filter by type
-  const myRequestsList = (myRequests as RequestWithRelations[] | undefined) || [];
-  const incomingRequestsList = (incomingRequests as RequestWithRelations[] | undefined) || [];
-
-  // Active = accepted or in_progress (from both sides)
-  const activeFromMy = myRequestsList.filter(
-    (r) => r.status === "accepted" || r.status === "in_progress"
-  );
-  const activeFromIncoming = incomingRequestsList.filter(
-    (r) => r.status === "accepted" || r.status === "in_progress"
-  );
-  const activeRequests = [...activeFromMy, ...activeFromIncoming];
-
-  // Pending incoming for provider
-  const pendingIncoming = incomingRequestsList.filter((r) => r.status === "pending");
+  // Данные уже типизированы из useMemo выше
+  const myRequestsList = myRequests;
+  const incomingRequestsList = incomingRequests;
 
   const filterRequests = (reqs: RequestWithRelations[]) => {
     if (!searchQuery) return reqs;
@@ -401,14 +438,30 @@ export default function RequestsPage() {
     }
   };
 
-  const handleCancel = async (requestId: string) => {
+  // Клиент отменяет свою заявку
+  const handleCancelByClient = async (requestId: string) => {
     try {
       await updateRequest.mutateAsync({
         where: { id: requestId },
-        data: { status: "cancelled" },
+        data: { status: "cancelled_by_client" },
       });
       toast.success("Хүсэлт цуцлагдлаа");
       refetchMyRequests();
+      setSelectedRequest(null);
+    } catch (error) {
+      toast.error("Алдаа гарлаа");
+    }
+  };
+
+  // Исполнитель отменяет заявку
+  const handleCancelByProvider = async (requestId: string) => {
+    try {
+      await updateRequest.mutateAsync({
+        where: { id: requestId },
+        data: { status: "cancelled_by_provider" },
+      });
+      toast.success("Хүсэлт цуцлагдлаа");
+      refetchIncoming();
       setSelectedRequest(null);
     } catch (error) {
       toast.error("Алдаа гарлаа");
@@ -464,21 +517,22 @@ export default function RequestsPage() {
     }
   };
 
-  const isLoading = myRequestsLoading || incomingLoading;
+  const isLoading = requestsLoading;
 
-  const renderRequestCard = (request: RequestWithRelations, type: "sent" | "received") => {
+  const renderRequestListItem = (request: RequestWithRelations, type: "sent" | "received") => {
     const isMyRequest = type === "sent";
     const otherPerson = isMyRequest ? request.provider : request.client;
+    const preferredDateTime = formatPreferredDateTime(request.preferred_date, request.preferred_time);
 
     return (
       <div
         key={request.id}
-        className="bg-card border rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer"
+        className="group bg-card border rounded-xl overflow-hidden hover:shadow-md hover:border-primary/20 transition-all duration-200 cursor-pointer"
         onClick={() => setSelectedRequest(request)}
       >
-        {/* Header */}
-        <div className="flex items-start gap-3 mb-3">
-          <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+        <div className="flex gap-3 p-3">
+          {/* Image */}
+          <div className="relative w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden shrink-0">
             <Image
               src={getListingImage(request.listing)}
               alt={request.listing.title}
@@ -486,75 +540,121 @@ export default function RequestsPage() {
               className="object-cover"
             />
           </div>
+
+          {/* Content */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold text-sm md:text-base line-clamp-1">
+            {/* Title & Status */}
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <h3 className="font-semibold text-sm line-clamp-1">
                 {request.listing.title}
               </h3>
-              {getStatusBadge(request.status)}
+              <div className="shrink-0">
+                {getStatusBadge(request.status, type)}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {formatCreatedAt(request.created_at)}
-            </p>
-          </div>
-        </div>
 
-        {/* Message */}
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{request.message}</p>
+            {/* Person */}
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <div className="relative w-5 h-5 rounded-full overflow-hidden bg-muted shrink-0">
+                {otherPerson.avatar_url ? (
+                  <Image
+                    src={otherPerson.avatar_url}
+                    alt=""
+                    fill
+                    unoptimized={otherPerson.avatar_url.includes("dicebear")}
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              <span className="text-xs text-muted-foreground line-clamp-1">
+                {getPersonName(otherPerson)}
+              </span>
+            </div>
 
-        {/* Person Info */}
-        <div className="flex items-center justify-between pt-3 border-t">
-          <div className="flex items-center gap-2">
-            <div className="relative w-8 h-8 rounded-full overflow-hidden bg-muted">
-              {otherPerson.avatar_url ? (
-                <Image
-                  src={otherPerson.avatar_url}
-                  alt=""
-                  fill
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                </div>
+            {/* Date/Time & Message in one row */}
+            <div className="flex items-center gap-3 text-xs">
+              {preferredDateTime && (
+                <span className="flex items-center gap-1 text-primary font-medium shrink-0">
+                  <Calendar className="h-3 w-3" />
+                  {preferredDateTime}
+                </span>
               )}
-            </div>
-            <div>
-              <p className="text-sm font-medium">{getPersonName(otherPerson)}</p>
-              <p className="text-xs text-muted-foreground">
-                {isMyRequest ? "Үйлчилгээ үзүүлэгч" : "Захиалагч"}
-              </p>
+              <span className="text-muted-foreground line-clamp-1 italic">
+                &ldquo;{request.message}&rdquo;
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Quick Actions for Incoming Pending */}
+        {/* Action buttons for incoming pending */}
         {!isMyRequest && request.status === "pending" && (
-          <div className="flex gap-2 mt-3 pt-3 border-t">
+          <div className="flex gap-2 px-3 pb-3 pt-0">
             <Button
               variant="outline"
               size="sm"
-              className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+              className="flex-1 h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
               onClick={(e) => {
                 e.stopPropagation();
                 handleReject(request.id);
               }}
               disabled={updateRequest.isPending}
             >
-              <X className="h-4 w-4 mr-1" />
+              <X className="h-3 w-3 mr-1" />
               Татгалзах
             </Button>
             <Button
               size="sm"
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="flex-1 h-8 text-xs bg-green-600 hover:bg-green-700"
               onClick={(e) => {
                 e.stopPropagation();
                 handleAccept(request.id);
               }}
               disabled={updateRequest.isPending}
             >
-              <Check className="h-4 w-4 mr-1" />
+              <Check className="h-3 w-3 mr-1" />
               Хүлээн авах
+            </Button>
+          </div>
+        )}
+
+        {/* Cancel button for sent pending requests (client cancels) */}
+        {isMyRequest && request.status === "pending" && (
+          <div className="px-3 pb-3 pt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelByClient(request.id);
+              }}
+              disabled={updateRequest.isPending}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Цуцлах
+            </Button>
+          </div>
+        )}
+
+        {/* Cancel button for received accepted requests (provider cancels) */}
+        {!isMyRequest && request.status === "accepted" && (
+          <div className="px-3 pb-3 pt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-8 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCancelByProvider(request.id);
+              }}
+              disabled={updateRequest.isPending}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Цуцлах
             </Button>
           </div>
         )}
@@ -563,26 +663,25 @@ export default function RequestsPage() {
   };
 
   const renderEmptyState = (icon: React.ReactNode, title: string, description: string) => (
-    <div className="col-span-full text-center py-8 md:py-12 text-muted-foreground">
-      <div className="mx-auto mb-3 opacity-50">{icon}</div>
-      <p className="text-sm md:text-base">{title}</p>
-      <p className="text-xs mt-1">{description}</p>
+    <div className="flex flex-col items-center justify-center py-16 px-4">
+      <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+        <div className="text-muted-foreground/50">{icon}</div>
+      </div>
+      <p className="text-base font-medium text-foreground mb-1">{title}</p>
+      <p className="text-sm text-muted-foreground text-center max-w-xs">{description}</p>
     </div>
   );
 
   const renderLoadingState = () => (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-card border rounded-xl p-4">
-          <div className="flex items-start gap-3 mb-3">
-            <Skeleton className="w-16 h-16 rounded-lg" />
-            <div className="flex-1">
-              <Skeleton className="h-5 w-3/4 mb-2" />
-              <Skeleton className="h-3 w-1/2" />
-            </div>
+    <div className="space-y-3">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="bg-card border rounded-xl p-3 flex gap-3">
+          <Skeleton className="w-16 h-16 md:w-20 md:h-20 rounded-lg shrink-0" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+            <Skeleton className="h-3 w-full" />
           </div>
-          <Skeleton className="h-4 w-full mb-2" />
-          <Skeleton className="h-4 w-2/3" />
         </div>
       ))}
     </div>
@@ -610,6 +709,10 @@ export default function RequestsPage() {
               </h1>
             </Link>
           </div>
+          {/* Mobile Active Requests Button */}
+          <MobileActiveRequestsButton
+            count={incomingRequestsList.filter(r => r.status === "accepted" || r.status === "in_progress").length}
+          />
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
             <RequestsButton />
@@ -636,82 +739,83 @@ export default function RequestsPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="my_requests" className="w-full">
-          <TabsList className="w-full mb-4 h-10">
-            <TabsTrigger value="my_requests" className="flex-1 text-xs md:text-sm">
-              <Send className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
-              Миний хүсэлт ({myRequestsList.length})
-            </TabsTrigger>
-            <TabsTrigger value="incoming" className="flex-1 text-xs md:text-sm">
-              <Inbox className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
-              Ирсэн ({pendingIncoming.length})
-            </TabsTrigger>
-            <TabsTrigger value="active" className="flex-1 text-xs md:text-sm">
-              <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
-              Идэвхтэй ({activeRequests.length})
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex justify-center mb-6">
+            <TabsList className="inline-flex p-1 h-11 bg-muted/50 rounded-full">
+              <TabsTrigger
+                value="my_requests"
+                className="rounded-full px-5 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Илгээсэн
+                {myRequestsList.length > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold min-w-5 text-center">
+                    {myRequestsList.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="incoming"
+                className="rounded-full px-5 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
+              >
+                <Inbox className="h-4 w-4 mr-2" />
+                Ирсэн
+                {incomingRequestsList.length > 0 && (
+                  <span className="ml-2 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold min-w-5 text-center">
+                    {incomingRequestsList.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* My Requests - миний илгээсэн хүсэлтүүд */}
-          <TabsContent value="my_requests">
+          <TabsContent value="my_requests" className="mt-0">
             {isLoading ? (
               renderLoadingState()
+            ) : filterRequests(myRequestsList).length === 0 ? (
+              renderEmptyState(
+                <Send className="h-12 w-12" />,
+                "Илгээсэн хүсэлт байхгүй",
+                "Та үйлчилгээнд хүсэлт илгээхэд энд харагдана"
+              )
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filterRequests(myRequestsList).length === 0
-                  ? renderEmptyState(
-                      <Send className="h-10 w-10 md:h-12 md:w-12" />,
-                      "Илгээсэн хүсэлт байхгүй",
-                      "Та үйлчилгээнд хүсэлт илгээхэд энд харагдана"
-                    )
-                  : filterRequests(myRequestsList).map((r) => renderRequestCard(r, "sent"))}
+              <div className="space-y-3">
+                {filterRequests(myRequestsList).map((r) => renderRequestListItem(r, "sent"))}
               </div>
             )}
           </TabsContent>
 
           {/* Incoming Requests - надад ирсэн хүсэлтүүд */}
-          <TabsContent value="incoming">
+          <TabsContent value="incoming" className="mt-0">
             {isLoading ? (
               renderLoadingState()
+            ) : filterRequests(incomingRequestsList).length === 0 ? (
+              renderEmptyState(
+                <Inbox className="h-12 w-12" />,
+                "Ирсэн хүсэлт байхгүй",
+                "Таны үйлчилгээнд сонирхсон хүмүүс энд харагдана"
+              )
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filterRequests(pendingIncoming).length === 0
-                  ? renderEmptyState(
-                      <Inbox className="h-10 w-10 md:h-12 md:w-12" />,
-                      "Ирсэн хүсэлт байхгүй",
-                      "Таны үйлчилгээнд сонирхсон хүмүүс энд харагдана"
-                    )
-                  : filterRequests(pendingIncoming).map((r) => renderRequestCard(r, "received"))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Active - идэвхтэй захиалгууд */}
-          <TabsContent value="active">
-            {isLoading ? (
-              renderLoadingState()
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filterRequests(activeRequests).length === 0
-                  ? renderEmptyState(
-                      <CheckCircle className="h-10 w-10 md:h-12 md:w-12" />,
-                      "Идэвхтэй захиалга байхгүй",
-                      "Хүлээн авсан захиалгууд энд харагдана"
-                    )
-                  : filterRequests(activeRequests).map((r) =>
-                      renderRequestCard(r, r.client_id === user?.id ? "sent" : "received")
-                    )}
+              <div className="space-y-3">
+                {filterRequests(incomingRequestsList).map((r) => renderRequestListItem(r, "received"))}
               </div>
             )}
           </TabsContent>
         </Tabs>
       </main>
 
+      {/* Active Requests Sidebar - показывает заявки в работе */}
+      <ActiveRequestsSidebar
+        requests={incomingRequestsList}
+        onSelectRequest={(request) => setSelectedRequest(request as RequestWithRelations)}
+      />
+
       {/* Request Detail Modal */}
       {selectedRequest && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center">
-          <div className="bg-background w-full md:max-w-lg md:rounded-xl rounded-t-xl max-h-[90vh] overflow-auto">
+          <div className="bg-background w-full md:max-w-2xl md:rounded-xl rounded-t-xl max-h-[90vh] overflow-auto">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-background border-b p-4 flex items-center justify-between">
+            <div className="sticky top-0 z-10 bg-background border-b p-4 flex items-center justify-between">
               <h3 className="font-semibold text-lg">Хүсэлтийн дэлгэрэнгүй</h3>
               <Button variant="ghost" size="icon" onClick={() => setSelectedRequest(null)}>
                 <X className="h-5 w-5" />
@@ -722,7 +826,7 @@ export default function RequestsPage() {
             <div className="p-4 space-y-4">
               {/* Service Info */}
               <div className="flex gap-4">
-                <div className="relative w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
+                <div className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0">
                   <Image
                     src={getListingImage(selectedRequest.listing)}
                     alt={selectedRequest.listing.title}
@@ -739,7 +843,12 @@ export default function RequestsPage() {
                       {selectedRequest.listing.title}
                     </Link>
                   </div>
-                  <div className="mt-2">{getStatusBadge(selectedRequest.status)}</div>
+                  <div className="mt-2">
+                    {getStatusBadge(
+                      selectedRequest.status,
+                      selectedRequest.client_id === user?.id ? "sent" : "received"
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -803,7 +912,7 @@ export default function RequestsPage() {
                   {selectedRequest.client_id === user?.id ? "Үйлчилгээ үзүүлэгч" : "Захиалагч"}
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                  <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted shrink-0">
                     {(selectedRequest.client_id === user?.id
                       ? selectedRequest.provider
                       : selectedRequest.client
@@ -817,6 +926,12 @@ export default function RequestsPage() {
                         }
                         alt=""
                         fill
+                        unoptimized={
+                          (selectedRequest.client_id === user?.id
+                            ? selectedRequest.provider
+                            : selectedRequest.client
+                          ).avatar_url?.includes("dicebear") ?? false
+                        }
                         className="object-cover"
                       />
                     ) : (
@@ -847,6 +962,33 @@ export default function RequestsPage() {
                   </Link>
                 </div>
               </div>
+
+              {/* Address Info - only show for incoming requests (I'm provider) */}
+              {selectedRequest.provider_id === user?.id && selectedRequest.aimag && (
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5" />
+                      Үйлчилгээ үзүүлэх хаяг
+                    </p>
+                    <p className="text-sm font-medium">
+                      {[
+                        selectedRequest.aimag?.name,
+                        selectedRequest.district?.name,
+                        selectedRequest.khoroo?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                  </div>
+                  {/* Map with circle marker */}
+                  <AddressMap
+                    aimagName={selectedRequest.aimag?.name}
+                    districtName={selectedRequest.district?.name}
+                    khorooName={selectedRequest.khoroo?.name}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Modal Footer */}
@@ -882,15 +1024,21 @@ export default function RequestsPage() {
                 </div>
               )}
 
-              {/* Actions for ACCEPTED requests (provider can start work) */}
+              {/* Actions for ACCEPTED requests (provider can start work or cancel) */}
               {selectedRequest.provider_id === user?.id && selectedRequest.status === "accepted" && (
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
-                    className="flex-1"
-                    onClick={() => setSelectedRequest(null)}
+                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                    onClick={() => handleCancelByProvider(selectedRequest.id)}
+                    disabled={updateRequest.isPending}
                   >
-                    Хаах
+                    {updateRequest.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <X className="h-4 w-4 mr-2" />
+                    )}
+                    Цуцлах
                   </Button>
                   <Button
                     className="flex-1"
@@ -945,7 +1093,7 @@ export default function RequestsPage() {
                   </Button>
                   <Button
                     variant="destructive"
-                    onClick={() => handleCancel(selectedRequest.id)}
+                    onClick={() => handleCancelByClient(selectedRequest.id)}
                     disabled={updateRequest.isPending}
                   >
                     {updateRequest.isPending ? (
@@ -962,7 +1110,7 @@ export default function RequestsPage() {
               {((selectedRequest.client_id === user?.id &&
                 !["pending"].includes(selectedRequest.status)) ||
                 (selectedRequest.provider_id === user?.id &&
-                  ["rejected", "completed", "cancelled", "disputed"].includes(
+                  ["rejected", "completed", "cancelled_by_client", "cancelled_by_provider", "disputed"].includes(
                     selectedRequest.status
                   ))) && (
                 <div className="flex gap-3">
@@ -974,7 +1122,7 @@ export default function RequestsPage() {
                     Хаах
                   </Button>
                   {selectedRequest.client_id === user?.id &&
-                    ["rejected", "cancelled"].includes(selectedRequest.status) && (
+                    ["rejected", "cancelled_by_client", "cancelled_by_provider"].includes(selectedRequest.status) && (
                       <Button
                         variant="destructive"
                         onClick={() => {

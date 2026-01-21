@@ -52,23 +52,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refetchProfile();
   }, [refetchProfile]);
 
+  // Мемоизируем context value чтобы предотвратить ненужные ре-рендеры потребителей
+  const contextValue = React.useMemo<AuthContextType>(
+    () => ({
+      user,
+      profile: profile ?? null,
+      isAuthenticated,
+      isLoading,
+      displayName,
+      avatarUrl,
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+      uploadAvatar,
+      updateProfile,
+    }),
+    [
+      user,
+      profile,
+      isAuthenticated,
+      isLoading,
+      displayName,
+      avatarUrl,
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+      uploadAvatar,
+      updateProfile,
+    ]
+  );
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile: profile ?? null,
-        isAuthenticated,
-        isLoading,
-        displayName,
-        avatarUrl,
-        signIn,
-        signUp,
-        signOut,
-        refreshProfile,
-        uploadAvatar,
-        updateProfile,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

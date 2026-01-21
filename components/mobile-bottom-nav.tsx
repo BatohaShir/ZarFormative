@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Home, Heart, Plus, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,7 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const { count: favoritesCount } = useFavorites();
   const { totalUnreadCount } = useMessages();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, avatarUrl } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const isActive = (path: string) => {
@@ -116,13 +117,52 @@ export function MobileBottomNav() {
               );
             }
 
+            // Специальный рендер для профиля с аватаркой
+            if (item.label === "Профайл" && isAuthenticated && avatarUrl) {
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={item.onClick}
+                  className={cn(
+                    "flex flex-col items-center justify-center min-w-15 py-2 relative rounded-xl transition-all",
+                    active && "bg-primary/10"
+                  )}
+                >
+                  <div className="relative">
+                    <Image
+                      src={avatarUrl}
+                      alt="Профайл"
+                      width={24}
+                      height={24}
+                      unoptimized={avatarUrl.includes("dicebear")}
+                      className={cn(
+                        "w-6 h-6 rounded-full object-cover transition-all",
+                        active
+                          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                          : "opacity-80"
+                      )}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium mt-0.5 transition-colors",
+                      active ? "text-primary font-semibold" : "text-muted-foreground"
+                    )}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 onClick={item.onClick}
                 className={cn(
-                  "flex flex-col items-center justify-center min-w-[60px] py-2 relative rounded-xl transition-all",
+                  "flex flex-col items-center justify-center min-w-15 py-2 relative rounded-xl transition-all",
                   active && "bg-primary/10"
                 )}
               >
@@ -138,7 +178,7 @@ export function MobileBottomNav() {
                   {item.badge !== null && (
                     <div
                       className={cn(
-                        "absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full flex items-center justify-center text-[10px] font-semibold text-white",
+                        "absolute -top-1.5 -right-2 h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center text-[10px] font-bold text-white",
                         item.label === "Заявки"
                           ? "bg-red-500"
                           : "bg-pink-500"

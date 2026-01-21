@@ -57,6 +57,12 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'aimag',
+                }, requests: {
+                    name: "requests",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'aimag',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -130,6 +136,12 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'district',
+                }, requests: {
+                    name: "requests",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'district',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -187,6 +199,12 @@ const metadata: ModelMeta = {
                 }, listings: {
                     name: "listings",
                     type: "listings",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'khoroo',
+                }, requests: {
+                    name: "requests",
+                    type: "listing_requests",
                     isDataModel: true,
                     isArray: true,
                     backLink: 'khoroo',
@@ -684,6 +702,20 @@ const metadata: ModelMeta = {
                     name: "is_negotiable",
                     type: "Boolean",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, duration_minutes: {
+                    name: "duration_minutes",
+                    type: "Int",
+                    isOptional: true,
+                }, work_hours_start: {
+                    name: "work_hours_start",
+                    type: "String",
+                    isOptional: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "09:00" }] }],
+                }, work_hours_end: {
+                    name: "work_hours_end",
+                    type: "String",
+                    isOptional: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "18:00" }] }],
                 }, aimag_id: {
                     name: "aimag_id",
                     type: "String",
@@ -996,6 +1028,36 @@ const metadata: ModelMeta = {
                     name: "status",
                     type: "RequestStatus",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, aimag_id: {
+                    name: "aimag_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'aimag',
+                }, district_id: {
+                    name: "district_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'district',
+                }, khoroo_id: {
+                    name: "khoroo_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'khoroo',
+                }, preferred_date: {
+                    name: "preferred_date",
+                    type: "DateTime",
+                    isOptional: true,
+                }, preferred_time: {
+                    name: "preferred_time",
+                    type: "String",
+                    isOptional: true,
+                }, note: {
+                    name: "note",
+                    type: "String",
+                    isOptional: true,
                 }, provider_response: {
                     name: "provider_response",
                     type: "String",
@@ -1040,6 +1102,30 @@ const metadata: ModelMeta = {
                     isRelationOwner: true,
                     onDeleteAction: 'Cascade',
                     foreignKeyMapping: { "id": "provider_id" },
+                }, aimag: {
+                    name: "aimag",
+                    type: "aimags",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'requests',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "aimag_id" },
+                }, district: {
+                    name: "district",
+                    type: "districts",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'requests',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "district_id" },
+                }, khoroo: {
+                    name: "khoroo",
+                    type: "khoroos",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'requests',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "khoroo_id" },
                 },
             }, uniqueConstraints: {
                 id: {

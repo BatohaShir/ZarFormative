@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginForm } from "@/components/auth/login-form";
 import { RegisterForm } from "@/components/auth/register-form";
-import { UserMenu } from "@/components/auth/user-menu";
 
 interface AuthModalProps {
   isOpen?: boolean;
@@ -23,12 +24,9 @@ interface AuthModalProps {
 export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
   const {
     user,
-    profile,
     signIn,
     signUp,
-    signOut,
     isAuthenticated,
-    uploadAvatar,
     displayName,
     avatarUrl,
   } = useAuth();
@@ -47,17 +45,28 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     setOpen(false);
   }, [setOpen]);
 
-  // If user is authenticated, show user menu
+  // If user is authenticated, show direct link to profile
   if (isAuthenticated && user) {
     return (
-      <UserMenu
-        user={user}
-        profile={profile}
-        signOut={signOut}
-        uploadAvatar={uploadAvatar}
-        displayName={displayName}
-        avatarUrl={avatarUrl}
-      />
+      <Link
+        href="/account/me"
+        className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+      >
+        <div className="relative">
+          <Image
+            src={avatarUrl}
+            alt={displayName}
+            width={36}
+            height={36}
+            unoptimized={avatarUrl.includes("dicebear")}
+            className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover border-2 border-primary"
+          />
+          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-background" />
+        </div>
+        <span className="hidden md:block text-sm font-medium max-w-24 truncate">
+          {displayName}
+        </span>
+      </Link>
     );
   }
 

@@ -22,6 +22,8 @@ import {
   Edit3,
   Trash2,
   AlertCircle,
+  Clock,
+  CalendarClock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -103,7 +105,29 @@ const listingSchema = z.object({
       "Үнэ буруу форматтай (0-999,999,999)"
     ),
   is_negotiable: z.boolean(),
-});
+  duration_minutes: z
+    .string()
+    .transform(val => val?.trim() || "")
+    .refine(
+      val => !val || (/^\d+$/.test(val) && Number(val) >= 15 && Number(val) <= 1440),
+      "Хугацаа 15-1440 минутын хооронд байх ёстой"
+    ),
+  work_hours_start: z
+    .string()
+    .transform(val => val || "09:00")
+    .pipe(z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Формат: HH:mm")),
+  work_hours_end: z
+    .string()
+    .transform(val => val || "18:00")
+    .pipe(z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Формат: HH:mm")),
+}).refine(
+  data => {
+    const [startH, startM] = data.work_hours_start.split(":").map(Number);
+    const [endH, endM] = data.work_hours_end.split(":").map(Number);
+    return (startH * 60 + startM) < (endH * 60 + endM);
+  },
+  { message: "Дуусах цаг эхлэх цагаас хойш байх ёстой", path: ["work_hours_end"] }
+);
 
 type ListingFormData = z.infer<typeof listingSchema>;
 
@@ -173,10 +197,31 @@ export default function CreateListingPage() {
       description: "",
       price: "",
       is_negotiable: false,
+      duration_minutes: "",
+      work_hours_start: "09:00",
+      work_hours_end: "18:00",
     },
   });
 
   const watchIsNegotiable = watch("is_negotiable");
+
+  // Форматирование цены с разделителями тысяч
+  const [displayPrice, setDisplayPrice] = useState("");
+
+  const formatPriceDisplay = (value: string) => {
+    // Убираем всё кроме цифр
+    const numericValue = value.replace(/\D/g, "");
+    if (!numericValue) return "";
+    // Форматируем с разделителями
+    return Number(numericValue).toLocaleString("mn-MN");
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, "");
+    setDisplayPrice(formatPriceDisplay(rawValue));
+    // Сохраняем чистое число в форму
+    setValue("price", rawValue);
+  };
 
   // Show login modal if not authenticated
   React.useEffect(() => {
@@ -218,13 +263,18 @@ export default function CreateListingPage() {
     setShowDraftBanner(false);
 
     // Заполняем форму данными черновика
+    const priceValue = draft.price ? String(draft.price) : "";
     reset({
       title: draft.title || "",
       description: draft.description || "",
       category_id: draft.category_id || "",
-      price: draft.price ? String(draft.price) : "",
+      price: priceValue,
       is_negotiable: draft.is_negotiable || false,
+      duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
+      work_hours_start: draft.work_hours_start || "09:00",
+      work_hours_end: draft.work_hours_end || "18:00",
     });
+    setDisplayPrice(formatPriceDisplay(priceValue));
 
     // Устанавливаем категорию
     if (draft.category) {
@@ -279,10 +329,14 @@ export default function CreateListingPage() {
           category_id: "",
           price: "",
           is_negotiable: false,
+          duration_minutes: "",
+          work_hours_start: "09:00",
+          work_hours_end: "18:00",
         });
         setSelectedCategory(null);
         setSelectedAddress(null);
         setImages([]);
+        setDisplayPrice("");
       }
     } catch (error) {
       console.error("Черновик устгахад алдаа:", error);
@@ -324,6 +378,9 @@ export default function CreateListingPage() {
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
+            duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            work_hours_start: data.work_hours_start || "09:00",
+            work_hours_end: data.work_hours_end || "18:00",
           },
         });
 
@@ -363,6 +420,9 @@ export default function CreateListingPage() {
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
+            duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            work_hours_start: data.work_hours_start || "09:00",
+            work_hours_end: data.work_hours_end || "18:00",
             status: "draft",
             is_active: false,
           },
@@ -435,6 +495,9 @@ export default function CreateListingPage() {
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
+            duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            work_hours_start: data.work_hours_start || "09:00",
+            work_hours_end: data.work_hours_end || "18:00",
             status: "active",
             is_active: true,
             published_at: new Date(),
@@ -482,6 +545,9 @@ export default function CreateListingPage() {
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
             is_negotiable: data.is_negotiable,
+            duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+            work_hours_start: data.work_hours_start || "09:00",
+            work_hours_end: data.work_hours_end || "18:00",
             status: "active",
             is_active: true,
             published_at: new Date(),
@@ -591,7 +657,7 @@ export default function CreateListingPage() {
 
       <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Page Title */}
-        <div className="flex items-center gap-4 mb-6 md:mb-8 max-w-3xl mx-auto">
+        <div className="flex items-center gap-4 mb-6 md:mb-8 max-w-5xl mx-auto">
           <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
             {editingDraftId ? (
               <Edit3 className="h-6 w-6 md:h-7 md:w-7 text-white" />
@@ -611,7 +677,7 @@ export default function CreateListingPage() {
 
         {/* Draft Banner */}
         {showDraftBanner && drafts && drafts.length > 0 && !editingDraftId && (
-          <div className="max-w-3xl mx-auto mb-6">
+          <div className="max-w-5xl mx-auto mb-6">
             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
@@ -689,7 +755,7 @@ export default function CreateListingPage() {
 
         {/* Editing draft indicator */}
         {editingDraftId && (
-          <div className="max-w-3xl mx-auto mb-6">
+          <div className="max-w-5xl mx-auto mb-6">
             <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -711,10 +777,14 @@ export default function CreateListingPage() {
                       category_id: "",
                       price: "",
                       is_negotiable: false,
+                      duration_minutes: "",
+                      work_hours_start: "09:00",
+                      work_hours_end: "18:00",
                     });
                     setSelectedCategory(null);
                     setSelectedAddress(null);
                     setImages([]);
+                    setDisplayPrice("");
                     setShowDraftBanner(true);
                   }}
                 >
@@ -725,7 +795,7 @@ export default function CreateListingPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="max-w-3xl mx-auto space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="max-w-5xl mx-auto space-y-5">
           {/* Основная информация */}
           <div className="bg-card rounded-2xl border shadow-sm overflow-hidden">
             <div className="bg-muted/30 px-5 py-4 border-b">
@@ -782,38 +852,43 @@ export default function CreateListingPage() {
             </div>
           </div>
 
-          {/* Ангилал, Байршил, Үнэ - Modern Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Ангилал, Байршил - Row 1 */}
+          <div className="grid grid-cols-2 md:grid-cols-2 gap-4 items-stretch">
             {/* Ангилал */}
-            <div className="bg-card rounded-2xl border shadow-sm p-5 space-y-3 hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center">
+            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
                   <Tag className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-sm">Ангилал <span className="text-destructive">*</span></h3>
-                  <p className="text-xs text-muted-foreground">Төрөл сонгох</p>
+                <div className="min-h-10 flex flex-col justify-center">
+                  <h3 className="font-semibold text-sm leading-tight">Ангилал <span className="text-destructive">*</span></h3>
+                  <p className="text-xs text-muted-foreground leading-tight">Төрөл сонгох</p>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-11 justify-start text-left font-normal overflow-hidden"
-                onClick={() => setShowCategoryModal(true)}
-              >
-                {selectedCategory ? (
-                  <span className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
-                    <span className="truncate font-medium">
-                      {selectedCategory.name}
+              <div className="flex-1 flex flex-col justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-11 justify-start text-left font-normal overflow-hidden"
+                  onClick={() => setShowCategoryModal(true)}
+                >
+                  {selectedCategory ? (
+                    <span className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
+                      <span className="truncate font-medium">
+                        {selectedCategory.name}
+                      </span>
                     </span>
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Сонгоно уу...</span>
-                )}
-              </Button>
+                  ) : (
+                    <span className="text-muted-foreground">Сонгоно уу...</span>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center py-1.5 h-8 flex items-center justify-center">
+                  Хайлтад нөлөөлнө
+                </p>
+              </div>
               {errors.category_id && (
-                <p className="text-xs text-destructive flex items-center gap-1">
+                <p className="text-xs text-destructive flex items-center gap-1 mt-2">
                   <AlertCircle className="h-3 w-3" />
                   {errors.category_id.message}
                 </p>
@@ -821,39 +896,119 @@ export default function CreateListingPage() {
             </div>
 
             {/* Байршил */}
-            <div className="bg-card rounded-2xl border shadow-sm p-5 space-y-3 hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
                   <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-sm">Байршил</h3>
-                  <p className="text-xs text-muted-foreground">Хаана байрлах</p>
+                <div className="min-h-10 flex flex-col justify-center">
+                  <h3 className="font-semibold text-sm leading-tight">Байршил</h3>
+                  <p className="text-xs text-muted-foreground leading-tight">Хаана байрлах</p>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-11 justify-start text-left font-normal"
-                onClick={() => setShowAddressModal(true)}
-              >
-                {selectedAddress ? (
-                  <span className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                    <span className="truncate font-medium">
-                      {selectedAddress.district}
+              <div className="flex-1 flex flex-col justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-11 justify-start text-left font-normal"
+                  onClick={() => setShowAddressModal(true)}
+                >
+                  {selectedAddress ? (
+                    <span className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="truncate font-medium">
+                        {selectedAddress.district}
+                      </span>
                     </span>
+                  ) : (
+                    <span className="text-muted-foreground">Сонгоно уу...</span>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground text-center py-1.5 h-8 flex items-center justify-center">
+                  Үйлчилгээний газар
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Хугацаа, Ажлын цаг, Үнэ - Row 2 */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {/* Хугацаа (Длительность) */}
+            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                  <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Хугацаа</h3>
+                  <p className="text-xs text-muted-foreground">Гүйцэтгэх хугацаа</p>
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col justify-center space-y-2">
+                <div className="relative">
+                  <Input
+                    id="duration_minutes"
+                    type="number"
+                    step="15"
+                    min="15"
+                    max="1440"
+                    {...register("duration_minutes")}
+                    placeholder="60"
+                    className="h-11 pr-14 text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">
+                    мин
                   </span>
-                ) : (
-                  <span className="text-muted-foreground">Сонгоно уу...</span>
-                )}
-              </Button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center py-1.5">
+                  Цагийн хуваарьт ашиглана
+                </p>
+              </div>
+              {errors.duration_minutes && (
+                <p className="text-xs text-destructive mt-2">{errors.duration_minutes.message}</p>
+              )}
+            </div>
+
+            {/* Ажлын цаг (Рабочие часы) */}
+            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
+                  <CalendarClock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">Ажлын цаг</h3>
+                  <p className="text-xs text-muted-foreground">Захиалга хүлээн авах цаг</p>
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col justify-center space-y-3">
+                <div className="flex items-center justify-center gap-2">
+                  <Input
+                    id="work_hours_start"
+                    type="time"
+                    {...register("work_hours_start")}
+                    className="h-11 font-medium px-2 text-sm w-24 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:md:block"
+                  />
+                  <span className="text-muted-foreground font-medium">—</span>
+                  <Input
+                    id="work_hours_end"
+                    type="time"
+                    {...register("work_hours_end")}
+                    className="h-11 font-medium px-2 text-sm w-24 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:md:block"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Захиалга хүлээн авах цаг
+                </p>
+              </div>
+              {errors.work_hours_end && (
+                <p className="text-xs text-destructive mt-2">{errors.work_hours_end.message}</p>
+              )}
             </div>
 
             {/* Үнэ */}
-            <div className="bg-card rounded-2xl border shadow-sm p-5 space-y-3 hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+            <div className="col-span-2 md:col-span-1 bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
                   <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">₮</span>
                 </div>
                 <div>
@@ -861,32 +1016,35 @@ export default function CreateListingPage() {
                   <p className="text-xs text-muted-foreground">Төгрөгөөр</p>
                 </div>
               </div>
-              <div className="relative">
-                <Input
-                  id="price"
-                  type="number"
-                  step="1"
-                  {...register("price")}
-                  placeholder="50,000"
-                  className="h-11 pr-10 text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  disabled={watchIsNegotiable}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                  ₮
-                </span>
+              <div className="flex-1 flex flex-col justify-center space-y-2">
+                <div className="relative">
+                  <Input
+                    id="price"
+                    type="text"
+                    inputMode="numeric"
+                    value={displayPrice}
+                    onChange={handlePriceChange}
+                    placeholder="50,000"
+                    className="h-11 pr-10 text-center font-medium"
+                    disabled={watchIsNegotiable}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                    ₮
+                  </span>
+                </div>
+                <label className="flex items-center justify-center gap-2 cursor-pointer py-1.5 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
+                  <Checkbox
+                    id="is_negotiable"
+                    checked={watchIsNegotiable}
+                    onCheckedChange={(checked) =>
+                      setValue("is_negotiable", checked as boolean)
+                    }
+                  />
+                  <span className="text-sm">Тохиролцоно</span>
+                </label>
               </div>
-              <label className="flex items-center justify-center gap-2 cursor-pointer py-1 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <Checkbox
-                  id="is_negotiable"
-                  checked={watchIsNegotiable}
-                  onCheckedChange={(checked) =>
-                    setValue("is_negotiable", checked as boolean)
-                  }
-                />
-                <span className="text-sm">Тохиролцоно</span>
-              </label>
               {errors.price && (
-                <p className="text-xs text-destructive">{errors.price.message}</p>
+                <p className="text-xs text-destructive mt-2">{errors.price.message}</p>
               )}
             </div>
           </div>
@@ -986,6 +1144,7 @@ export default function CreateListingPage() {
         onOpenChange={setShowAddressModal}
         onSelect={setSelectedAddress}
         initialAddress={selectedAddress || undefined}
+        hideKhoroo
       />
 
       {/* Category Select Modal */}

@@ -13,8 +13,34 @@ import {
 import { useFindManyaimags } from "@/lib/hooks/aimags";
 import { useFindManydistricts } from "@/lib/hooks/districts";
 import { useFindManykhoroos } from "@/lib/hooks/khoroos";
-import type { aimags, districts, khoroos } from "@prisma/client";
+import { CACHE_TIMES } from "@/lib/react-query-config";
+import type { AimagType, DistrictType } from "@prisma/client";
 import { cn } from "@/lib/utils";
+
+// Типы для оптимизированных select запросов
+type AimagSelect = {
+  id: string;
+  name: string;
+  code: string;
+  type: AimagType;
+  sort_order: number;
+};
+
+type DistrictSelect = {
+  id: string;
+  name: string;
+  aimag_id: string;
+  type: DistrictType;
+  sort_order: number;
+};
+
+type KhorooSelect = {
+  id: string;
+  name: string;
+  district_id: string;
+  number: number | null;
+  sort_order: number;
+};
 
 export interface AddressData {
   city: string;
@@ -30,6 +56,8 @@ interface AddressSelectModalProps {
   onOpenChange: (open: boolean) => void;
   onSelect: (address: AddressData) => void;
   initialAddress?: AddressData;
+  /** Если true - выбор останавливается на дюйме/суме (без хороо) */
+  hideKhoroo?: boolean;
 }
 
 type Step = "city" | "district" | "khoroo";
@@ -39,18 +67,23 @@ export function AddressSelectModal({
   onOpenChange,
   onSelect,
   initialAddress,
+  hideKhoroo = false,
 }: AddressSelectModalProps) {
   const [step, setStep] = React.useState<Step>("city");
   const [searchQuery, setSearchQuery] = React.useState("");
 
-  const [selectedCity, setSelectedCity] = React.useState<aimags | null>(null);
-  const [selectedDistrict, setSelectedDistrict] = React.useState<districts | null>(null);
+  const [selectedCity, setSelectedCity] = React.useState<AimagSelect | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = React.useState<DistrictSelect | null>(null);
 
-  // Fetch aimags from DB
-  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags({
-    where: { is_active: true },
-    orderBy: { sort_order: "asc" },
-  });
+  // Fetch aimags from DB - справочники кэшируем надолго
+  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags(
+    {
+      where: { is_active: true },
+      orderBy: { sort_order: "asc" },
+      select: { id: true, name: true, code: true, type: true, sort_order: true },
+    },
+    { ...CACHE_TIMES.LOCATIONS }
+  );
 
   // Fetch districts when aimag selected
   const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
@@ -60,8 +93,9 @@ export function AddressSelectModal({
         is_active: true
       },
       orderBy: { sort_order: "asc" },
+      select: { id: true, name: true, aimag_id: true, type: true, sort_order: true },
     } : undefined,
-    { enabled: !!selectedCity }
+    { enabled: !!selectedCity, ...CACHE_TIMES.LOCATIONS }
   );
 
   // Fetch khoroos when district selected
@@ -72,8 +106,9 @@ export function AddressSelectModal({
         is_active: true
       },
       orderBy: { sort_order: "asc" },
+      select: { id: true, name: true, district_id: true, number: true, sort_order: true },
     } : undefined,
-    { enabled: !!selectedDistrict }
+    { enabled: !!selectedDistrict, ...CACHE_TIMES.LOCATIONS }
   );
 
   // Initialize from initial address
@@ -88,15 +123,19 @@ export function AddressSelectModal({
   }, [initialAddress, open, aimagsData, selectedCity]);
 
   // Set district from initial when districts loaded
+  // Если hideKhoroo=true, останавливаемся на шаге district (не переходим к khoroo)
   React.useEffect(() => {
     if (initialAddress && districtsData && selectedCity && !selectedDistrict) {
       const district = districtsData.find(d => d.name === initialAddress.district || d.id === initialAddress.districtId);
       if (district) {
         setSelectedDistrict(district);
-        setStep("khoroo");
+        // Если hideKhoroo - остаёмся на district, иначе переходим к khoroo
+        if (!hideKhoroo) {
+          setStep("khoroo");
+        }
       }
     }
-  }, [initialAddress, districtsData, selectedCity, selectedDistrict]);
+  }, [initialAddress, districtsData, selectedCity, selectedDistrict, hideKhoroo]);
 
   // Reset on close
   const handleClose = () => {
@@ -125,7 +164,7 @@ export function AddressSelectModal({
   ) || [];
 
   // Handle city select
-  const handleCitySelect = (city: aimags) => {
+  const handleCitySelect = (city: AimagSelect) => {
     setSelectedCity(city);
     setSelectedDistrict(null);
     setSearchQuery("");
@@ -133,14 +172,29 @@ export function AddressSelectModal({
   };
 
   // Handle district select
-  const handleDistrictSelect = (district: districts) => {
+  const handleDistrictSelect = (district: DistrictSelect) => {
     setSelectedDistrict(district);
     setSearchQuery("");
+
+    // Если hideKhoroo - завершаем выбор на уровне дюйма
+    if (hideKhoroo && selectedCity) {
+      onSelect({
+        city: selectedCity.name,
+        cityId: selectedCity.id,
+        district: district.name,
+        districtId: district.id,
+        khoroo: "",
+        khorooId: "",
+      });
+      handleClose();
+      return;
+    }
+
     setStep("khoroo");
   };
 
   // Handle khoroo select - завершает выбор
-  const handleKhorooSelect = (khoroo: khoroos) => {
+  const handleKhorooSelect = (khoroo: KhorooSelect) => {
     if (!selectedCity || !selectedDistrict) return;
 
     onSelect({

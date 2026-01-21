@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,6 @@ import {
   Trash2,
   Camera,
   X,
-  Bell,
   FileText,
   Check,
   Building2,
@@ -541,10 +541,14 @@ export default function MyProfilePage() {
             {/* Avatar */}
             <div className="relative group">
               <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl">
-                <img
+                <Image
                   src={avatarUrl}
                   alt={displayName}
+                  width={160}
+                  height={160}
+                  unoptimized={avatarUrl.includes("dicebear")}
                   className="w-full h-full object-cover"
+                  priority
                 />
               </div>
               {isUploadingAvatar ? (
@@ -805,9 +809,9 @@ export default function MyProfilePage() {
                 className="w-full gap-2"
                 asChild
               >
-                <Link href="/account/me/notifications">
-                  <Bell className="h-4 w-4" />
-                  Мэдэгдлийн тохиргоо
+                <Link href="/account/me/settings">
+                  <Settings className="h-4 w-4" />
+                  Апп тохиргоо
                 </Link>
               </Button>
             </div>

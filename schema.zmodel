@@ -49,13 +49,14 @@ enum ListingStatus {
 // ============================================
 
 enum RequestStatus {
-  pending      // Ожидает ответа исполнителя
-  accepted     // Принята исполнителем
-  rejected     // Отклонена исполнителем
-  in_progress  // В работе
-  completed    // Выполнена
-  cancelled    // Отменена клиентом
-  disputed     // Спор
+  pending               // Ожидает ответа исполнителя
+  accepted              // Принята исполнителем
+  rejected              // Отклонена исполнителем
+  in_progress           // В работе
+  completed             // Выполнена
+  cancelled_by_client   // Отменена клиентом
+  cancelled_by_provider // Отменена исполнителем
+  disputed              // Спор
 }
 
 // ============================================
@@ -94,6 +95,7 @@ model aimags {
   // Relations
   districts   districts[]
   listings    listings[]
+  requests    listing_requests[]
 
   @@index([type])
   @@index([is_active, sort_order])
@@ -125,6 +127,7 @@ model districts {
   aimag       aimags       @relation(fields: [aimag_id], references: [id], onDelete: Cascade)
   khoroos     khoroos[]
   listings    listings[]
+  requests    listing_requests[]
 
   @@unique([aimag_id, name])
   @@index([aimag_id])
@@ -154,6 +157,7 @@ model khoroos {
   // Relations
   district    districts @relation(fields: [district_id], references: [id], onDelete: Cascade)
   listings    listings[]
+  requests    listing_requests[]
 
   @@unique([district_id, name])
   @@unique([district_id, number])
@@ -445,6 +449,13 @@ model listings {
   currency      String        @default("MNT")     // Валюта (MNT, USD)
   is_negotiable Boolean       @default(false)     // Договорная цена?
 
+  // Длительность выполнения услуги (для системы расписаний)
+  duration_minutes Int?       // Сколько минут занимает выполнение услуги
+
+  // Рабочие часы исполнителя (диапазон доступности для бронирования)
+  work_hours_start  String?   @default("09:00")   // Начало рабочего дня "HH:mm"
+  work_hours_end    String?   @default("18:00")   // Конец рабочего дня "HH:mm"
+
   // Локация (связь с справочниками)
   aimag_id      String?                   // Аймаг/Столица
   district_id   String?                   // Дүүрэг/Сум
@@ -646,6 +657,18 @@ model listing_requests {
   message      String        @db.Text  // Сообщение клиента
   status       RequestStatus @default(pending)
 
+  // Адрес оказания услуги (опционально)
+  aimag_id     String?
+  district_id  String?
+  khoroo_id    String?
+
+  // Желаемые дата и время (опционально)
+  preferred_date DateTime?
+  preferred_time String?     // Формат "HH:mm"
+
+  // Заметка (опционально)
+  note         String?       @db.Text
+
   // Ответ исполнителя (опционально)
   provider_response String?  @db.Text
 
@@ -659,6 +682,9 @@ model listing_requests {
   listing      listings  @relation(fields: [listing_id], references: [id], onDelete: Cascade)
   client       profiles  @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
   provider     profiles  @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
+  aimag        aimags?   @relation(fields: [aimag_id], references: [id])
+  district     districts? @relation(fields: [district_id], references: [id])
+  khoroo       khoroos?  @relation(fields: [khoroo_id], references: [id])
 
   // Уникальность: одна активная заявка на объявление от клиента
   // Реализуется в API логике (проверка pending/accepted/in_progress)
@@ -670,6 +696,7 @@ model listing_requests {
   @@index([client_id, created_at(sort: Desc)])    // Сортировка по дате
   @@index([provider_id, created_at(sort: Desc)])  // Сортировка по дате
   @@index([status, created_at(sort: Desc)])       // Фильтр по статусу
+  @@index([provider_id, preferred_date, status])  // Система расписаний: занятость исполнителя
 
   @@map("listing_requests")
 

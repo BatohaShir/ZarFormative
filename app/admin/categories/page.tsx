@@ -370,7 +370,7 @@ export default function CategoriesPage() {
 
   // Render icon preview
   const renderIcon = (icon: string | null, size = "w-8 h-8") => {
-    if (!icon) {
+    if (!icon || !icon.startsWith("http")) {
       return (
         <div
           className={cn(
@@ -384,34 +384,20 @@ export default function CategoriesPage() {
     }
 
     // URL (uploaded image)
-    if (icon.startsWith("http")) {
-      return (
-        <div
-          className={cn(
-            size,
-            "rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden relative"
-          )}
-        >
-          <Image
-            src={icon}
-            alt=""
-            fill
-            className="object-cover"
-            unoptimized
-          />
-        </div>
-      );
-    }
-
-    // Emoji or text
     return (
       <div
         className={cn(
           size,
-          "rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-lg"
+          "rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden relative"
         )}
       >
-        {icon}
+        <Image
+          src={icon}
+          alt=""
+          fill
+          className="object-cover"
+          unoptimized
+        />
       </div>
     );
   };
@@ -640,23 +626,20 @@ export default function CategoriesPage() {
                 </label>
                 <div className="flex items-start gap-4">
                   {/* Preview */}
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     {previewUrl ? (
-                      <div className="w-24 h-24 rounded-xl bg-gray-100 dark:bg-gray-800 overflow-hidden relative">
+                      <div className="w-20 h-20 rounded-xl bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         <Image
                           src={previewUrl}
                           alt="Preview"
-                          fill
-                          className="object-cover"
+                          width={80}
+                          height={80}
+                          className="object-cover w-full h-full"
                           unoptimized
                         />
                       </div>
-                    ) : formData.icon && !formData.icon.startsWith("http") ? (
-                      <div className="w-24 h-24 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-4xl">
-                        {formData.icon}
-                      </div>
                     ) : (
-                      <div className="w-24 h-24 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                      <div className="w-20 h-20 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                         <ImageIcon className="h-8 w-8 text-gray-400" />
                       </div>
                     )}
@@ -704,25 +687,6 @@ export default function CategoriesPage() {
                         <span>{uploadError}</span>
                       </div>
                     )}
-
-                    {/* Or emoji input */}
-                    <div className="pt-2">
-                      <label className="text-xs text-gray-500 mb-1 block">
-                        Или введите emoji:
-                      </label>
-                      <input
-                        type="text"
-                        value={
-                          formData.icon?.startsWith("http") ? "" : formData.icon
-                        }
-                        onChange={(e) => {
-                          setFormData({ ...formData, icon: e.target.value });
-                          setPreviewUrl(null);
-                        }}
-                        placeholder="🚗"
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white text-center text-2xl"
-                      />
-                    </div>
                   </div>
                 </div>
               </div>

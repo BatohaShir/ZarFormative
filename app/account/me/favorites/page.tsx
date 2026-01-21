@@ -40,8 +40,8 @@ function FavoriteCardSkeleton() {
   );
 }
 
-// Карточка избранного
-function FavoriteCard({
+// Карточка избранного - мемоизирована для предотвращения лишних ре-рендеров
+const FavoriteCard = React.memo(function FavoriteCard({
   favorite,
   onRemove,
 }: {
@@ -124,6 +124,7 @@ function FavoriteCard({
                 alt={providerName}
                 width={20}
                 height={20}
+                unoptimized={listing.user.avatar_url.includes("dicebear")}
                 className="rounded-full object-cover w-4 h-4 md:w-5 md:h-5"
               />
             ) : (
@@ -158,7 +159,7 @@ function FavoriteCard({
       </div>
     </Link>
   );
-}
+});
 
 // Пустое состояние
 function EmptyState() {

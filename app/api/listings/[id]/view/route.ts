@@ -49,7 +49,7 @@ export async function POST(
     if (viewerId && viewerId === listing.user_id) {
       return NextResponse.json({
         success: true,
-        views_count: listing.views_count,
+        views_count: Number(listing.views_count),
         skipped: true,
         reason: "owner",
       });
@@ -95,10 +95,13 @@ export async function POST(
 
     const { views_count, inserted } = result[0];
 
+    // Convert BigInt to Number for JSON serialization
+    const viewsCountNumber = typeof views_count === 'bigint' ? Number(views_count) : views_count;
+
     if (!inserted) {
       return NextResponse.json({
         success: true,
-        views_count,
+        views_count: viewsCountNumber,
         skipped: true,
         reason: "already_viewed",
       });
@@ -106,7 +109,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      views_count,
+      views_count: viewsCountNumber,
     });
   } catch (error) {
     console.error("Error tracking view:", error);

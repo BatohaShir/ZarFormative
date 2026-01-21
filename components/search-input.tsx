@@ -141,6 +141,7 @@ export const SearchInput = React.memo(function SearchInput({
                           alt={listing.user.name}
                           fill
                           sizes="32px"
+                          unoptimized={listing.user.avatar.includes("dicebear")}
                           className="object-cover"
                         />
                       </div>
