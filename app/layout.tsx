@@ -90,6 +90,10 @@ export const metadata: Metadata = {
   },
 };
 
+// Supabase URL для preconnect
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : null;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -98,6 +102,13 @@ export default function RootLayout({
   return (
     <html lang="mn" suppressHydrationWarning>
       <head>
+        {/* Preconnect для Supabase - ускоряет загрузку изображений и API */}
+        {supabaseHost && (
+          <>
+            <link rel="preconnect" href={`https://${supabaseHost}`} />
+            <link rel="dns-prefetch" href={`https://${supabaseHost}`} />
+          </>
+        )}
         <OrganizationSchema />
         <WebsiteSchema />
       </head>

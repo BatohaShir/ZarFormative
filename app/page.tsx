@@ -6,12 +6,101 @@ import { RequestsButton } from "@/components/requests-button";
 import { SearchInput } from "@/components/search-input";
 import { CitySelect } from "@/components/city-select";
 import { Footer } from "@/components/footer";
-import { CategoriesSection } from "@/components/categories-section";
-import { RecommendedListings } from "@/components/recommended-listings";
+import { CategoriesSectionSSR } from "@/components/categories-section-ssr";
+import { RecommendedListingsSSR } from "@/components/recommended-listings-ssr";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { buildCategoryTree, fallbackCategories, type CategoryWithChildren } from "@/lib/categories";
+import type { ListingWithRelations } from "@/components/listing-card";
 
-export default function Home() {
+// Принудительно динамический рендеринг - SSR на каждый запрос
+export const dynamic = 'force-dynamic';
+
+// Функция загрузки данных на сервере
+async function getHomePageData() {
+  // Параллельно загружаем категории и объявления
+  const [categoriesData, listingsData] = await Promise.all([
+    prisma.categories.findMany({
+      where: { is_active: true },
+      orderBy: { sort_order: "asc" },
+    }),
+    prisma.listings.findMany({
+      where: {
+        status: "active",
+        is_active: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            company_name: true,
+            is_company: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        images: {
+          where: {
+            is_cover: true,
+          },
+          select: {
+            id: true,
+            url: true,
+            sort_order: true,
+            is_cover: true,
+          },
+          take: 1,
+        },
+        aimag: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        khoroo: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+      take: 8,
+    }),
+  ]);
+
+  // Строим дерево категорий
+  const categoryTree = categoriesData.length > 0
+    ? buildCategoryTree(categoriesData)
+    : fallbackCategories as unknown as CategoryWithChildren[];
+
+  return {
+    categories: categoryTree,
+    allCategories: categoriesData,
+    listings: listingsData as ListingWithRelations[],
+  };
+}
+
+export default async function Home() {
+  const { categories, allCategories, listings } = await getHomePageData();
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
@@ -38,23 +127,21 @@ export default function Home() {
         <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8 max-w-md mx-auto">
           Мянга мянган мэргэжилтнүүд танд туслахад бэлэн байна
         </p>
-        {/* Desktop Search */}
-        <div className="hidden md:flex w-full gap-2">
+        {/* Search - один компонент, responsive */}
+        <div className="flex flex-col md:flex-row gap-2 w-full">
           <SearchInput className="flex-1" />
-          <CitySelect />
-        </div>
-        {/* Mobile Search */}
-        <div className="flex flex-col gap-2 md:hidden">
-          <SearchInput />
           <CitySelect />
         </div>
       </section>
 
-      {/* Categories - загружается из БД */}
-      <CategoriesSection />
+      {/* Categories - SSR с предзагруженными данными */}
+      <CategoriesSectionSSR
+        categories={categories}
+        allCategories={allCategories}
+      />
 
-      {/* Recommendations - загружается из БД */}
-      <RecommendedListings />
+      {/* Recommendations - SSR с предзагруженными данными */}
+      <RecommendedListingsSSR listings={listings} />
 
       {/* Footer - Desktop only */}
       <div className="hidden md:block">
