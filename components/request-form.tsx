@@ -13,13 +13,11 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
-import { AddressSelectModal, AddressData } from "@/components/address-select-modal";
 import {
   Send,
   Loader2,
   CheckCircle,
   MessageSquare,
-  MapPin,
   Calendar,
   Clock,
   ChevronLeft,
@@ -41,7 +39,6 @@ interface RequestFormProps {
   listingTitle: string;
   providerId: string;
   providerName: string;
-  serviceType?: "on_site" | "remote"; // Тип услуги - с выездом или на месте
 }
 
 interface ScheduleData {
@@ -97,18 +94,12 @@ export function RequestForm({
   listingTitle,
   providerId,
   providerName,
-  serviceType = "on_site",
 }: RequestFormProps) {
   const { user, isAuthenticated } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
-  const [showAddressModal, setShowAddressModal] = React.useState(false);
   const [message, setMessage] = React.useState("");
   const [isSuccess, setIsSuccess] = React.useState(false);
-
-  // Address state (только для услуг с выездом)
-  const [selectedAddress, setSelectedAddress] = React.useState<AddressData | null>(null);
-  const [addressDetail, setAddressDetail] = React.useState(""); // Детальный адрес
 
   // Date & Time state
   const today = new Date();
@@ -218,8 +209,6 @@ export function RequestForm({
     if (!newOpen) {
       // Reset form when closing
       setMessage("");
-      setSelectedAddress(null);
-      setAddressDetail("");
       setSelectedDate(null);
       setSelectedTime("");
       setShowCalendar(false);
@@ -269,10 +258,6 @@ export function RequestForm({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
-  };
-
-  const handleAddressSelect = (address: AddressData) => {
-    setSelectedAddress(address);
   };
 
   const handlePrevMonth = () => {
@@ -372,12 +357,6 @@ export function RequestForm({
       return;
     }
 
-    // Проверка обязательности адреса для услуг с выездом
-    if (serviceType === "on_site" && !selectedAddress) {
-      toast.error("Байршил сонгоно уу");
-      return;
-    }
-
     // Проверка занятости слота перед отправкой
     if (selectedTime && isTimeSlotUnavailable(selectedTime)) {
       toast.error("Энэ цаг завгүй байна. Өөр цаг сонгоно уу.");
@@ -407,10 +386,6 @@ export function RequestForm({
           provider_id: providerId,
           message: message.trim(),
           status: "pending",
-          aimag_id: serviceType === "on_site" ? (selectedAddress?.cityId || null) : null,
-          district_id: serviceType === "on_site" ? (selectedAddress?.districtId || null) : null,
-          khoroo_id: serviceType === "on_site" ? (selectedAddress?.khorooId || null) : null,
-          address_detail: serviceType === "on_site" ? (addressDetail.trim() || null) : null,
           preferred_date: selectedDate || null,
           preferred_time: selectedTime || null,
           note: null,
@@ -428,8 +403,6 @@ export function RequestForm({
       setTimeout(() => {
         setOpen(false);
         setMessage("");
-        setSelectedAddress(null);
-        setAddressDetail("");
         setSelectedDate(null);
         setSelectedTime("");
         setIsSuccess(false);
@@ -504,76 +477,6 @@ export function RequestForm({
               </div>
 
               <form onSubmit={handleSubmit} className="p-5 space-y-5">
-                {/* Address Selection - только для услуг с выездом */}
-                {serviceType === "on_site" && (
-                  <div className="space-y-3">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-primary" />
-                      Байршил <span className="text-destructive">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddressModal(true)}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3.5 rounded-xl border-2 border-dashed transition-all text-left group",
-                        selectedAddress
-                          ? "bg-primary/5 border-primary/30 hover:border-primary/50"
-                          : "hover:bg-muted/50 hover:border-muted-foreground/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                          selectedAddress
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                        )}>
-                          <MapPin className="h-5 w-5" />
-                        </div>
-                        <div>
-                          {selectedAddress ? (
-                            <>
-                              <div className="text-sm font-medium">{selectedAddress.city}, {selectedAddress.district}</div>
-                              <div className="text-xs text-muted-foreground">{selectedAddress.khoroo}</div>
-                            </>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Хаяг сонгох</span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedAddress && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedAddress(null);
-                            setAddressDetail("");
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </button>
-
-                    {/* Детальный адрес - показываем после выбора района */}
-                    {selectedAddress && (
-                      <div className="space-y-2">
-                        <label className="text-xs text-muted-foreground">
-                          Дэлгэрэнгүй хаяг (байр, орц, тоот)
-                        </label>
-                        <input
-                          type="text"
-                          value={addressDetail}
-                          onChange={(e) => setAddressDetail(e.target.value)}
-                          placeholder="Жишээ: 15-р байр, 3-р орц, 45 тоот"
-                          className="w-full px-3.5 py-2.5 rounded-xl border-2 border-dashed bg-transparent text-sm focus:border-primary/50 focus:outline-none transition-colors"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 {/* Date Selection */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium flex items-center gap-2">
@@ -960,14 +863,6 @@ export function RequestForm({
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Address Modal */}
-      <AddressSelectModal
-        open={showAddressModal}
-        onOpenChange={setShowAddressModal}
-        onSelect={handleAddressSelect}
-        initialAddress={selectedAddress || undefined}
-      />
 
       <LoginPromptModal
         open={showLoginModal}

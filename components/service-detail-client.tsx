@@ -125,7 +125,6 @@ function ProviderCard({
               listingTitle={listing.title}
               providerId={listing.user.id}
               providerName={providerName}
-              serviceType={listing.service_type as "on_site" | "remote" | undefined}
             />
           )}
           {!isOwnListing && (
@@ -424,7 +423,6 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
             listingTitle={listing.title}
             providerId={listing.user.id}
             providerName={providerName}
-            serviceType={listing.service_type as "on_site" | "remote" | undefined}
           />
         </div>
       )}
