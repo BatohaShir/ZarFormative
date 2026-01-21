@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  reactCompiler: true,
+  // React Compiler отключен из-за несовместимости с ZenStack хуками в React 19 Strict Mode
+  // reactCompiler: true,
   async redirects() {
     return [
       {

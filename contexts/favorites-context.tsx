@@ -162,11 +162,17 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   );
 
   // Синхронизируем optimisticIds с данными из БД
-  React.useEffect(() => {
-    if (dbFavorites && isAuthenticated) {
-      setOptimisticIds(new Set((dbFavorites as FavoriteWithListing[]).map((f) => f.listing_id)));
-    }
+  // Используем строковый ключ для стабильных зависимостей
+  const dbFavoriteIds = React.useMemo(() => {
+    if (!dbFavorites || !isAuthenticated) return "";
+    return (dbFavorites as FavoriteWithListing[]).map((f) => f.listing_id).sort().join(",");
   }, [dbFavorites, isAuthenticated]);
+
+  React.useEffect(() => {
+    if (dbFavoriteIds && isAuthenticated) {
+      setOptimisticIds(new Set(dbFavoriteIds.split(",")));
+    }
+  }, [dbFavoriteIds, isAuthenticated]);
 
   // Мутации - фоновая синхронизация
   const createFavorite = useCreateuser_favorites({

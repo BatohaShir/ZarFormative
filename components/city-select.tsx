@@ -107,29 +107,80 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
     return allDistricts.filter((d) => d.aimag_id === selectedAimag.id);
   }, [selectedAimag, allDistricts]);
 
-  // Initialize from localStorage on mount
-  React.useEffect(() => {
-    const stored = getStoredLocation();
-    if (value?.aimagId && aimags.length > 0) {
-      const aimag = aimags.find((a) => a.id === value.aimagId) || null;
-      setSelectedAimag(aimag);
-    } else if (stored && aimags.length > 0) {
-      const aimag = aimags.find((a) => a.id === stored.aimagId) || null;
-      setSelectedAimag(aimag);
-    }
-  }, [value, aimags]);
+  // Извлекаем значения для стабильных зависимостей
+  const valueAimagId = value?.aimagId;
+  const valueDistrictId = value?.districtId;
 
-  // Load district from storage after districts are loaded
+  // Ref для отслеживания первой инициализации
+  const mountedRef = React.useRef(false);
+
+  // Определяем режим работы: controlled (value передан) или uncontrolled (localStorage)
+  const isControlled = value !== undefined;
+
+  // Initialize on mount - runs only once
   React.useEffect(() => {
-    const stored = getStoredLocation();
-    if (value?.districtId && districts.length > 0) {
-      const district = districts.find((d) => d.id === value.districtId) || null;
-      setSelectedDistrict(district);
-    } else if (stored?.districtId && districts.length > 0) {
-      const district = districts.find((d) => d.id === stored.districtId) || null;
-      setSelectedDistrict(district);
+    if (mountedRef.current) return;
+    if (aimags.length === 0) return;
+
+    mountedRef.current = true;
+
+    if (isControlled) {
+      // Controlled mode - синхронизируем с value prop
+      if (valueAimagId) {
+        const aimag = aimags.find((a) => a.id === valueAimagId) || null;
+        setSelectedAimag(aimag);
+      }
+    } else {
+      // Uncontrolled mode - fallback на localStorage
+      const stored = getStoredLocation();
+      if (stored) {
+        const aimag = aimags.find((a) => a.id === stored.aimagId) || null;
+        setSelectedAimag(aimag);
+      }
     }
-  }, [value, districts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aimags.length]);
+
+  // Sync aimag with controlled value (after initial mount)
+  React.useEffect(() => {
+    if (!mountedRef.current) return;
+    if (!isControlled) return;
+
+    if (valueAimagId) {
+      const aimag = aimags.find((a) => a.id === valueAimagId) || null;
+      if (aimag?.id !== selectedAimag?.id) {
+        setSelectedAimag(aimag);
+      }
+    } else if (selectedAimag !== null) {
+      setSelectedAimag(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valueAimagId]);
+
+  // Load district after aimag is selected
+  React.useEffect(() => {
+    if (districts.length === 0) return;
+
+    if (isControlled) {
+      // Controlled mode
+      if (valueDistrictId) {
+        const district = districts.find((d) => d.id === valueDistrictId) || null;
+        if (district?.id !== selectedDistrict?.id) {
+          setSelectedDistrict(district);
+        }
+      } else if (selectedDistrict !== null) {
+        setSelectedDistrict(null);
+      }
+    } else if (mountedRef.current && !selectedDistrict) {
+      // Uncontrolled mode - load from storage only once
+      const stored = getStoredLocation();
+      if (stored?.districtId) {
+        const district = districts.find((d) => d.id === stored.districtId) || null;
+        setSelectedDistrict(district);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valueDistrictId, districts.length]);
 
   const filteredAimags = aimags.filter((aimag) =>
     aimag.name.toLowerCase().includes(searchQuery.toLowerCase())

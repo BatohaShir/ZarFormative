@@ -15,6 +15,8 @@ import { CitySelect } from "@/components/city-select";
 import { CategoryFilterModal } from "@/components/category-filter-modal";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import {
   ChevronLeft,
@@ -25,6 +27,8 @@ import {
   ChevronUp,
   MapPin,
   Loader2,
+  Building2,
+  User,
 } from "lucide-react";
 import {
   Select,
@@ -42,6 +46,7 @@ import { formatPrice } from "@/lib/utils";
 import { useInfiniteFindManylistings } from "@/lib/hooks/listings";
 
 type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
+type ProviderType = "all" | "company" | "individual";
 
 // Desktop Sidebar Filters Component
 function FiltersContent({
@@ -49,12 +54,16 @@ function FiltersContent({
   setSelectedCategories,
   priceRange,
   setPriceRange,
+  providerType,
+  setProviderType,
   onReset,
 }: {
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
   priceRange: [number, number];
   setPriceRange: (range: [number, number]) => void;
+  providerType: ProviderType;
+  setProviderType: (type: ProviderType) => void;
   onReset: () => void;
 }) {
   return (
@@ -95,6 +104,37 @@ function FiltersContent({
         )}
       </div>
 
+      {/* Provider Type */}
+      <div>
+        <h4 className="font-medium mb-3">Нийлүүлэгч</h4>
+        <RadioGroup
+          value={providerType}
+          onValueChange={(value) => setProviderType(value as ProviderType)}
+          className="space-y-2"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="all" id="provider-all" />
+            <Label htmlFor="provider-all" className="cursor-pointer flex items-center gap-2">
+              Бүгд
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="company" id="provider-company" />
+            <Label htmlFor="provider-company" className="cursor-pointer flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              Компани
+            </Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="individual" id="provider-individual" />
+            <Label htmlFor="provider-individual" className="cursor-pointer flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Хувь хүн
+            </Label>
+          </div>
+        </RadioGroup>
+      </div>
+
       {/* Price Range */}
       <div>
         <h4 className="font-medium mb-3">Үнэ</h4>
@@ -127,18 +167,32 @@ function ServicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read initial values from URL
-  const initialCategory = searchParams.get("category") || "";
-  const initialCategories = initialCategory ? [initialCategory] : (searchParams.get("categories")?.split(",").filter(Boolean) || []);
-  const initialPriceMin = parseInt(searchParams.get("priceMin") || "0", 10);
-  const initialPriceMax = parseInt(searchParams.get("priceMax") || "1000000", 10);
-  const initialSort = (searchParams.get("sort") as SortOption) || "newest";
-  const initialCity = searchParams.get("city") || "";
+  // Track if URL was updated by user interaction (skip first render)
+  const isFirstRender = React.useRef(true);
 
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>(initialCategories);
-  const [priceRange, setPriceRange] = React.useState<[number, number]>([initialPriceMin, initialPriceMax]);
-  const [sortBy, setSortBy] = React.useState<SortOption>(initialSort);
-  const [selectedCity, setSelectedCity] = React.useState(initialCity);
+  // Use lazy initializers to read URL params only once
+  const [selectedCategories, setSelectedCategories] = React.useState<string[]>(() => {
+    const initialCategory = searchParams.get("category") || "";
+    return initialCategory ? [initialCategory] : (searchParams.get("categories")?.split(",").filter(Boolean) || []);
+  });
+  const [priceRange, setPriceRange] = React.useState<[number, number]>(() => [
+    parseInt(searchParams.get("priceMin") || "0", 10),
+    parseInt(searchParams.get("priceMax") || "1000000", 10),
+  ]);
+  const [sortBy, setSortBy] = React.useState<SortOption>(() =>
+    (searchParams.get("sort") as SortOption) || "newest"
+  );
+  const [selectedAimagId, setSelectedAimagId] = React.useState(() =>
+    searchParams.get("aimag") || ""
+  );
+  const [selectedAimagName, setSelectedAimagName] = React.useState("");
+  const [selectedDistrictId, setSelectedDistrictId] = React.useState(() =>
+    searchParams.get("district") || ""
+  );
+  const [selectedDistrictName, setSelectedDistrictName] = React.useState("");
+  const [providerType, setProviderType] = React.useState<ProviderType>(() =>
+    (searchParams.get("provider") as ProviderType) || "all"
+  );
   const [filtersOpen, setFiltersOpen] = React.useState(false);
 
   // Строим where условие для запроса
@@ -166,13 +220,22 @@ function ServicesPageContent() {
       }
     }
 
-    // Фильтр по городу
-    if (selectedCity) {
-      conditions.city = selectedCity;
+    // Фильтр по локации (аймаг и дүүрэг)
+    if (selectedDistrictId) {
+      conditions.district_id = selectedDistrictId;
+    } else if (selectedAimagId) {
+      conditions.aimag_id = selectedAimagId;
+    }
+
+    // Фильтр по типу поставщика (компания или частное лицо)
+    if (providerType !== "all") {
+      conditions.user = {
+        is_company: providerType === "company",
+      };
     }
 
     return conditions;
-  }, [selectedCategories, priceRange, selectedCity]);
+  }, [selectedCategories, priceRange, selectedAimagId, selectedDistrictId, providerType]);
 
   // Строим orderBy для сортировки
   const orderByCondition = React.useMemo(() => {
@@ -270,45 +333,74 @@ function ServicesPageContent() {
     return data.pages.flat();
   }, [data]);
 
-  // Update URL when filters change
-  const updateURL = React.useCallback(() => {
+  // Extract primitive values for stable dependencies
+  const priceMin = priceRange[0];
+  const priceMax = priceRange[1];
+  const categoriesKey = selectedCategories.join(",");
+
+  // Update URL when filters change (skip on initial mount)
+  React.useEffect(() => {
+    // Skip URL update on initial render - URL already has correct params
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
     const params = new URLSearchParams();
 
-    if (selectedCategories.length > 0) {
-      params.set("categories", selectedCategories.join(","));
+    if (categoriesKey) {
+      params.set("categories", categoriesKey);
     }
-    if (priceRange[0] > 0) {
-      params.set("priceMin", priceRange[0].toString());
+    if (priceMin > 0) {
+      params.set("priceMin", priceMin.toString());
     }
-    if (priceRange[1] < 1000000) {
-      params.set("priceMax", priceRange[1].toString());
+    if (priceMax < 1000000) {
+      params.set("priceMax", priceMax.toString());
     }
     if (sortBy !== "newest") {
       params.set("sort", sortBy);
     }
-    if (selectedCity) {
-      params.set("city", selectedCity);
+    if (selectedAimagId) {
+      params.set("aimag", selectedAimagId);
+    }
+    if (selectedDistrictId) {
+      params.set("district", selectedDistrictId);
+    }
+    if (providerType !== "all") {
+      params.set("provider", providerType);
     }
 
     const queryString = params.toString();
-    router.replace(queryString ? `/services?${queryString}` : "/services", { scroll: false });
-  }, [selectedCategories, priceRange, sortBy, selectedCity, router]);
+    const newUrl = queryString ? `/services?${queryString}` : "/services";
 
-  React.useEffect(() => {
-    updateURL();
-  }, [updateURL]);
+    router.replace(newUrl, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesKey, priceMin, priceMax, sortBy, selectedAimagId, selectedDistrictId, providerType]);
+
+  // Callback for CitySelect
+  const handleLocationSelect = React.useCallback((aimagId: string, aimagName: string, districtId: string, districtName: string) => {
+    setSelectedAimagId(aimagId);
+    setSelectedAimagName(aimagName);
+    setSelectedDistrictId(districtId);
+    setSelectedDistrictName(districtName);
+  }, []);
 
   const resetFilters = () => {
     setSelectedCategories([]);
     setPriceRange([0, 1000000]);
     setSortBy("newest");
-    setSelectedCity("");
+    setSelectedAimagId("");
+    setSelectedAimagName("");
+    setSelectedDistrictId("");
+    setSelectedDistrictName("");
+    setProviderType("all");
   };
 
   const activeFiltersCount =
     selectedCategories.length +
     (priceRange[0] > 0 || priceRange[1] < 1000000 ? 1 : 0) +
-    (selectedCity ? 1 : 0);
+    (selectedAimagId ? 1 : 0) +
+    (providerType !== "all" ? 1 : 0);
 
   const listingsData = (listings || []) as ListingWithRelations[];
 
@@ -348,7 +440,10 @@ function ServicesPageContent() {
         {/* Desktop Search & City */}
         <div className="hidden md:flex w-full gap-2 mb-6">
           <SearchInput className="flex-1" />
-          <CitySelect />
+          <CitySelect
+            onSelect={handleLocationSelect}
+            value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
+          />
         </div>
 
         {/* Mobile: Search, City (full width), Collapsible Filters */}
@@ -358,6 +453,8 @@ function ServicesPageContent() {
 
           {/* City Select - Full Width */}
           <CitySelect
+            onSelect={handleLocationSelect}
+            value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
             trigger={(displayText) => (
               <Button variant="outline" className="w-full justify-between h-11">
                 <span className="flex items-center gap-2">
@@ -422,6 +519,37 @@ function ServicesPageContent() {
                   )}
                 </div>
 
+                {/* Provider Type */}
+                <div>
+                  <h4 className="font-medium mb-2 text-sm">Нийлүүлэгч</h4>
+                  <RadioGroup
+                    value={providerType}
+                    onValueChange={(value) => setProviderType(value as ProviderType)}
+                    className="flex flex-wrap gap-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="all" id="mobile-provider-all" />
+                      <Label htmlFor="mobile-provider-all" className="cursor-pointer text-sm">
+                        Бүгд
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="company" id="mobile-provider-company" />
+                      <Label htmlFor="mobile-provider-company" className="cursor-pointer text-sm flex items-center gap-1">
+                        <Building2 className="h-3.5 w-3.5" />
+                        Компани
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="individual" id="mobile-provider-individual" />
+                      <Label htmlFor="mobile-provider-individual" className="cursor-pointer text-sm flex items-center gap-1">
+                        <User className="h-3.5 w-3.5" />
+                        Хувь хүн
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
                 {/* Price Range */}
                 <div>
                   <h4 className="font-medium mb-2 text-sm">Үнэ</h4>
@@ -469,6 +597,8 @@ function ServicesPageContent() {
                 setSelectedCategories={setSelectedCategories}
                 priceRange={priceRange}
                 setPriceRange={setPriceRange}
+                providerType={providerType}
+                setProviderType={setProviderType}
                 onReset={resetFilters}
               />
             </div>
