@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
@@ -12,24 +13,14 @@ import { RequestsButton } from "@/components/requests-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft,
-  Plus,
   Package,
-  Eye,
-  Pencil,
-  Trash2,
-  Archive,
-  RotateCcw,
   MapPin,
-  MoreVertical,
+  Eye,
   Loader2,
+  Trash2,
+  Pencil,
+  Plus,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,27 +34,11 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
+import { formatListingPrice } from "@/lib/utils";
+import { LoginPromptModal } from "@/components/login-prompt-modal";
 import type { listings } from "@prisma/client";
 
 type ListingStatus = "draft" | "active" | "paused" | "archived" | "deleted";
-
-const statusLabels: Record<ListingStatus, string> = {
-  draft: "Ноорог",
-  active: "Идэвхтэй",
-  paused: "Түр зогссон",
-  archived: "Архивлагдсан",
-  deleted: "Устгагдсан",
-};
-
-const statusColors: Record<ListingStatus, string> = {
-  draft: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-  active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  paused: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-  archived: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400",
-  deleted: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-};
-
-type TabValue = "all" | ListingStatus;
 
 interface ListingWithRelations extends listings {
   category?: { name: string; slug: string } | null;
@@ -71,12 +46,190 @@ interface ListingWithRelations extends listings {
   aimag?: { name: string } | null;
 }
 
+// Skeleton для загрузки
+function ServiceCardSkeleton() {
+  return (
+    <div className="rounded-xl md:rounded-2xl overflow-hidden border">
+      <Skeleton className="aspect-4/3" />
+      <div className="p-3 md:p-4 space-y-2">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+        <div className="flex items-center gap-2 mt-2">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-5 w-10" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Карточка услуги
+function ServiceCard({
+  listing,
+  onToggleActive,
+  onDelete,
+  isUpdating,
+}: {
+  listing: ListingWithRelations;
+  onToggleActive: (id: string, status: ListingStatus) => void;
+  onDelete: (id: string) => void;
+  isUpdating: boolean;
+}) {
+  const imageUrl = listing.images?.[0]?.url || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
+  const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
+  const status = listing.status as ListingStatus;
+  const isActive = status === "active";
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleActive(listing.id, status);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete(listing.id);
+  };
+
+  return (
+    <Link
+      href={`/services/${listing.slug}`}
+      className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/30 hover:shadow-xl transition-all duration-300"
+    >
+      {/* Image */}
+      <div className="aspect-4/3 relative overflow-hidden">
+        <Image
+          src={imageUrl}
+          alt={listing.title}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover group-hover:scale-110 transition-transform duration-500"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+
+        {/* Category badge */}
+        {listing.category && (
+          <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
+            {listing.category.name}
+          </span>
+        )}
+
+        {/* Status badge */}
+        <span className={`absolute top-2 right-2 md:top-3 md:right-3 text-[10px] md:text-[11px] px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm ${
+          isActive
+            ? "bg-green-500/90 text-white"
+            : "bg-orange-500/90 text-white"
+        }`}>
+          {isActive ? "Идэвхтэй" : "Түр зогссон"}
+        </span>
+
+        {/* Price */}
+        <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3">
+          <p className="text-white font-bold text-base md:text-lg drop-shadow-lg">
+            {priceDisplay}
+          </p>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-3 md:p-4">
+        <h4 className="font-semibold text-xs md:text-sm line-clamp-1">
+          {listing.title}
+        </h4>
+        <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 mt-0.5 md:mt-1">
+          {listing.description}
+        </p>
+
+        {/* Stats */}
+        <div className="flex items-center gap-2 mt-2 text-[9px] md:text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-0.5">
+            <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
+            {listing.views_count || 0}
+          </span>
+          {listing.aimag && (
+            <span className="flex items-center gap-0.5">
+              <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              {listing.aimag.name}
+            </span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t">
+          {/* Active toggle */}
+          <div className="flex items-center gap-2" onClick={handleToggle}>
+            <Switch
+              checked={isActive}
+              disabled={isUpdating}
+              className="data-[state=checked]:bg-green-500"
+            />
+            <span className="text-[10px] md:text-xs text-muted-foreground">
+              {isActive ? "Идэвхтэй" : "Идэвхгүй"}
+            </span>
+          </div>
+
+          {/* Edit & Delete */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = `/services/edit/${listing.id}`;
+              }}
+              className="p-1.5 md:p-2 rounded-full hover:bg-muted transition-colors"
+              title="Засварлах"
+            >
+              <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground" />
+            </button>
+            <button
+              onClick={handleDelete}
+              className="p-1.5 md:p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              title="Устгах"
+            >
+              <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// Пустое состояние
+function EmptyState() {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mb-6">
+        <Package className="h-10 w-10 text-white" />
+      </div>
+      <h3 className="text-lg font-semibold mb-2">Зар байхгүй байна</h3>
+      <p className="text-muted-foreground text-sm mb-6 max-w-sm">
+        Өөрийн үйлчилгээг нэмж, олон хүнд хүргээрэй
+      </p>
+      <Link href="/services/create">
+        <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/25">
+          <Plus className="h-4 w-4 mr-2" />
+          Зар нэмэх
+        </Button>
+      </Link>
+    </div>
+  );
+}
+
 export default function MyServicesPage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: isAuthLoading, user } = useAuth();
-  const [activeTab, setActiveTab] = React.useState<TabValue>("all");
+  const { isAuthenticated, user } = useAuth();
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [listingToDelete, setListingToDelete] = React.useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = React.useState(false);
+
+  // Show login modal if not authenticated
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      setShowLoginModal(true);
+    }
+  }, [isAuthenticated]);
 
   // Загружаем услуги пользователя
   const { data: listings, isLoading: isLoadingListings, refetch } = useFindManylistings(
@@ -105,57 +258,30 @@ export default function MyServicesPage() {
   const { mutateAsync: updateListing, isPending: isUpdating } = useUpdatelistings();
   const { mutateAsync: deleteListing, isPending: isDeleting } = useDeletelistings();
 
-  // Redirect to home if not authenticated
-  React.useEffect(() => {
-    if (!isAuthLoading && !isAuthenticated) {
+  const handleLoginSuccess = () => {
+    setShowLoginModal(false);
+  };
+
+  const handleLoginModalClose = (open: boolean) => {
+    if (!open && !isAuthenticated) {
       router.push("/");
-    }
-  }, [isAuthLoading, isAuthenticated, router]);
-
-  // Фильтрация по табам
-  const filteredListings = React.useMemo(() => {
-    if (!listings) return [];
-    if (activeTab === "all") return listings as ListingWithRelations[];
-    return (listings as ListingWithRelations[]).filter((l) => l.status === activeTab);
-  }, [listings, activeTab]);
-
-  // Подсчет по статусам
-  const counts = React.useMemo(() => {
-    if (!listings) return { all: 0, draft: 0, active: 0, paused: 0, archived: 0 };
-    const list = listings as ListingWithRelations[];
-    return {
-      all: list.length,
-      draft: list.filter((l) => l.status === "draft").length,
-      active: list.filter((l) => l.status === "active").length,
-      paused: list.filter((l) => l.status === "paused").length,
-      archived: list.filter((l) => l.status === "archived").length,
-    };
-  }, [listings]);
-
-  // Handlers
-  const handleArchive = async (id: string) => {
-    try {
-      await updateListing({
-        where: { id },
-        data: { status: "archived" },
-      });
-      toast.success("Үйлчилгээ архивлагдлаа");
-      refetch();
-    } catch {
-      toast.error("Архивлахад алдаа гарлаа");
+    } else {
+      setShowLoginModal(open);
     }
   };
 
-  const handleActivate = async (id: string) => {
+  // Handlers
+  const handleToggleActive = async (id: string, currentStatus: ListingStatus) => {
+    const newStatus = currentStatus === "active" ? "paused" : "active";
     try {
       await updateListing({
         where: { id },
-        data: { status: "active" },
+        data: { status: newStatus },
       });
-      toast.success("Үйлчилгээ идэвхжүүллээ");
+      toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо");
       refetch();
     } catch {
-      toast.error("Идэвхжүүлэхэд алдаа гарлаа");
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -165,7 +291,7 @@ export default function MyServicesPage() {
       await deleteListing({
         where: { id: listingToDelete },
       });
-      toast.success("Үйлчилгээ устгагдлаа");
+      toast.success("Устгагдлаа");
       setDeleteDialogOpen(false);
       setListingToDelete(null);
       refetch();
@@ -179,22 +305,32 @@ export default function MyServicesPage() {
     setDeleteDialogOpen(true);
   };
 
-  // Loading state
-  if (isAuthLoading || !isAuthenticated) {
+  // Not authenticated - show login prompt
+  if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
+      <>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mx-auto mb-6">
+              <Package className="h-10 w-10 text-white" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
+            <p className="text-muted-foreground text-sm">
+              Өөрийн зарууддаа хандахын тулд нэвтрэх шаардлагатай
+            </p>
+          </div>
+        </div>
+        <LoginPromptModal
+          open={showLoginModal}
+          onOpenChange={handleLoginModalClose}
+          onSuccess={handleLoginSuccess}
+        />
+      </>
     );
   }
 
-  const tabs: { value: TabValue; label: string; count: number }[] = [
-    { value: "all", label: "Бүгд", count: counts.all },
-    { value: "active", label: "Идэвхтэй", count: counts.active },
-    { value: "draft", label: "Ноорог", count: counts.draft },
-    { value: "paused", label: "Түр зогссон", count: counts.paused },
-    { value: "archived", label: "Архив", count: counts.archived },
-  ];
+  const listingsData = (listings || []) as ListingWithRelations[];
+  const count = listingsData.length;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -210,17 +346,20 @@ export default function MyServicesPage() {
             >
               <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
-            <h1 className="text-lg md:text-xl font-bold flex items-center gap-2">
-              <Package className="h-5 w-5 text-primary" />
-              Миний үйлчилгээнүүд
-            </h1>
+            <Link href="/">
+              <h1 className="text-lg md:text-2xl font-bold">
+                <span className="text-[#c4272f]">Uilc</span>
+                <span className="text-[#015197]">hilge</span>
+                <span className="text-[#c4272f]">e.mn</span>
+              </h1>
+            </Link>
           </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
             <Button asChild>
               <Link href="/services/create">
                 <Plus className="h-4 w-4 mr-2" />
-                Шинэ үйлчилгээ
+                Шинэ зар
               </Link>
             </Button>
             <RequestsButton />
@@ -237,176 +376,48 @@ export default function MyServicesPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6">
-        {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-6 -mx-4 px-4 md:mx-0 md:px-0">
-          {tabs.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.value
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted hover:bg-muted/80"
-              }`}
-            >
-              {tab.label} ({tab.count})
-            </button>
-          ))}
+      <div className="container mx-auto px-4 py-6 md:py-8">
+        {/* Page Title */}
+        <div className="flex items-center gap-4 mb-6 md:mb-8">
+          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
+            <Package className="h-6 w-6 md:h-7 md:w-7 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl md:text-2xl font-bold">Миний зарууд</h2>
+              {isUpdating && (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {isLoadingListings ? "Ачааллаж байна..." : `${count} зар байна`}
+            </p>
+          </div>
         </div>
 
-        {/* Content */}
+        {/* Loading State */}
         {isLoadingListings ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-card rounded-xl border overflow-hidden">
-                <Skeleton className="aspect-video w-full" />
-                <div className="p-4 space-y-3">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-6 w-1/3" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              </div>
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <ServiceCardSkeleton key={i} />
             ))}
           </div>
-        ) : filteredListings.length === 0 ? (
-          <div className="text-center py-16">
-            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-            <h2 className="text-xl font-semibold mb-2">
-              {activeTab === "all"
-                ? "Та үйлчилгээ нэмээгүй байна"
-                : `${statusLabels[activeTab as ListingStatus]} үйлчилгээ байхгүй`}
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {activeTab === "all"
-                ? "Эхний үйлчилгээгээ нэмж эхлээрэй"
-                : "Энэ статустай үйлчилгээ одоогоор байхгүй байна"}
-            </p>
-            {activeTab === "all" && (
-              <Button asChild>
-                <Link href="/services/create">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Үйлчилгээ нэмэх
-                </Link>
-              </Button>
-            )}
+        ) : listingsData.length > 0 ? (
+          /* Services Grid */
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+            {listingsData.map((listing) => (
+              <ServiceCard
+                key={listing.id}
+                listing={listing}
+                onToggleActive={handleToggleActive}
+                onDelete={openDeleteDialog}
+                isUpdating={isUpdating}
+              />
+            ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredListings.map((listing) => {
-              const coverImage = listing.images?.[0];
-              const status = listing.status as ListingStatus;
-
-              return (
-                <div
-                  key={listing.id}
-                  className="bg-card rounded-xl border overflow-hidden group hover:shadow-lg transition-shadow"
-                >
-                  {/* Image */}
-                  <div className="aspect-video relative overflow-hidden bg-muted">
-                    {coverImage?.url ? (
-                      <Image
-                        src={coverImage.url}
-                        alt={coverImage.alt || listing.title}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Package className="h-12 w-12 text-muted-foreground/30" />
-                      </div>
-                    )}
-                    {/* Status Badge */}
-                    <span
-                      className={`absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}
-                    >
-                      {statusLabels[status]}
-                    </span>
-                    {/* Actions Menu */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="absolute top-3 right-3 p-1.5 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/services/${listing.slug}`} className="flex items-center">
-                            <Eye className="h-4 w-4 mr-2" />
-                            Харах
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/services/edit/${listing.id}`} className="flex items-center">
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Засварлах
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {status !== "archived" ? (
-                          <DropdownMenuItem
-                            onClick={() => handleArchive(listing.id)}
-                            disabled={isUpdating}
-                          >
-                            <Archive className="h-4 w-4 mr-2" />
-                            Архивлах
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => handleActivate(listing.id)}
-                            disabled={isUpdating}
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Идэвхжүүлэх
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(listing.id)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Устгах
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Content */}
-                  <div className="p-4">
-                    {listing.category && (
-                      <span className="text-xs px-2 py-1 bg-muted rounded-full">
-                        {listing.category.name}
-                      </span>
-                    )}
-                    <h3 className="font-medium mt-2 line-clamp-1">{listing.title}</h3>
-                    <p className="text-primary font-bold text-lg mt-1">
-                      {listing.price?.toLocaleString()}₮
-                      {listing.is_negotiable && (
-                        <span className="text-sm font-normal text-muted-foreground ml-1">
-                          (тохиролцоно)
-                        </span>
-                      )}
-                    </p>
-                    <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-                      {listing.aimag && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {listing.aimag.name}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Eye className="h-3.5 w-3.5" />
-                        {listing.views_count || 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          /* Empty State */
+          <EmptyState />
         )}
       </div>
 
@@ -414,9 +425,9 @@ export default function MyServicesPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Үйлчилгээг устгах уу?</AlertDialogTitle>
+            <AlertDialogTitle>Устгах уу?</AlertDialogTitle>
             <AlertDialogDescription>
-              Энэ үйлдлийг буцаах боломжгүй. Таны үйлчилгээ бүрмөсөн устгагдах болно.
+              Энэ үйлдлийг буцаах боломжгүй. Таны зар бүрмөсөн устгагдах болно.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
