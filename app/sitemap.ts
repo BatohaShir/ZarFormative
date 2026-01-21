@@ -51,13 +51,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.9,
     },
     {
-      url: `${siteUrl}/favorites`,
+      url: `${siteUrl}/account/me/favorites`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.5,
     },
     {
-      url: `${siteUrl}/requests`,
+      url: `${siteUrl}/account/me/requests`,
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.5,

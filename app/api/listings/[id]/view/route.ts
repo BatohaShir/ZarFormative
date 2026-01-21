@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
+import { createClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/prisma";
+import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+
+// Период уникальности просмотра (24 часа)
+const VIEW_UNIQUENESS_PERIOD_HOURS = 24;
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  // Rate limit: 60 view requests per minute per IP (prevent view farming)
+  const rateLimitResult = withRateLimit(request, undefined, { limit: 60, windowSeconds: 60 });
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult);
+  }
+
+  try {
+    const { id: slug } = await params;
+
+    // Получаем IP адрес
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const ip = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown";
+
+    // Получаем текущего пользователя (если авторизован)
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const viewerId = user?.id || null;
+
+    // Находим объявление по slug
+    const listing = await prisma.listings.findFirst({
+      where: {
+        slug: slug,
+        status: "active",
+        is_active: true,
+      },
+      select: { id: true, user_id: true, views_count: true },
+    });
+
+    if (!listing) {
+      return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    // Не считаем просмотры владельца объявления
+    if (viewerId && viewerId === listing.user_id) {
+      return NextResponse.json({
+        success: true,
+        views_count: listing.views_count,
+        skipped: true,
+        reason: "owner",
+      });
+    }
+
+    // Оптимизированный запрос: проверка + вставка + инкремент в одном SQL
+    // Это устраняет race condition и уменьшает количество round-trips
+    const result = await prisma.$queryRaw<{ views_count: number; inserted: boolean }[]>`
+      WITH check_existing AS (
+        SELECT id FROM listings_views
+        WHERE listing_id = ${listing.id}
+          AND viewed_at > NOW() - INTERVAL '${Prisma.raw(String(VIEW_UNIQUENESS_PERIOD_HOURS))} hours'
+          AND (
+            ${viewerId ? Prisma.sql`viewer_id = ${viewerId}::uuid` : Prisma.sql`viewer_id IS NULL AND ip_address = ${ip}`}
+          )
+        LIMIT 1
+      ),
+      insert_view AS (
+        INSERT INTO listings_views (id, listing_id, viewer_id, ip_address, viewed_at)
+        SELECT
+          gen_random_uuid(),
+          ${listing.id},
+          ${viewerId ? Prisma.sql`${viewerId}::uuid` : Prisma.sql`NULL`},
+          ${viewerId ? Prisma.sql`NULL` : Prisma.sql`${ip}`},
+          NOW()
+        WHERE NOT EXISTS (SELECT 1 FROM check_existing)
+        RETURNING id
+      ),
+      update_count AS (
+        UPDATE listings
+        SET views_count = views_count + 1
+        WHERE id = ${listing.id}
+          AND EXISTS (SELECT 1 FROM insert_view)
+        RETURNING views_count
+      )
+      SELECT
+        COALESCE(
+          (SELECT views_count FROM update_count),
+          ${listing.views_count}
+        ) as views_count,
+        EXISTS (SELECT 1 FROM insert_view) as inserted
+    `;
+
+    const { views_count, inserted } = result[0];
+
+    if (!inserted) {
+      return NextResponse.json({
+        success: true,
+        views_count,
+        skipped: true,
+        reason: "already_viewed",
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      views_count,
+    });
+  } catch (error) {
+    console.error("Error tracking view:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

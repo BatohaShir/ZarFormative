@@ -5,53 +5,11 @@ import Image from "next/image";
 import { Input } from "@/components/ui/input";
 import { Search, Eye } from "lucide-react";
 import Link from "next/link";
-import { useFindManylistings } from "@/lib/hooks/listings";
-import type { listings, profiles, categories, listings_images } from "@prisma/client";
-import { Decimal } from "@prisma/client/runtime/library";
-
-// Тип объявления с включёнными связями для поиска
-type ListingSearchResult = listings & {
-  user: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company">;
-  category: Pick<categories, "id" | "name" | "slug">;
-  images: Pick<listings_images, "id" | "url" | "sort_order">[];
-};
+import { useSearch } from "@/hooks/use-search";
+import { formatListingPrice } from "@/lib/utils";
 
 interface SearchInputProps {
   className?: string;
-}
-
-// Форматирование цены
-function formatPrice(price: Decimal | null, currency: string, isNegotiable: boolean): string {
-  if (isNegotiable) return "Тохиролцоно";
-  if (!price) return "Үнэгүй";
-
-  const numPrice = Number(price);
-  const formatted = new Intl.NumberFormat("mn-MN").format(numPrice);
-
-  if (currency === "MNT") {
-    return `${formatted}₮`;
-  }
-  return `$${formatted}`;
-}
-
-// Получить имя провайдера
-function getProviderName(user: ListingSearchResult["user"]): string {
-  if (user.is_company && user.company_name) {
-    return user.company_name;
-  }
-  if (user.first_name || user.last_name) {
-    return [user.first_name, user.last_name].filter(Boolean).join(" ");
-  }
-  return "Хэрэглэгч";
-}
-
-// Получить URL первого изображения
-function getFirstImageUrl(images: ListingSearchResult["images"]): string {
-  if (images.length === 0) {
-    return "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
-  }
-  const sorted = [...images].sort((a, b) => a.sort_order - b.sort_order);
-  return sorted[0].url;
 }
 
 export const SearchInput = React.memo(function SearchInput({
@@ -61,62 +19,34 @@ export const SearchInput = React.memo(function SearchInput({
   const [isOpen, setIsOpen] = React.useState(false);
   const [debouncedQuery, setDebouncedQuery] = React.useState("");
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce поискового запроса
+  // Оптимизированный debounce с useRef - один таймер вместо создания нового на каждое изменение
   React.useEffect(() => {
-    const timer = setTimeout(() => {
+    // Очищаем предыдущий таймер
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
       setDebouncedQuery(query);
     }, 300);
-    return () => clearTimeout(timer);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [query]);
 
-  // Поиск в БД
-  const { data: results, isLoading } = useFindManylistings(
-    {
-      where: {
-        status: "active",
-        is_active: true,
-        OR: [
-          { title: { contains: debouncedQuery, mode: "insensitive" } },
-          { description: { contains: debouncedQuery, mode: "insensitive" } },
-        ],
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            avatar_url: true,
-            company_name: true,
-            is_company: true,
-          },
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        images: {
-          select: {
-            id: true,
-            url: true,
-            sort_order: true,
-          },
-          orderBy: {
-            sort_order: "asc",
-          },
-          take: 1,
-        },
-      },
-      take: 10,
-    },
-    {
-      enabled: debouncedQuery.trim().length >= 2,
-    }
-  );
+  // Full-text поиск через API с tsvector
+  const { data: searchData, isLoading } = useSearch({
+    query: debouncedQuery,
+    limit: 10,
+    enabled: debouncedQuery.trim().length >= 2,
+  });
+
+  const results = searchData?.results || [];
 
   // Открывать dropdown при наличии результатов
   React.useEffect(() => {
@@ -142,8 +72,7 @@ export const SearchInput = React.memo(function SearchInput({
     setQuery("");
   }, []);
 
-  const searchResults = (results || []) as ListingSearchResult[];
-  const hasResults = searchResults.length > 0;
+  const hasResults = results.length > 0;
   const showNoResults = !isLoading && debouncedQuery.trim().length >= 2 && !hasResults;
 
   return (
@@ -167,10 +96,9 @@ export const SearchInput = React.memo(function SearchInput({
             </div>
           )}
 
-          {!isLoading && hasResults && searchResults.map((listing) => {
-            const providerName = getProviderName(listing.user);
-            const imageUrl = getFirstImageUrl(listing.images);
-            const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+          {!isLoading && hasResults && results.map((listing) => {
+            const imageUrl = listing.cover_image || "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
+            const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
 
             return (
               <Link
@@ -206,11 +134,11 @@ export const SearchInput = React.memo(function SearchInput({
                     {priceDisplay}
                   </p>
                   <div className="flex items-center gap-3 shrink-0">
-                    {listing.user.avatar_url ? (
+                    {listing.user.avatar ? (
                       <div className="relative w-8 h-8 rounded-full overflow-hidden">
                         <Image
-                          src={listing.user.avatar_url}
-                          alt={providerName}
+                          src={listing.user.avatar}
+                          alt={listing.user.name}
                           fill
                           sizes="32px"
                           className="object-cover"
@@ -218,11 +146,11 @@ export const SearchInput = React.memo(function SearchInput({
                       </div>
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">
-                        {providerName.charAt(0).toUpperCase()}
+                        {listing.user.name.charAt(0).toUpperCase()}
                       </div>
                     )}
                     <span className="text-xs text-muted-foreground hidden md:block">
-                      {providerName}
+                      {listing.user.name}
                     </span>
                     <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
                       <span className="flex items-center gap-0.5">

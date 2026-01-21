@@ -12,7 +12,7 @@ import { AuthModal } from "./auth-modal";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { favorites } = useFavorites();
+  const { count: favoritesCount } = useFavorites();
   const { totalUnreadCount } = useMessages();
   const { isAuthenticated } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -47,11 +47,11 @@ export function MobileBottomNav() {
       badge: null,
     },
     {
-      href: "/favorites",
+      href: "/account/me/favorites",
       icon: Heart,
       label: "Лайк",
-      isActive: isActive("/favorites"),
-      badge: favorites.size > 0 ? favorites.size : null,
+      isActive: isActive("/account/me/favorites"),
+      badge: favoritesCount > 0 ? favoritesCount : null,
     },
     {
       href: "/services/create",
@@ -62,10 +62,10 @@ export function MobileBottomNav() {
       isCenter: true,
     },
     {
-      href: "/requests",
+      href: "/account/me/requests",
       icon: FileText,
       label: "Заявки",
-      isActive: isActive("/requests"),
+      isActive: isActive("/account/me/requests"),
       badge: totalUnreadCount > 0 ? totalUnreadCount : null,
       onClick: handleRequestsClick,
     },
@@ -73,7 +73,7 @@ export function MobileBottomNav() {
       href: "/account/me",
       icon: User,
       label: "Профайл",
-      isActive: isActive("/account"),
+      isActive: pathname === "/account/me",
       badge: null,
       onClick: handleProfileClick,
     },
@@ -97,13 +97,19 @@ export function MobileBottomNav() {
                   <div
                     className={cn(
                       "flex items-center justify-center rounded-full shadow-lg transition-all",
-                      "h-14 w-14 bg-linear-to-r from-blue-600 to-blue-500",
+                      "h-14 w-14",
+                      active
+                        ? "bg-linear-to-r from-blue-700 to-blue-600 ring-4 ring-blue-500/30 scale-110"
+                        : "bg-linear-to-r from-blue-600 to-blue-500",
                       "hover:shadow-xl hover:scale-105"
                     )}
                   >
                     <Icon className="h-6 w-6 text-white" />
                   </div>
-                  <span className="text-[10px] font-medium text-primary mt-1">
+                  <span className={cn(
+                    "text-[10px] font-medium mt-1",
+                    active ? "text-blue-600 dark:text-blue-400" : "text-primary"
+                  )}>
                     {item.label}
                   </span>
                 </Link>
@@ -115,7 +121,10 @@ export function MobileBottomNav() {
                 key={item.href}
                 href={item.href}
                 onClick={item.onClick}
-                className="flex flex-col items-center justify-center min-w-[60px] py-2 relative"
+                className={cn(
+                  "flex flex-col items-center justify-center min-w-[60px] py-2 relative rounded-xl transition-all",
+                  active && "bg-primary/10"
+                )}
               >
                 <div className="relative">
                   <Icon
@@ -142,7 +151,7 @@ export function MobileBottomNav() {
                 <span
                   className={cn(
                     "text-[10px] font-medium mt-0.5 transition-colors",
-                    active ? "text-primary" : "text-muted-foreground"
+                    active ? "text-primary font-semibold" : "text-muted-foreground"
                   )}
                 >
                   {item.label}

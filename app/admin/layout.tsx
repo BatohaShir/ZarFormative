@@ -50,13 +50,13 @@ export default function AdminLayout({
   const { data: profile, isLoading: isProfileLoading } = useFindUniqueprofiles(
     {
       where: { id: userId ?? "" },
-      select: { id: true, role: true, first_name: true, last_name: true },
     },
     { enabled: !!userId }
   );
 
   const isLoading = isAuthLoading || isProfileLoading;
-  const isAuthorized = profile?.role === "admin" || profile?.role === "manager";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isAuthorized = (profile as any)?.role === "admin" || (profile as any)?.role === "manager";
 
   // Показываем загрузку
   if (isLoading) {
@@ -158,7 +158,8 @@ export default function AdminLayout({
               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                 {profile?.first_name} {profile?.last_name}
               </p>
-              <p className="text-xs text-gray-500 capitalize">{profile?.role}</p>
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              <p className="text-xs text-gray-500 capitalize">{(profile as any)?.role}</p>
             </div>
           </div>
           <button

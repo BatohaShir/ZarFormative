@@ -30,6 +30,7 @@ import {
   Building2,
   Hash,
   Settings,
+  Package,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
@@ -254,6 +255,19 @@ export default function MyProfilePage() {
       router.push("/");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Мемоизированные отсортированные списки - предотвращает лишние вычисления при ререндере
+  const sortedEducations = React.useMemo(() => {
+    return [...educations].sort((a, b) =>
+      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    );
+  }, [educations]);
+
+  const sortedWorkExperiences = React.useMemo(() => {
+    return [...workExperiences].sort((a, b) =>
+      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    );
+  }, [workExperiences]);
 
   const handleLogout = async () => {
     await signOut();
@@ -583,13 +597,19 @@ export default function MyProfilePage() {
 
             {/* Quick Actions - Desktop */}
             <div className="hidden lg:flex flex-col gap-2">
+              <Button variant="default" className="gap-2" asChild>
+                <Link href="/account/me/services">
+                  <Package className="h-4 w-4" />
+                  Миний үйлчилгээнүүд
+                </Link>
+              </Button>
               <Button variant="outline" className="gap-2" asChild>
                 <Link href="/account/me/settings">
                   <Settings className="h-4 w-4" />
                   Апп тохиргоо
                 </Link>
               </Button>
-              <Button onClick={() => setShowEditProfileModal(true)} className="gap-2">
+              <Button variant="outline" onClick={() => setShowEditProfileModal(true)} className="gap-2">
                 <Pencil className="h-4 w-4" />
                 Засварлах
               </Button>
@@ -765,6 +785,16 @@ export default function MyProfilePage() {
             <div className="lg:hidden space-y-2">
               <Button
                 className="w-full gap-2"
+                asChild
+              >
+                <Link href="/account/me/services">
+                  <Package className="h-4 w-4" />
+                  Миний үйлчилгээнүүд
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full gap-2"
                 onClick={() => setShowEditProfileModal(true)}
               >
                 <Pencil className="h-4 w-4" />
@@ -775,7 +805,7 @@ export default function MyProfilePage() {
                 className="w-full gap-2"
                 asChild
               >
-                <Link href="/account/notifications">
+                <Link href="/account/me/notifications">
                   <Bell className="h-4 w-4" />
                   Мэдэгдлийн тохиргоо
                 </Link>
@@ -1024,9 +1054,7 @@ export default function MyProfilePage() {
                     </p>
                   ) : (
                     <div className="grid gap-3">
-                      {[...educations]
-                        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
-                        .map((edu) =>
+                      {sortedEducations.map((edu) =>
                           editingEducationId === edu.id ? (
                             <div
                               key={edu.id}
@@ -1302,9 +1330,7 @@ export default function MyProfilePage() {
                     </p>
                   ) : (
                     <div className="grid gap-3">
-                      {[...workExperiences]
-                        .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
-                        .map((work) =>
+                      {sortedWorkExperiences.map((work) =>
                           editingWorkId === work.id ? (
                             <div
                               key={work.id}

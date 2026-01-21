@@ -50,7 +50,11 @@ export function useCurrentUser() {
         // Исключаем created_at и updated_at - не нужны для отображения
       },
     },
-    { enabled: !!user?.id }
+    {
+      enabled: !!user?.id,
+      staleTime: 30 * 60 * 1000, // 30 минут - профиль редко меняется
+      gcTime: 60 * 60 * 1000, // 1 час в памяти
+    }
   );
 
   const updateProfile = async (data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>) => {

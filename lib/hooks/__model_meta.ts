@@ -8,6 +8,202 @@ import type { ModelMeta } from "@zenstackhq/runtime";
 
 const metadata: ModelMeta = {
     models: {
+        aimags: {
+            name: 'aimags', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, name_en: {
+                    name: "name_en",
+                    type: "String",
+                    isOptional: true,
+                }, code: {
+                    name: "code",
+                    type: "String",
+                }, type: {
+                    name: "type",
+                    type: "AimagType",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, districts: {
+                    name: "districts",
+                    type: "districts",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'aimag',
+                }, listings: {
+                    name: "listings",
+                    type: "listings",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'aimag',
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, name: {
+                    name: "name",
+                    fields: ["name"]
+                }, code: {
+                    name: "code",
+                    fields: ["code"]
+                },
+            },
+        },
+        districts: {
+            name: 'districts', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, aimag_id: {
+                    name: "aimag_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'aimag',
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, name_en: {
+                    name: "name_en",
+                    type: "String",
+                    isOptional: true,
+                }, type: {
+                    name: "type",
+                    type: "DistrictType",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, aimag: {
+                    name: "aimag",
+                    type: "aimags",
+                    isDataModel: true,
+                    backLink: 'districts',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "aimag_id" },
+                }, khoroos: {
+                    name: "khoroos",
+                    type: "khoroos",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'district',
+                }, listings: {
+                    name: "listings",
+                    type: "listings",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'district',
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, aimag_id_name: {
+                    name: "aimag_id_name",
+                    fields: ["aimag_id", "name"]
+                },
+            },
+        },
+        khoroos: {
+            name: 'khoroos', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, district_id: {
+                    name: "district_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'district',
+                }, name: {
+                    name: "name",
+                    type: "String",
+                }, number: {
+                    name: "number",
+                    type: "Int",
+                    isOptional: true,
+                }, sort_order: {
+                    name: "sort_order",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, district: {
+                    name: "district",
+                    type: "districts",
+                    isDataModel: true,
+                    backLink: 'khoroos',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "district_id" },
+                }, listings: {
+                    name: "listings",
+                    type: "listings",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'khoroo',
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, district_id_name: {
+                    name: "district_id_name",
+                    fields: ["district_id", "name"]
+                }, district_id_number: {
+                    name: "district_id_number",
+                    fields: ["district_id", "number"]
+                },
+            },
+        },
         categories: {
             name: 'categories', fields: {
                 id: {
@@ -159,6 +355,18 @@ const metadata: ModelMeta = {
                 }, listings: {
                     name: "listings",
                     type: "listings",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
+                }, viewed_listings: {
+                    name: "viewed_listings",
+                    type: "listings_views",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'viewer',
+                }, favorites: {
+                    name: "favorites",
+                    type: "user_favorites",
                     isDataModel: true,
                     isArray: true,
                     backLink: 'user',
@@ -440,6 +648,7 @@ const metadata: ModelMeta = {
                 }, category_id: {
                     name: "category_id",
                     type: "String",
+                    isOptional: true,
                     isForeignKey: true,
                     relationField: 'category',
                 }, title: {
@@ -463,13 +672,24 @@ const metadata: ModelMeta = {
                     name: "is_negotiable",
                     type: "Boolean",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
-                }, city: {
-                    name: "city",
-                    type: "String",
-                }, district: {
-                    name: "district",
+                }, aimag_id: {
+                    name: "aimag_id",
                     type: "String",
                     isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'aimag',
+                }, district_id: {
+                    name: "district_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'district',
+                }, khoroo_id: {
+                    name: "khoroo_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'khoroo',
                 }, address: {
                     name: "address",
                     type: "String",
@@ -494,6 +714,14 @@ const metadata: ModelMeta = {
                     name: "views_count",
                     type: "Int",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, favorites_count: {
+                    name: "favorites_count",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, search_vector: {
+                    name: "search_vector",
+                    type: "undefined",
+                    isOptional: true,
                 }, created_at: {
                     name: "created_at",
                     type: "DateTime",
@@ -518,12 +746,49 @@ const metadata: ModelMeta = {
                     name: "category",
                     type: "categories",
                     isDataModel: true,
+                    isOptional: true,
                     backLink: 'listings',
                     isRelationOwner: true,
                     foreignKeyMapping: { "id": "category_id" },
+                }, aimag: {
+                    name: "aimag",
+                    type: "aimags",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'listings',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "aimag_id" },
+                }, district: {
+                    name: "district",
+                    type: "districts",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'listings',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "district_id" },
+                }, khoroo: {
+                    name: "khoroo",
+                    type: "khoroos",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'listings',
+                    isRelationOwner: true,
+                    foreignKeyMapping: { "id": "khoroo_id" },
                 }, images: {
                     name: "images",
                     type: "listings_images",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'listing',
+                }, views: {
+                    name: "views",
+                    type: "listings_views",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'listing',
+                }, favorites: {
+                    name: "favorites",
+                    type: "user_favorites",
                     isDataModel: true,
                     isArray: true,
                     backLink: 'listing',
@@ -585,113 +850,49 @@ const metadata: ModelMeta = {
                 },
             },
         },
-        aimags: {
-            name: 'aimags', fields: {
+        listings_views: {
+            name: 'listings_views', fields: {
                 id: {
                     name: "id",
                     type: "String",
                     isId: true,
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, name: {
-                    name: "name",
-                    type: "String",
-                }, name_en: {
-                    name: "name_en",
-                    type: "String",
-                    isOptional: true,
-                }, code: {
-                    name: "code",
-                    type: "String",
-                }, type: {
-                    name: "type",
-                    type: "AimagType",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, sort_order: {
-                    name: "sort_order",
-                    type: "Int",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
-                }, is_active: {
-                    name: "is_active",
-                    type: "Boolean",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
-                }, created_at: {
-                    name: "created_at",
-                    type: "DateTime",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, updated_at: {
-                    name: "updated_at",
-                    type: "DateTime",
-                    attributes: [{ "name": "@updatedAt", "args": [] }],
-                }, districts: {
-                    name: "districts",
-                    type: "districts",
-                    isDataModel: true,
-                    isArray: true,
-                    backLink: 'aimag',
-                },
-            }, uniqueConstraints: {
-                id: {
-                    name: "id",
-                    fields: ["id"]
-                }, code: {
-                    name: "code",
-                    fields: ["code"]
-                },
-            },
-        },
-        districts: {
-            name: 'districts', fields: {
-                id: {
-                    name: "id",
-                    type: "String",
-                    isId: true,
-                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, aimag_id: {
-                    name: "aimag_id",
+                }, listing_id: {
+                    name: "listing_id",
                     type: "String",
                     isForeignKey: true,
-                    relationField: 'aimag',
-                }, name: {
-                    name: "name",
-                    type: "String",
-                }, name_en: {
-                    name: "name_en",
+                    relationField: 'listing',
+                }, viewer_id: {
+                    name: "viewer_id",
                     type: "String",
                     isOptional: true,
-                }, type: {
-                    name: "type",
-                    type: "DistrictType",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, sort_order: {
-                    name: "sort_order",
-                    type: "Int",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
-                }, is_active: {
-                    name: "is_active",
-                    type: "Boolean",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
-                }, created_at: {
-                    name: "created_at",
+                    isForeignKey: true,
+                    relationField: 'viewer',
+                }, ip_address: {
+                    name: "ip_address",
+                    type: "String",
+                    isOptional: true,
+                }, viewed_at: {
+                    name: "viewed_at",
                     type: "DateTime",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, updated_at: {
-                    name: "updated_at",
-                    type: "DateTime",
-                    attributes: [{ "name": "@updatedAt", "args": [] }],
-                }, aimag: {
-                    name: "aimag",
-                    type: "aimags",
+                }, listing: {
+                    name: "listing",
+                    type: "listings",
                     isDataModel: true,
-                    backLink: 'districts',
+                    backLink: 'views',
                     isRelationOwner: true,
                     onDeleteAction: 'Cascade',
-                    foreignKeyMapping: { "id": "aimag_id" },
-                }, khoroos: {
-                    name: "khoroos",
-                    type: "khoroos",
+                    foreignKeyMapping: { "id": "listing_id" },
+                }, viewer: {
+                    name: "viewer",
+                    type: "profiles",
                     isDataModel: true,
-                    isArray: true,
-                    backLink: 'district',
+                    isOptional: true,
+                    backLink: 'viewed_listings',
+                    isRelationOwner: true,
+                    onDeleteAction: 'SetNull',
+                    foreignKeyMapping: { "id": "viewer_id" },
                 },
             }, uniqueConstraints: {
                 id: {
@@ -700,64 +901,61 @@ const metadata: ModelMeta = {
                 },
             },
         },
-        khoroos: {
-            name: 'khoroos', fields: {
+        user_favorites: {
+            name: 'user_favorites', fields: {
                 id: {
                     name: "id",
                     type: "String",
                     isId: true,
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, district_id: {
-                    name: "district_id",
+                }, user_id: {
+                    name: "user_id",
                     type: "String",
                     isForeignKey: true,
-                    relationField: 'district',
-                }, name: {
-                    name: "name",
+                    relationField: 'user',
+                }, listing_id: {
+                    name: "listing_id",
                     type: "String",
-                }, number: {
-                    name: "number",
-                    type: "Int",
-                    isOptional: true,
-                }, sort_order: {
-                    name: "sort_order",
-                    type: "Int",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
-                }, is_active: {
-                    name: "is_active",
-                    type: "Boolean",
-                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                    isForeignKey: true,
+                    relationField: 'listing',
                 }, created_at: {
                     name: "created_at",
                     type: "DateTime",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
-                }, updated_at: {
-                    name: "updated_at",
-                    type: "DateTime",
-                    attributes: [{ "name": "@updatedAt", "args": [] }],
-                }, district: {
-                    name: "district",
-                    type: "districts",
+                }, user: {
+                    name: "user",
+                    type: "profiles",
                     isDataModel: true,
-                    backLink: 'khoroos',
+                    backLink: 'favorites',
                     isRelationOwner: true,
                     onDeleteAction: 'Cascade',
-                    foreignKeyMapping: { "id": "district_id" },
+                    foreignKeyMapping: { "id": "user_id" },
+                }, listing: {
+                    name: "listing",
+                    type: "listings",
+                    isDataModel: true,
+                    backLink: 'favorites',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "listing_id" },
                 },
             }, uniqueConstraints: {
                 id: {
                     name: "id",
                     fields: ["id"]
+                }, user_id_listing_id: {
+                    name: "user_id_listing_id",
+                    fields: ["user_id", "listing_id"]
                 },
             },
         },
 
     },
     deleteCascade: {
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings'],
-        listings: ['listings_images'],
         aimags: ['districts'],
         districts: ['khoroos'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites'],
+        listings: ['listings_images', 'listings_views', 'user_favorites'],
 
     },
     authModel: 'profiles'

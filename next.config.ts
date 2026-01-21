@@ -2,6 +2,25 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  async redirects() {
+    return [
+      {
+        source: "/favorites",
+        destination: "/account/me/favorites",
+        permanent: true,
+      },
+      {
+        source: "/requests",
+        destination: "/account/me/requests",
+        permanent: true,
+      },
+      {
+        source: "/account/notifications",
+        destination: "/account/me/notifications",
+        permanent: true,
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

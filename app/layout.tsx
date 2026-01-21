@@ -8,6 +8,7 @@ import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { NotificationBanner } from "@/components/notification-banner";
 import { QueryProvider } from "@/providers/query-provider";
 import { OrganizationSchema, WebsiteSchema } from "@/components/structured-data";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -116,6 +117,7 @@ export default function RootLayout({
                   {children}
                   <MobileBottomNav />
                   <NotificationBanner />
+                  <Toaster position="top-center" richColors closeButton />
                 </MessagesProvider>
               </FavoritesProvider>
             </AuthProvider>

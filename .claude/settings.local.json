@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(npm run build:*)",
+      "Bash(npx next build:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx zenstack:*)",
+      "Bash(npm run lint)",
+      "Bash(git add:*)",
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(pnpm install:*)",
+      "Bash(npm run type-check:*)"
+    ]
+  }
+}

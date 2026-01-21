@@ -5,75 +5,56 @@ import Link from "next/link";
 import Image from "next/image";
 import { Heart, MapPin, Eye } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
-import type { listings, profiles, categories, listings_images } from "@prisma/client";
+import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
+import { formatListingPrice } from "@/lib/utils";
+import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
 // Тип объявления с включёнными связями
 export type ListingWithRelations = listings & {
   user: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company">;
   category: Pick<categories, "id" | "name" | "slug">;
   images: Pick<listings_images, "id" | "url" | "sort_order">[];
+  aimag?: Pick<aimags, "id" | "name"> | null;
+  district?: Pick<districts, "id" | "name"> | null;
+  khoroo?: Pick<khoroos, "id" | "name"> | null;
 };
 
 interface ListingCardProps {
   listing: ListingWithRelations;
 }
 
-// Форматирование цены
-function formatPrice(price: Decimal | null, currency: string, isNegotiable: boolean): string {
-  if (isNegotiable) return "Тохиролцоно";
-  if (!price) return "Үнэгүй";
-
-  const numPrice = Number(price);
-  const formatted = new Intl.NumberFormat("mn-MN").format(numPrice);
-
-  if (currency === "MNT") {
-    return `${formatted}₮`;
-  }
-  return `$${formatted}`;
-}
-
-// Получить имя провайдера
-function getProviderName(user: ListingWithRelations["user"]): string {
-  if (user.is_company && user.company_name) {
-    return user.company_name;
-  }
-  if (user.first_name || user.last_name) {
-    return [user.first_name, user.last_name].filter(Boolean).join(" ");
-  }
-  return "Хэрэглэгч";
-}
-
-// Получить URL первого изображения
-function getFirstImageUrl(images: ListingWithRelations["images"]): string {
-  if (images.length === 0) {
-    return "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=300&h=300&fit=crop";
-  }
-  // Сортируем по sort_order и берём первое
-  const sorted = [...images].sort((a, b) => a.sort_order - b.sort_order);
-  return sorted[0].url;
-}
-
 export const ListingCard = React.memo(function ListingCard({
   listing,
 }: ListingCardProps) {
-  const { toggleFavorite, isFavorite } = useFavorites();
-  // Используем числовой хеш от id для совместимости с текущим контекстом избранного
-  const numericId = Math.abs(listing.id.split("").reduce((a, b) => ((a << 5) - a + b.charCodeAt(0)) | 0, 0));
-  const isLiked = isFavorite(numericId);
+  const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+  const isLiked = isFavorite(listing.id);
+
+  // Используем ref для isToggling чтобы избежать пересоздания callback
+  const isTogglingRef = React.useRef(isToggling);
+  isTogglingRef.current = isToggling;
 
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      toggleFavorite(numericId);
+      if (!isTogglingRef.current) {
+        toggleFavorite(listing.id);
+      }
     },
-    [toggleFavorite, numericId]
+    [toggleFavorite, listing.id]
   );
 
   const providerName = getProviderName(listing.user);
-  const imageUrl = getFirstImageUrl(listing.images);
-  const priceDisplay = formatPrice(listing.price, listing.currency, listing.is_negotiable);
+
+  // Мемоизация URL изображения - избегаем сортировки на каждый рендер
+  const imageUrl = React.useMemo(
+    () => getFirstImageUrl(listing.images),
+    [listing.images]
+  );
+
+  const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
+  const locationDisplay = formatLocation(listing);
 
   return (
     <Link
@@ -87,6 +68,7 @@ export const ListingCard = React.memo(function ListingCard({
           alt={listing.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          loading="lazy"
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
@@ -149,14 +131,14 @@ export const ListingCard = React.memo(function ListingCard({
             </span>
             <span className="flex items-center gap-0.5 text-pink-500">
               <Heart className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
-              {isLiked ? 1 : 0}
+              {listing.favorites_count + (isLiked ? 1 : 0)}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-1 mt-1.5 md:mt-2 text-muted-foreground">
           <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
-          <span className="text-[10px] md:text-[11px]">
-            {listing.district ? `${listing.city}, ${listing.district}` : listing.city}
+          <span className="text-[10px] md:text-[11px] line-clamp-1">
+            {locationDisplay}
           </span>
         </div>
       </div>

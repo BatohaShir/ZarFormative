@@ -10,8 +10,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
         disallow: [
           "/api/",
-          "/account/me",
-          "/account/notifications",
+          "/account/me/",
           "/_next/",
           "/private/",
         ],
@@ -19,7 +18,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "Googlebot",
         allow: "/",
-        disallow: ["/api/", "/account/me", "/account/notifications"],
+        disallow: ["/api/", "/account/me/"],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,

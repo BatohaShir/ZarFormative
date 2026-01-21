@@ -262,9 +262,6 @@ export function ServiceRequestModal({
 
   const formatAddress = (addr: AddressData): string => {
     const parts = [addr.city, addr.district, addr.khoroo];
-    if (addr.street) parts.push(addr.street);
-    if (addr.building) parts.push(addr.building);
-    if (addr.apartment) parts.push(addr.apartment);
     return parts.join(", ");
   };
 
@@ -288,7 +285,7 @@ export function ServiceRequestModal({
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-auto p-0">
           {isSubmitted ? (
             <div className="py-12 px-6 text-center space-y-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
+              <div className="w-20 h-20 bg-linear-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
                 <CheckCircle className="h-10 w-10 text-white" />
               </div>
               <div>

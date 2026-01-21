@@ -1,53 +1,80 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Package } from "lucide-react";
+import Image from "next/image";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
 import { useFindManylistings } from "@/lib/hooks/listings";
+import { CACHE_TIMES } from "@/lib/react-query-config";
 
 export function RecommendedListings() {
-  // Загружаем активные объявления из БД
-  const { data: listings, isLoading } = useFindManylistings({
-    where: {
-      status: "active",
-      is_active: true,
-    },
-    include: {
-      user: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          company_name: true,
-          is_company: true,
+  // Загружаем активные объявления из БД с оптимизированным кэшированием
+  const { data: listings, isLoading } = useFindManylistings(
+    {
+      where: {
+        status: "active",
+        is_active: true,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            company_name: true,
+            is_company: true,
+          },
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        images: {
+          where: {
+            is_cover: true,
+          },
+          select: {
+            id: true,
+            url: true,
+            sort_order: true,
+            is_cover: true,
+          },
+          take: 1,
+        },
+        aimag: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        district: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        khoroo: {
+          select: {
+            id: true,
+            name: true,
+          },
         },
       },
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
+      orderBy: {
+        created_at: "desc",
       },
-      images: {
-        select: {
-          id: true,
-          url: true,
-          sort_order: true,
-        },
-        orderBy: {
-          sort_order: "asc",
-        },
-      },
+      take: 8,
     },
-    orderBy: {
-      created_at: "desc",
-    },
-    take: 8,
-  });
+    {
+      ...CACHE_TIMES.RECOMMENDATIONS,
+    }
+  );
 
   if (isLoading) {
     return (
@@ -85,7 +112,13 @@ export function RecommendedListings() {
           <h3 className="text-base md:text-xl font-semibold">Танд зориулсан санал</h3>
         </div>
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Package className="h-16 w-16 text-muted-foreground/50 mb-4" />
+          <Image
+            src="/icons/7486744.png"
+            alt="Пустая коробка"
+            width={80}
+            height={80}
+            className="mb-4 opacity-70"
+          />
           <p className="text-muted-foreground text-sm md:text-base">
             Одоогоор зар байхгүй байна
           </p>
