@@ -805,7 +805,7 @@ export default function MyProfilePage() {
                 className="w-full gap-2"
                 asChild
               >
-                <Link href="/account/notifications">
+                <Link href="/account/me/notifications">
                   <Bell className="h-4 w-4" />
                   Мэдэгдлийн тохиргоо
                 </Link>

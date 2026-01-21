@@ -61,12 +61,12 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/favorites" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/account/me/favorites" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Таалагдсан
                 </Link>
               </li>
               <li>
-                <Link href="/requests" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/account/me/requests" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Заявки
                 </Link>
               </li>

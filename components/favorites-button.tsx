@@ -13,7 +13,7 @@ export function FavoritesButton({ className }: FavoritesButtonProps) {
   const { count } = useFavorites();
 
   return (
-    <Link href="/favorites">
+    <Link href="/account/me/favorites">
       <Button variant="ghost" size="icon" className={`relative ${className || ""}`}>
         <Heart className="h-5 w-5" />
         {count > 0 && (

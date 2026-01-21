@@ -47,10 +47,10 @@ export function MobileBottomNav() {
       badge: null,
     },
     {
-      href: "/favorites",
+      href: "/account/me/favorites",
       icon: Heart,
       label: "Лайк",
-      isActive: isActive("/favorites"),
+      isActive: isActive("/account/me/favorites"),
       badge: favoritesCount > 0 ? favoritesCount : null,
     },
     {
@@ -62,10 +62,10 @@ export function MobileBottomNav() {
       isCenter: true,
     },
     {
-      href: "/requests",
+      href: "/account/me/requests",
       icon: FileText,
       label: "Заявки",
-      isActive: isActive("/requests"),
+      isActive: isActive("/account/me/requests"),
       badge: totalUnreadCount > 0 ? totalUnreadCount : null,
       onClick: handleRequestsClick,
     },

@@ -21,7 +21,7 @@ export function RequestsButton({ className }: RequestsButtonProps) {
   }
 
   return (
-    <Link href="/requests">
+    <Link href="/account/me/requests">
       <Button variant="ghost" size="icon" className={`relative ${className || ""}`}>
         <FileText className="h-5 w-5" />
         {totalUnreadCount > 0 && (
