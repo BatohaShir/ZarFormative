@@ -10,14 +10,17 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
+import { NotificationsButton } from "@/components/notifications-button";
 import { useFindUniqueprofiles } from "@/lib/hooks/profiles";
 import { useFindManylistings } from "@/lib/hooks/listings";
+import { useFindManylisting_requests, useFindManyreviews } from "@/lib/hooks";
 import {
   ChevronLeft,
   MapPin,
   Star,
   CheckCircle,
   ThumbsUp,
+  ThumbsDown,
   Heart,
   Clock,
   MessageCircle,
@@ -83,6 +86,91 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
     }
   );
 
+  // Fetch requests for stats (as provider)
+  const { data: providerRequests } = useFindManylisting_requests(
+    {
+      where: {
+        provider_id: isUUID ? name : undefined,
+      },
+      select: {
+        id: true,
+        status: true,
+        preferred_date: true,
+        preferred_time: true,
+        created_at: true,
+      },
+    },
+    {
+      enabled: isUUID,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  // Fetch reviews for rating
+  const { data: reviews } = useFindManyreviews(
+    {
+      where: {
+        provider_id: isUUID ? name : undefined,
+      },
+      select: {
+        id: true,
+        rating: true,
+      },
+    },
+    {
+      enabled: isUUID,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  // Calculate average rating
+  const { averageRating, reviewCount } = React.useMemo(() => {
+    if (!reviews || reviews.length === 0) {
+      return { averageRating: 0, reviewCount: 0 };
+    }
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return {
+      averageRating: Math.round((sum / reviews.length) * 10) / 10,
+      reviewCount: reviews.length,
+    };
+  }, [reviews]);
+
+  // Calculate stats from requests
+  const requestStats = React.useMemo(() => {
+    if (!providerRequests) return { completedCount: 0, failedCount: 0 };
+
+    let completed = 0;
+    let failed = 0;
+
+    for (const req of providerRequests) {
+      if (req.status === "completed") {
+        completed++;
+      } else if (
+        req.status === "rejected" ||
+        req.status === "cancelled_by_provider"
+      ) {
+        failed++;
+      } else if (req.status === "pending" && req.preferred_date) {
+        const prefDate = new Date(req.preferred_date);
+        const now = new Date();
+
+        if (req.preferred_time) {
+          const [hours, minutes] = req.preferred_time.split(":").map(Number);
+          prefDate.setHours(hours, minutes, 0, 0);
+        } else {
+          prefDate.setHours(9, 0, 0, 0);
+        }
+
+        const deadline = new Date(prefDate.getTime() - 5 * 60 * 60 * 1000);
+        if (now > deadline) {
+          failed++;
+        }
+      }
+    }
+
+    return { completedCount: completed, failedCount: failed };
+  }, [providerRequests]);
+
   if (isLoadingProfile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -119,17 +207,18 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
     ? new Date(profile.created_at).getFullYear().toString()
     : "2024";
 
-  // Mock stats for now (these can be calculated from actual data later)
+  // Stats from real data
   const stats = {
-    rating: 4.8,
-    reviews: 0,
-    successfulServices: listings?.length || 0,
-    failedServices: 0,
+    rating: averageRating,
+    reviews: reviewCount,
+    successfulServices: requestStats.completedCount,
+    failedServices: requestStats.failedCount,
     likes: 0,
   };
 
-  const successRate = stats.successfulServices > 0
-    ? Math.round((stats.successfulServices / (stats.successfulServices + stats.failedServices)) * 100)
+  const totalServices = stats.successfulServices + stats.failedServices;
+  const successRate = totalServices > 0
+    ? Math.round((stats.successfulServices / totalServices) * 100)
     : 100;
 
   return (
@@ -154,8 +243,13 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
               </h1>
             </Link>
           </div>
+          {/* Mobile Nav - only notifications bell */}
+          <div className="flex md:hidden items-center gap-2">
+            <NotificationsButton />
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
+            <NotificationsButton />
             <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
@@ -202,7 +296,7 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-muted-foreground mb-4">
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-semibold text-foreground">{stats.rating}</span>
+                  <span className="font-semibold text-foreground">{stats.rating > 0 ? stats.rating : "-"}</span>
                   <span>({stats.reviews} сэтгэгдэл)</span>
                 </span>
                 <span className="flex items-center gap-1">
@@ -215,18 +309,18 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
               <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-4">
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  <span className="font-bold text-lg">{stats.rating}</span>
-                  <span className="text-sm text-muted-foreground">Үнэлгээ</span>
+                  <span className="font-bold text-lg">{stats.rating > 0 ? stats.rating : "-"}</span>
+                  <span className="text-sm text-muted-foreground">Үнэлгээ{stats.reviews > 0 ? ` (${stats.reviews})` : ""}</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsUp className="h-5 w-5 text-green-500" />
                   <span className="font-bold text-lg">{stats.successfulServices}</span>
-                  <span className="text-sm text-muted-foreground">Үйлчилгээ</span>
+                  <span className="text-sm text-muted-foreground">Амжилттай</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <Heart className="h-5 w-5 text-pink-500 fill-current" />
-                  <span className="font-bold text-lg">{stats.likes}</span>
-                  <span className="text-sm text-muted-foreground">Лайк</span>
+                  <ThumbsDown className="h-5 w-5 text-red-500" />
+                  <span className="font-bold text-lg">{stats.failedServices}</span>
+                  <span className="text-sm text-muted-foreground">Амжилтгүй</span>
                 </div>
               </div>
             </div>
@@ -258,8 +352,12 @@ export default function AccountPage({ params }: { params: Promise<{ name: string
               <h3 className="font-semibold text-lg mb-4">Статистик</h3>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Нийт үйлчилгээ</span>
+                  <span className="text-muted-foreground">Амжилттай</span>
                   <span className="font-semibold text-green-600">{stats.successfulServices}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Амжилтгүй</span>
+                  <span className="font-semibold text-red-600">{stats.failedServices}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Амжилтын хувь</span>

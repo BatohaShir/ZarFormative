@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
+import { NotificationsButton } from "@/components/notifications-button";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import { RequestForm } from "@/components/request-form";
@@ -241,8 +242,13 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
               </h1>
             </Link>
           </div>
+          {/* Mobile Nav - notifications bell */}
+          <div className="flex md:hidden items-center gap-2">
+            <NotificationsButton />
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
+            <NotificationsButton />
             <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />

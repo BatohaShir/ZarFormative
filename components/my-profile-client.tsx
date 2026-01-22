@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
+import { NotificationsButton } from "@/components/notifications-button";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import {
   ChevronLeft,
@@ -38,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { useEducations, type Education } from "@/hooks/use-educations";
 import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experiences";
+import { useFindManylisting_requests, useFindManyreviews } from "@/lib/hooks";
 import {
   SCHOOLS_DB,
   COMPANIES_DB,
@@ -138,6 +140,94 @@ export function MyProfileClient() {
   const [showAddWork, setShowAddWork] = React.useState(false);
   const [editingWorkId, setEditingWorkId] = React.useState<string | null>(null);
   const [newWork, setNewWork] = React.useState<NewWorkExperienceForm>(initialWorkForm);
+
+  // Fetch requests for stats (as provider)
+  const { data: providerRequests } = useFindManylisting_requests(
+    {
+      where: {
+        provider_id: user?.id || "",
+      },
+      select: {
+        id: true,
+        status: true,
+        preferred_date: true,
+        preferred_time: true,
+        created_at: true,
+      },
+    },
+    {
+      enabled: !!user?.id,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  // Fetch reviews for rating (as provider)
+  const { data: reviews } = useFindManyreviews(
+    {
+      where: {
+        provider_id: user?.id || "",
+      },
+      select: {
+        id: true,
+        rating: true,
+      },
+    },
+    {
+      enabled: !!user?.id,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  // Calculate average rating
+  const { averageRating, reviewCount } = React.useMemo(() => {
+    if (!reviews || reviews.length === 0) {
+      return { averageRating: 0, reviewCount: 0 };
+    }
+    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return {
+      averageRating: Math.round((sum / reviews.length) * 10) / 10,
+      reviewCount: reviews.length,
+    };
+  }, [reviews]);
+
+  // Calculate stats from requests
+  const { completedCount, failedCount } = React.useMemo(() => {
+    if (!providerRequests) return { completedCount: 0, failedCount: 0 };
+
+    let completed = 0;
+    let failed = 0;
+
+    for (const req of providerRequests) {
+      if (req.status === "completed") {
+        completed++;
+      } else if (
+        req.status === "rejected" ||
+        req.status === "cancelled_by_provider"
+      ) {
+        // Count rejected/cancelled by provider as failed
+        failed++;
+      } else if (req.status === "pending" && req.preferred_date) {
+        // Check if pending request is expired
+        const prefDate = new Date(req.preferred_date);
+        const now = new Date();
+
+        if (req.preferred_time) {
+          const [hours, minutes] = req.preferred_time.split(":").map(Number);
+          prefDate.setHours(hours, minutes, 0, 0);
+        } else {
+          prefDate.setHours(9, 0, 0, 0);
+        }
+
+        // Deadline: 5 hours before start
+        const deadline = new Date(prefDate.getTime() - 5 * 60 * 60 * 1000);
+        if (now > deadline) {
+          failed++;
+        }
+      }
+    }
+
+    return { completedCount: completed, failedCount: failed };
+  }, [providerRequests]);
 
   // Redirect to home if not authenticated
   React.useEffect(() => {
@@ -364,19 +454,23 @@ export function MyProfileClient() {
               </h1>
             </Link>
           </div>
-          {/* Mobile Settings Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden h-8 w-8"
-            asChild
-          >
-            <Link href="/account/me/settings">
-              <Settings className="h-4 w-4" />
-            </Link>
-          </Button>
+          {/* Mobile Nav */}
+          <div className="flex md:hidden items-center gap-2">
+            <NotificationsButton />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              asChild
+            >
+              <Link href="/account/me/settings">
+                <Settings className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
+            <NotificationsButton />
             <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
@@ -434,17 +528,17 @@ export function MyProfileClient() {
               <div className="flex flex-wrap justify-center md:justify-start gap-4 md:gap-6">
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  <span className="font-bold text-lg">4.9</span>
-                  <span className="text-sm text-muted-foreground">Үнэлгээ</span>
+                  <span className="font-bold text-lg">{averageRating > 0 ? averageRating : "-"}</span>
+                  <span className="text-sm text-muted-foreground">Үнэлгээ{reviewCount > 0 ? ` (${reviewCount})` : ""}</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsUp className="h-5 w-5 text-green-500" />
-                  <span className="font-bold text-lg">127</span>
+                  <span className="font-bold text-lg">{completedCount}</span>
                   <span className="text-sm text-muted-foreground">Амжилттай</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsDown className="h-5 w-5 text-red-500" />
-                  <span className="font-bold text-lg">2</span>
+                  <span className="font-bold text-lg">{failedCount}</span>
                   <span className="text-sm text-muted-foreground">Амжилтгүй</span>
                 </div>
               </div>

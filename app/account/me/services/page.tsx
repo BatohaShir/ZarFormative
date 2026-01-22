@@ -11,6 +11,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
+import { NotificationsButton } from "@/components/notifications-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryClient } from "@tanstack/react-query";
@@ -485,6 +486,15 @@ export default function MyServicesPage() {
               </h1>
             </Link>
           </div>
+          {/* Mobile Nav */}
+          <div className="flex md:hidden items-center gap-2">
+            <NotificationsButton />
+            <Button size="sm" asChild>
+              <Link href="/services/create">
+                <Plus className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
             <Button asChild>
@@ -493,17 +503,12 @@ export default function MyServicesPage() {
                 Шинэ зар
               </Link>
             </Button>
+            <NotificationsButton />
             <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
             <AuthModal />
           </nav>
-          {/* Mobile Add Button */}
-          <Button size="sm" className="md:hidden" asChild>
-            <Link href="/services/create">
-              <Plus className="h-4 w-4" />
-            </Link>
-          </Button>
         </div>
       </header>
 

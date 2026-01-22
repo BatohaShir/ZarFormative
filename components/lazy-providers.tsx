@@ -11,8 +11,14 @@ const MessagesProvider = dynamic(
   { ssr: false }
 );
 
-// Пустой провайдер для гостей - не загружает MessagesContext
-function GuestMessagesProvider({ children }: { children: React.ReactNode }) {
+// Lazy-load NotificationsProvider
+const NotificationsProvider = dynamic(
+  () => import("@/contexts/notifications-context").then((mod) => mod.NotificationsProvider),
+  { ssr: false }
+);
+
+// Пустой провайдер для гостей - не загружает контексты
+function GuestProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
@@ -27,8 +33,23 @@ export function LazyMessagesProvider({ children }: { children: React.ReactNode }
   // Пока загружается auth - используем пустой провайдер
   // После загрузки - если авторизован, подгружаем MessagesProvider
   if (isLoading || !isAuthenticated) {
-    return <GuestMessagesProvider>{children}</GuestMessagesProvider>;
+    return <GuestProvider>{children}</GuestProvider>;
   }
 
   return <MessagesProvider>{children}</MessagesProvider>;
+}
+
+/**
+ * Lazy-загрузка NotificationsProvider
+ * - Авторизованные: полный NotificationsProvider
+ * - Гости: пустая обёртка
+ */
+export function LazyNotificationsProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading || !isAuthenticated) {
+    return <GuestProvider>{children}</GuestProvider>;
+  }
+
+  return <NotificationsProvider>{children}</NotificationsProvider>;
 }

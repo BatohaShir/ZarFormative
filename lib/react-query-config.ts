@@ -67,6 +67,12 @@ export const CACHE_TIMES = {
     staleTime: 2 * MINUTE,
     gcTime: 10 * MINUTE,
   },
+
+  // Уведомления - короткий stale для актуальности
+  NOTIFICATIONS: {
+    staleTime: 30 * 1000, // 30 секунд
+    gcTime: 5 * MINUTE,
+  },
 } as const;
 
 /**

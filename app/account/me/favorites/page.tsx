@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
+import { NotificationsButton } from "@/components/notifications-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChevronLeft,
@@ -301,8 +302,13 @@ export default function FavoritesPage() {
               </h1>
             </Link>
           </div>
+          {/* Mobile Nav - only notifications bell */}
+          <div className="flex md:hidden items-center gap-2">
+            <NotificationsButton />
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
+            <NotificationsButton />
             <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />

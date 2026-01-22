@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { NotificationsButton } from "@/components/notifications-button";
 import {
   isPushSupported,
   getNotificationPermission,
@@ -194,7 +195,11 @@ export default function NotificationSettingsPage() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="font-semibold">Мэдэгдлийн тохиргоо</h1>
+          <h1 className="font-semibold flex-1">Мэдэгдлийн тохиргоо</h1>
+          {/* Mobile Nav - notifications bell */}
+          <div className="flex md:hidden items-center">
+            <NotificationsButton />
+          </div>
         </div>
       </header>
 

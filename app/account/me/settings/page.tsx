@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { NotificationsButton } from "@/components/notifications-button";
 import { useTheme } from "next-themes";
 import { usePushSubscription } from "@/hooks/use-push-subscription";
 import {
@@ -251,6 +252,8 @@ export default function AppSettingsPage() {
           <div className="flex-1">
             <h1 className="font-semibold">Апп тохиргоо</h1>
           </div>
+          {/* Notifications bell - shown on all screen sizes */}
+          <NotificationsButton />
         </div>
       </header>
 
