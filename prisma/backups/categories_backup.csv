@@ -1,0 +1,91 @@
+id,slug,name,icon,parent_id,sort_order,is_active,created_at,updated_at
+cmkewzigf0002xkfkga49amv8,transport,"Тээвэрлэлт, хүргэлт",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/transport.png,,0,t,2026-01-15 03:53:07.887,2026-01-21 11:38:21.773
+cmkmjwr16000b4q2no28ydjhy,repair,"Засвар, үйлчилгээ",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/repair.png,,1,t,2026-01-20 12:09:13.434,2026-01-21 11:41:28.554
+cmkmjx1xd000o4q2nq91u8ebx,cleaning,Цэвэрлэгээ,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/cleaning.png,,2,t,2026-01-20 12:09:27.554,2026-01-21 11:41:59.522
+cmkmjxb9w000z4q2niun7wb0t,construction,"Барилга, засал чимэглэл",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/construction.png,,3,t,2026-01-20 12:09:39.668,2026-01-21 11:42:44.615
+cmkmjwjm400024q2nney102xv,cargo-transport,Ачаа тээвэр,,cmkewzigf0002xkfkga49amv8,0,t,2026-01-20 12:09:03.82,2026-01-20 12:09:03.82
+cmkmjwl3u00044q2nextpzjyo,moving,Нүүлгэлт,,cmkewzigf0002xkfkga49amv8,1,t,2026-01-20 12:09:05.754,2026-01-20 12:09:05.754
+cmkmjwmkp00064q2n15c2lirz,delivery,Хүргэлтийн үйлчилгээ,,cmkewzigf0002xkfkga49amv8,2,t,2026-01-20 12:09:07.657,2026-01-20 12:09:07.657
+cmkmjwo1800084q2nuhyqa5i1,courier,"Шуудан, илгээмж",,cmkewzigf0002xkfkga49amv8,3,t,2026-01-20 12:09:09.548,2026-01-20 12:09:09.548
+cmkmjwpkj000a4q2netep2jmt,passenger-transport,Зорчигч тээвэр,,cmkewzigf0002xkfkga49amv8,4,t,2026-01-20 12:09:11.539,2026-01-20 12:09:11.539
+cmkmjwsk7000d4q2n6122t0u6,plumbing,Сантехник,,cmkmjwr16000b4q2no28ydjhy,0,t,2026-01-20 12:09:15.416,2026-01-20 12:09:15.416
+cmkmjwuco000f4q2nx61pn1t7,electrical,Цахилгаан,,cmkmjwr16000b4q2no28ydjhy,1,t,2026-01-20 12:09:17.345,2026-01-20 12:09:17.345
+cmkmjwvu6000h4q2ngcvf82mj,appliance-repair,Гэр ахуйн техник засвар,,cmkmjwr16000b4q2no28ydjhy,2,t,2026-01-20 12:09:19.662,2026-01-20 12:09:19.662
+cmkmjwxby000j4q2nhglu634b,furniture-repair,Тавилга засвар,,cmkmjwr16000b4q2no28ydjhy,3,t,2026-01-20 12:09:21.598,2026-01-20 12:09:21.598
+cmkmjwyvw000l4q2nf9nmpw4t,phone-repair,"Утас, гар утас засвар",,cmkmjwr16000b4q2no28ydjhy,4,t,2026-01-20 12:09:23.613,2026-01-20 12:09:23.613
+cmkmjx0dn000n4q2ngizpf5ca,locksmith,"Түлхүүр, цоожны үйлчилгээ",,cmkmjwr16000b4q2no28ydjhy,5,t,2026-01-20 12:09:25.547,2026-01-20 12:09:25.547
+cmkmjx3ey000q4q2nl3gq19cw,home-cleaning,Гэрийн цэвэрлэгээ,,cmkmjx1xd000o4q2nq91u8ebx,0,t,2026-01-20 12:09:29.482,2026-01-20 12:09:29.482
+cmkmjx4wj000s4q2n57s8384r,office-cleaning,Оффисын цэвэрлэгээ,,cmkmjx1xd000o4q2nq91u8ebx,1,t,2026-01-20 12:09:31.411,2026-01-20 12:09:31.411
+cmkmjx6ov000u4q2nrxyketfp,carpet-cleaning,Хивс угаалга,,cmkmjx1xd000o4q2nq91u8ebx,2,t,2026-01-20 12:09:33.344,2026-01-20 12:09:33.344
+cmkmjx89z000w4q2nu4hjsajm,window-cleaning,Цонх цэвэрлэгээ,,cmkmjx1xd000o4q2nq91u8ebx,3,t,2026-01-20 12:09:35.784,2026-01-20 12:09:35.784
+cmkmjx9s7000y4q2ndzlawf29,after-construction,Барилгын дараах цэвэрлэгээ,,cmkmjx1xd000o4q2nq91u8ebx,4,t,2026-01-20 12:09:37.735,2026-01-20 12:09:37.735
+cmkmjxcsk00114q2nnj0384zg,interior-design,Дотор засал,,cmkmjxb9w000z4q2niun7wb0t,0,t,2026-01-20 12:09:41.636,2026-01-20 12:09:41.636
+cmkmjxea400134q2nx2c0fbl8,painting,"Будаг, ханын цаас",,cmkmjxb9w000z4q2niun7wb0t,1,t,2026-01-20 12:09:43.565,2026-01-20 12:09:43.565
+cmkmjxfrk00154q2ne5daa7mi,flooring,Шал дэвсгэр,,cmkmjxb9w000z4q2niun7wb0t,2,t,2026-01-20 12:09:45.489,2026-01-20 12:09:45.489
+cmkmjxh8o00174q2njg487oj8,ceiling,Таазны ажил,,cmkmjxb9w000z4q2niun7wb0t,3,t,2026-01-20 12:09:47.401,2026-01-20 12:09:47.401
+cmkmjxizk00194q2n3re7ijp8,tiling,"Хавтан, плита",,cmkmjxb9w000z4q2niun7wb0t,4,t,2026-01-20 12:09:49.287,2026-01-20 12:09:49.287
+cmkmjxkg7001b4q2nfp14f6kp,welding,Гагнуур,,cmkmjxb9w000z4q2niun7wb0t,5,t,2026-01-20 12:09:51.559,2026-01-20 12:09:51.559
+cmkmjxlxo001d4q2n0dee3kis,carpentry,Мужааны ажил,,cmkmjxb9w000z4q2niun7wb0t,6,t,2026-01-20 12:09:53.484,2026-01-20 12:09:53.484
+cmkmjxp9e001g4q2ndukez7bi,computer-repair,Компьютер засвар,,cmkmjxnhx001e4q2nnhoaab3z,0,t,2026-01-20 12:09:57.794,2026-01-20 12:09:57.794
+cmkmjxqqv001i4q2n0dex4l64,web-development,Веб хөгжүүлэлт,,cmkmjxnhx001e4q2nnhoaab3z,1,t,2026-01-20 12:09:59.72,2026-01-20 12:09:59.72
+cmkmjxs8u001k4q2nzt32h5vt,mobile-development,Аппликейшн хөгжүүлэлт,,cmkmjxnhx001e4q2nnhoaab3z,2,t,2026-01-20 12:10:01.662,2026-01-20 12:10:01.662
+cmkmjxtqx001m4q2nhaiejj6v,network-setup,Сүлжээ тохиргоо,,cmkmjxnhx001e4q2nnhoaab3z,3,t,2026-01-20 12:10:03.609,2026-01-20 12:10:03.609
+cmkmjxvje001o4q2nmqmd3ysg,data-recovery,Өгөгдөл сэргээх,,cmkmjxnhx001e4q2nnhoaab3z,4,t,2026-01-20 12:10:05.552,2026-01-20 12:10:05.552
+cmkmjxx03001q4q2n5bccu2g9,it-consulting,IT зөвлөгөө,,cmkmjxnhx001e4q2nnhoaab3z,5,t,2026-01-20 12:10:07.827,2026-01-20 12:10:07.827
+cmkmjxzyk001t4q2nj20kacg6,hairdressing,Үс засалт,,cmkmjxygv001r4q2nudhihgs5,0,t,2026-01-20 12:10:11.66,2026-01-20 12:10:11.66
+cmkmjy1f7001v4q2ndqras67y,makeup,Нүүр будалт,,cmkmjxygv001r4q2nudhihgs5,1,t,2026-01-20 12:10:13.555,2026-01-20 12:10:13.555
+cmkmjy2wl001x4q2nyjy41auu,manicure,"Маникюр, педикюр",,cmkmjxygv001r4q2nudhihgs5,2,t,2026-01-20 12:10:15.477,2026-01-20 12:10:15.477
+cmkmjy4da001z4q2neimtv51u,massage,Массаж,,cmkmjxygv001r4q2nudhihgs5,3,t,2026-01-20 12:10:17.375,2026-01-20 12:10:17.375
+cmkmjy5u800214q2njuqpk2we,cosmetology,Арьс арчилгаа,,cmkmjxygv001r4q2nudhihgs5,4,t,2026-01-20 12:10:19.28,2026-01-20 12:10:19.28
+cmkmjy7mt00234q2n5dpnop88,eyebrow,"Хөмсөг, сормуус",,cmkmjxygv001r4q2nudhihgs5,5,t,2026-01-20 12:10:21.219,2026-01-20 12:10:21.219
+cmkmjyao700264q2nk44hwuy0,doctor-home,Гэрээр эмч,,cmkmjy95900244q2n2pmggrrs,0,t,2026-01-20 12:10:25.544,2026-01-20 12:10:25.544
+cmkmjyc6000284q2n31eklrv0,nursing,Асаргаа сувилгаа,,cmkmjy95900244q2n2pmggrrs,1,t,2026-01-20 12:10:27.48,2026-01-20 12:10:27.48
+cmkmjydnv002a4q2nghqvlur4,physiotherapy,Физик эмчилгээ,,cmkmjy95900244q2n2pmggrrs,2,t,2026-01-20 12:10:29.42,2026-01-20 12:10:29.42
+cmkmjxnhx001e4q2nnhoaab3z,it-services,"IT, Компьютер",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/it-services.png,,4,t,2026-01-20 12:09:55.51,2026-01-21 11:43:19.093
+cmkmjxygv001r4q2nudhihgs5,beauty,Гоо сайхан,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/beauty.png,,5,t,2026-01-20 12:10:09.727,2026-01-21 11:43:49.013
+cmkmjy95900244q2n2pmggrrs,health,Эрүүл мэнд,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/health.png,,6,t,2026-01-20 12:10:23.565,2026-01-21 11:44:19.802
+cmkmjyf5m002c4q2nbchjgxlj,psychology,Сэтгэл зүйч,,cmkmjy95900244q2n2pmggrrs,3,t,2026-01-20 12:10:31.354,2026-01-20 12:10:31.354
+cmkmjygnk002e4q2nna9f18tt,nutrition,Хоол тэжээл зөвлөгөө,,cmkmjy95900244q2n2pmggrrs,4,t,2026-01-20 12:10:33.296,2026-01-20 12:10:33.296
+cmkmjyjyw002h4q2nfivczd38,tutoring,Хичээл заах,,cmkmjyi4y002f4q2nj6l0ti0l,0,t,2026-01-20 12:10:37.198,2026-01-20 12:10:37.198
+cmkmjylh8002j4q2no3ojfrwm,language,Хэл сургалт,,cmkmjyi4y002f4q2nj6l0ti0l,1,t,2026-01-20 12:10:39.548,2026-01-20 12:10:39.548
+cmkmjymzg002l4q2n7imqgnuo,music-lessons,Хөгжим заах,,cmkmjyi4y002f4q2nj6l0ti0l,2,t,2026-01-20 12:10:41.5,2026-01-20 12:10:41.5
+cmkmjyogt002n4q2nknkvf4x7,sports-training,Спорт дасгалжуулалт,,cmkmjyi4y002f4q2nj6l0ti0l,3,t,2026-01-20 12:10:43.421,2026-01-20 12:10:43.421
+cmkmjypyp002p4q2nosf5cz7v,driving-lessons,Жолоо сургалт,,cmkmjyi4y002f4q2nj6l0ti0l,4,t,2026-01-20 12:10:45.361,2026-01-20 12:10:45.361
+cmkmjyrgw002r4q2n1gv766pi,cooking-classes,Хоол хийх сургалт,,cmkmjyi4y002f4q2nj6l0ti0l,5,t,2026-01-20 12:10:47.312,2026-01-20 12:10:47.312
+cmkmjyuin002u4q2nvsh2fq0n,legal-consulting,Хуулийн зөвлөгөө,,cmkmjyszp002s4q2n6etfde39,0,t,2026-01-20 12:10:51.263,2026-01-20 12:10:51.263
+cmkmjyweg002w4q2nyt196ypq,accounting,Нягтлан бодох,,cmkmjyszp002s4q2n6etfde39,1,t,2026-01-20 12:10:53.302,2026-01-20 12:10:53.302
+cmkmjyy1e002y4q2ny159k35m,tax-consulting,Татварын зөвлөгөө,,cmkmjyszp002s4q2n6etfde39,2,t,2026-01-20 12:10:55.826,2026-01-20 12:10:55.826
+cmkmjyzsp00304q2nwgezhkco,notary,Нотариат,,cmkmjyszp002s4q2n6etfde39,3,t,2026-01-20 12:10:58.105,2026-01-20 12:10:58.105
+cmkmjz1q500324q2ntlly8ucc,translation,"Орчуулга, баталгаажуулалт",,cmkmjyszp002s4q2n6etfde39,4,t,2026-01-20 12:11:00.605,2026-01-20 12:11:00.605
+cmkmjz5hs00354q2n646uhlrm,property-valuation,Үнэлгээ,,cmkmjz3ml00334q2n7fs4rrv8,0,t,2026-01-20 12:11:05.488,2026-01-20 12:11:05.488
+cmkmjz78p00374q2neygdlr6s,property-management,Орон сууц удирдлага,,cmkmjz3ml00334q2n7fs4rrv8,1,t,2026-01-20 12:11:07.753,2026-01-20 12:11:07.753
+cmkmjz9dh00394q2nwzc1a0an,rental-agent,Түрээсийн зуучлал,,cmkmjz3ml00334q2n7fs4rrv8,2,t,2026-01-20 12:11:10.019,2026-01-20 12:11:10.019
+cmkmjzb16003b4q2n5h3iiv46,property-consulting,Үл хөдлөх зөвлөгөө,,cmkmjz3ml00334q2n7fs4rrv8,3,t,2026-01-20 12:11:12.666,2026-01-20 12:11:12.666
+cmkmjze2z003e4q2nxtwps0u4,auto-repair,Авто засвар,,cmkmjzckr003c4q2n84sqsksb,0,t,2026-01-20 12:11:16.619,2026-01-20 12:11:16.619
+cmkmjzfkr003g4q2n63eciprh,car-wash,Авто угаалга,,cmkmjzckr003c4q2n84sqsksb,1,t,2026-01-20 12:11:18.555,2026-01-20 12:11:18.555
+cmkmjzh24003i4q2ny1jauqyh,tire-service,Дугуй үйлчилгээ,,cmkmjzckr003c4q2n84sqsksb,2,t,2026-01-20 12:11:20.477,2026-01-20 12:11:20.477
+cmkmjzik8003k4q2n5kebu21a,towing,Чирэгч үйлчилгээ,,cmkmjzckr003c4q2n84sqsksb,3,t,2026-01-20 12:11:22.424,2026-01-20 12:11:22.424
+cmkmjzk1t003m4q2n3rk8tzr5,car-detailing,Авто тохижилт,,cmkmjzckr003c4q2n84sqsksb,4,t,2026-01-20 12:11:24.353,2026-01-20 12:11:24.353
+cmkmjzlu2003o4q2n5jawflbr,auto-electric,Авто цахилгаан,,cmkmjzckr003c4q2n84sqsksb,5,t,2026-01-20 12:11:26.288,2026-01-20 12:11:26.288
+cmkmjzosy003r4q2nvb37z16p,pet-grooming,Амьтан гоёл засал,,cmkmjznbt003p4q2npotszlcv,0,t,2026-01-20 12:11:30.514,2026-01-20 12:11:30.514
+cmkmjzq9k003t4q2n14ed668r,pet-sitting,Амьтан харах,,cmkmjznbt003p4q2npotszlcv,1,t,2026-01-20 12:11:32.408,2026-01-20 12:11:32.408
+cmkmjzrqk003v4q2naoxb3uat,vet-services,Мал эмнэлэг,,cmkmjznbt003p4q2npotszlcv,2,t,2026-01-20 12:11:34.317,2026-01-20 12:11:34.317
+cmkmjzt76003x4q2nhtt7grys,pet-training,Амьтан сургалт,,cmkmjznbt003p4q2npotszlcv,3,t,2026-01-20 12:11:36.21,2026-01-20 12:11:36.21
+cmkmjzunp003z4q2n85hckjjb,pet-walking,Нохой зугаалуулах,,cmkmjznbt003p4q2npotszlcv,4,t,2026-01-20 12:11:38.101,2026-01-20 12:11:38.101
+cmkmjzxxt00424q2nqdj7h0t2,photography,Гэрэл зураг,,cmkmjzw5100404q2nymuvn4h6,0,t,2026-01-20 12:11:41.963,2026-01-20 12:11:41.963
+cmkmjzzej00444q2nb3wt5dge,videography,Видео бичлэг,,cmkmjzw5100404q2nymuvn4h6,1,t,2026-01-20 12:11:44.252,2026-01-20 12:11:44.252
+cmkmk00v400464q2n37ijy0fc,event-hosting,Хөтлөгч,,cmkmjzw5100404q2nymuvn4h6,2,t,2026-01-20 12:11:46.144,2026-01-20 12:11:46.144
+cmkmk02bk00484q2nqrcotr44,catering,Хоол үйлчилгээ,,cmkmjzw5100404q2nymuvn4h6,3,t,2026-01-20 12:11:48.032,2026-01-20 12:11:48.032
+cmkmk03s2004a4q2nflce3ual,decoration,Чимэглэл,,cmkmjzw5100404q2nymuvn4h6,4,t,2026-01-20 12:11:49.922,2026-01-20 12:11:49.922
+cmkmk058n004c4q2ni455xh2v,entertainment,"Үзвэр, тоглоом",,cmkmjzw5100404q2nymuvn4h6,5,t,2026-01-20 12:11:51.815,2026-01-20 12:11:51.815
+cmkmk086c004f4q2nis6vi3xn,personal-assistant,Хувийн туслах,,cmkmk06pb004d4q2n0ctn3vst,0,t,2026-01-20 12:11:55.62,2026-01-20 12:11:55.62
+cmkmk09xa004h4q2nvx1aosrd,errand-service,Ажил хэрэг гүйцэтгэх,,cmkmk06pb004d4q2n0ctn3vst,1,t,2026-01-20 12:11:57.51,2026-01-20 12:11:57.51
+cmkmk0bg1004j4q2npbg3d1af,handyman,Гар ажил,,cmkmk06pb004d4q2n0ctn3vst,2,t,2026-01-20 12:11:59.857,2026-01-20 12:11:59.857
+cmkmk0cwn004l4q2n0d52dj5j,custom-service,Захиалгат үйлчилгээ,,cmkmk06pb004d4q2n0ctn3vst,3,t,2026-01-20 12:12:01.751,2026-01-20 12:12:01.751
+cmkmjyi4y002f4q2nj6l0ti0l,education,"Боловсрол, сургалт",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/education.png,,7,t,2026-01-20 12:10:35.218,2026-01-21 11:44:45.195
+cmkmjyszp002s4q2n6etfde39,legal-finance,"Хууль, санхүү",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/legal-finance.png,,8,t,2026-01-20 12:10:49.285,2026-01-21 11:45:17.301
+cmkmjzckr003c4q2n84sqsksb,auto,Авто үйлчилгээ,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/auto.png,,10,t,2026-01-20 12:11:14.667,2026-01-21 11:46:00.707
+cmkmjz3ml00334q2n7fs4rrv8,real-estate,Үл хөдлөх,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/real-estate.png,,9,t,2026-01-20 12:11:03.069,2026-01-21 11:46:58.496
+cmkmjzw5100404q2nymuvn4h6,events,"Арга хэмжээ, баяр ёслол",https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/events.png,,12,t,2026-01-20 12:11:40.021,2026-01-21 11:48:12.703
+cmkmjznbt003p4q2npotszlcv,pets,Гэрийн тэжээвэр амьтан,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/pets.png,,11,t,2026-01-20 12:11:28.601,2026-01-21 11:49:51.969
+cmkmk06pb004d4q2n0ctn3vst,other,Бусад үйлчилгээ,https://gqzohavylekbxolokzgi.supabase.co/storage/v1/object/public/categories/icons/other.png,,13,t,2026-01-20 12:11:53.711,2026-01-21 11:50:37.901

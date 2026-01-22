@@ -26,9 +26,7 @@ export const listingSchema = z.object({
   category_id: z
     .string()
     .min(1, "Ангилал сонгоно уу")
-    .or(z.literal(""))
-    .refine(val => val !== "", "Ангилал сонгоно уу")
-    .refine(val => !val || /^[a-zA-Z0-9-_]+$/.test(val), "Ангилал ID буруу"),
+    .uuid("Ангилал ID буруу"),
   description: z
     .string()
     .min(1, "Тайлбар оруулна уу")
@@ -55,6 +53,9 @@ export const listingSchema = z.object({
       "Хугацаа 15-1440 минутын хооронд байх ёстой"
     ),
   service_type: z.enum(["on_site", "remote"]),
+  address_detail: z
+    .string()
+    .transform(val => val?.trim() || ""),
   work_hours_start: z
     .string()
     .transform(val => val || "09:00")
@@ -85,6 +86,7 @@ export const listingFormDefaults: ListingFormData = {
   is_negotiable: false,
   duration_minutes: "",
   service_type: "on_site",
+  address_detail: "",
   work_hours_start: "09:00",
   work_hours_end: "18:00",
 };

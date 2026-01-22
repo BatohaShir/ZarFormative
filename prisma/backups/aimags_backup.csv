@@ -1,0 +1,23 @@
+id,name,name_en,code,type,sort_order,is_active,created_at,updated_at
+cmkml9qru0000s5k1jb965pu4,Улаанбаатар,Ulaanbaatar,UB,capital,0,t,2026-01-20 12:47:19.243,2026-01-20 12:47:19.243
+cmkml9s920001s5k1lm46iy9a,Архангай,Arkhangai,AR,aimag,1,t,2026-01-20 12:47:21.158,2026-01-20 12:47:21.158
+cmkml9tqu0002s5k1wz1pjlm9,Баян-Өлгий,Bayan-Olgii,BO,aimag,2,t,2026-01-20 12:47:23.094,2026-01-20 12:47:23.094
+cmkml9v7a0003s5k1r57oghsy,Баянхонгор,Bayankhongor,BH,aimag,3,t,2026-01-20 12:47:24.982,2026-01-20 12:47:24.982
+cmkml9wnj0004s5k1x7r46kng,Булган,Bulgan,BU,aimag,4,t,2026-01-20 12:47:26.863,2026-01-20 12:47:26.863
+cmkml9yez0005s5k1vw4z8isy,Говь-Алтай,Govi-Altai,GA,aimag,5,t,2026-01-20 12:47:28.768,2026-01-20 12:47:28.768
+cmkml9zvf0006s5k1fsurosp8,Говьсүмбэр,Govisumber,GS,aimag,6,t,2026-01-20 12:47:31.035,2026-01-20 12:47:31.035
+cmkmla1bf0007s5k1wk7gcj8x,Дархан-Уул,Darkhan-Uul,DU,aimag,7,t,2026-01-20 12:47:32.907,2026-01-20 12:47:32.907
+cmkmla2r90008s5k19crn7c12,Дорноговь,Dornogovi,DG,aimag,8,t,2026-01-20 12:47:34.773,2026-01-20 12:47:34.773
+cmkmla47h0009s5k1oddl6x0s,Дорнод,Dornod,DO,aimag,9,t,2026-01-20 12:47:36.653,2026-01-20 12:47:36.653
+cmkmla5oa000as5k16q8xuldh,Дундговь,Dundgovi,DD,aimag,10,t,2026-01-20 12:47:38.554,2026-01-20 12:47:38.554
+cmkmla753000bs5k1m7obgo28,Завхан,Zavkhan,ZA,aimag,11,t,2026-01-20 12:47:40.455,2026-01-20 12:47:40.455
+cmkmla8lh000cs5k1lm3l7y1f,Орхон,Orkhon,OR,aimag,12,t,2026-01-20 12:47:42.342,2026-01-20 12:47:42.342
+cmkmlaacs000ds5k1vah8tgaz,Өвөрхангай,Ovorkhangai,OH,aimag,13,t,2026-01-20 12:47:44.242,2026-01-20 12:47:44.242
+cmkmlabt2000es5k1c89y7gfp,Өмнөговь,Omnogovi,OG,aimag,14,t,2026-01-20 12:47:46.502,2026-01-20 12:47:46.502
+cmkmlad9b000fs5k1hgd5iws5,Сүхбаатар,Sukhbaatar,SB,aimag,15,t,2026-01-20 12:47:48.384,2026-01-20 12:47:48.384
+cmkmlaest000gs5k1yszvkwq8,Сэлэнгэ,Selenge,SE,aimag,16,t,2026-01-20 12:47:50.381,2026-01-20 12:47:50.381
+cmkmlag91000hs5k1yfljq1ew,Төв,Tov,TO,aimag,17,t,2026-01-20 12:47:52.261,2026-01-20 12:47:52.261
+cmkmlahpg000is5k1y3dy5lpf,Увс,Uvs,UV,aimag,18,t,2026-01-20 12:47:54.148,2026-01-20 12:47:54.148
+cmkmlaj76000js5k1evu6g1nh,Ховд,Khovd,HO,aimag,19,t,2026-01-20 12:47:56.082,2026-01-20 12:47:56.082
+cmkmlakoh000ks5k1n0mam3we,Хөвсгөл,Khovsgol,HU,aimag,20,t,2026-01-20 12:47:58.001,2026-01-20 12:47:58.001
+cmkmlamf3000ls5k1vhpy7eaj,Хэнтий,Khentii,HE,aimag,21,t,2026-01-20 12:47:59.874,2026-01-20 12:47:59.874

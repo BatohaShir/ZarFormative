@@ -73,7 +73,7 @@ enum DistrictType {
 }
 
 model aimags {
-  id         String             @id() @default(cuid())
+  id         String             @id() @default(uuid()) @db.Uuid()
   name       String             @unique()
   name_en    String?
   code       String             @unique()
@@ -92,8 +92,8 @@ model aimags {
 }
 
 model districts {
-  id         String             @id() @default(cuid())
-  aimag_id   String
+  id         String             @id() @default(uuid()) @db.Uuid()
+  aimag_id   String             @db.Uuid()
   name       String
   name_en    String?
   type       DistrictType       @default(duureg)
@@ -114,8 +114,8 @@ model districts {
 }
 
 model khoroos {
-  id          String             @id() @default(cuid())
-  district_id String
+  id          String             @id() @default(uuid()) @db.Uuid()
+  district_id String             @db.Uuid()
   name        String
   number      Int?
   sort_order  Int                @default(0)
@@ -134,11 +134,11 @@ model khoroos {
 }
 
 model categories {
-  id         String       @id() @default(cuid())
+  id         String       @id() @default(uuid()) @db.Uuid()
   slug       String       @unique()
   name       String
   icon       String?
-  parent_id  String?
+  parent_id  String?      @db.Uuid()
   parent     categories?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
   children   categories[] @relation("CategoryHierarchy")
   sort_order Int          @default(0)
@@ -266,9 +266,9 @@ model profiles_work_experiences {
 }
 
 model listings {
-  id               String                   @id() @default(cuid())
+  id               String                   @id() @default(uuid()) @db.Uuid()
   user_id          String                   @db.Uuid()
-  category_id      String?
+  category_id      String?                  @db.Uuid()
   title            String
   slug             String                   @unique()
   description      String                   @db.Text()
@@ -279,9 +279,9 @@ model listings {
   work_hours_start String?                  @default("09:00")
   work_hours_end   String?                  @default("18:00")
   service_type     ServiceType              @default(on_site)
-  aimag_id         String?
-  district_id      String?
-  khoroo_id        String?
+  aimag_id         String?                  @db.Uuid()
+  district_id      String?                  @db.Uuid()
+  khoroo_id        String?                  @db.Uuid()
   address          String?
   latitude         Decimal?                 @db.Decimal(10, 7)
   longitude        Decimal?                 @db.Decimal(10, 7)
@@ -324,7 +324,7 @@ model listings {
 
 model listings_images {
   id         String   @id() @default(uuid()) @db.Uuid()
-  listing_id String
+  listing_id String   @db.Uuid()
   url        String
   alt        String?
   sort_order Int      @default(0)
@@ -340,7 +340,7 @@ model listings_images {
 
 model listings_views {
   id         String    @id() @default(uuid()) @db.Uuid()
-  listing_id String
+  listing_id String    @db.Uuid()
   viewer_id  String?   @db.Uuid()
   ip_address String?
   viewed_at  DateTime  @default(now())
@@ -356,7 +356,7 @@ model listings_views {
 model user_favorites {
   id         String   @id() @default(uuid()) @db.Uuid()
   user_id    String   @db.Uuid()
-  listing_id String
+  listing_id String   @db.Uuid()
   created_at DateTime @default(now())
   user       profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
   listing    listings @relation(fields: [listing_id], references: [id], onDelete: Cascade)
@@ -368,15 +368,15 @@ model user_favorites {
 }
 
 model listing_requests {
-  id                     String          @id() @default(cuid())
-  listing_id             String
+  id                     String          @id() @default(uuid()) @db.Uuid()
+  listing_id             String          @db.Uuid()
   client_id              String          @db.Uuid()
   provider_id            String          @db.Uuid()
   message                String          @db.Text()
   status                 RequestStatus   @default(pending)
-  aimag_id               String?
-  district_id            String?
-  khoroo_id              String?
+  aimag_id               String?         @db.Uuid()
+  district_id            String?         @db.Uuid()
+  khoroo_id              String?         @db.Uuid()
   address_detail         String?
   preferred_date         DateTime?
   preferred_time         String?
@@ -410,13 +410,13 @@ model listing_requests {
 }
 
 model notifications {
-  id         String            @id() @default(cuid())
+  id         String            @id() @default(uuid()) @db.Uuid()
   user_id    String            @db.Uuid()
   type       NotificationType
   title      String
   message    String            @db.Text()
   is_read    Boolean           @default(false)
-  request_id String?
+  request_id String?           @db.Uuid()
   actor_id   String?           @db.Uuid()
   created_at DateTime          @default(now())
   read_at    DateTime?
@@ -431,8 +431,8 @@ model notifications {
 }
 
 model chat_messages {
-  id              String           @id() @default(cuid())
-  request_id      String
+  id              String           @id() @default(uuid()) @db.Uuid()
+  request_id      String           @db.Uuid()
   sender_id       String           @db.Uuid()
   message         String           @db.Text()
   is_read         Boolean          @default(false)
@@ -453,8 +453,8 @@ model chat_messages {
 }
 
 model reviews {
-  id          String           @id() @default(cuid())
-  request_id  String           @unique()
+  id          String           @id() @default(uuid()) @db.Uuid()
+  request_id  String           @unique() @db.Uuid()
   client_id   String           @db.Uuid()
   provider_id String           @db.Uuid()
   rating      Int
