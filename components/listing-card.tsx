@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Heart, MapPin, Eye, Clock, CalendarClock } from "lucide-react";
+import { Heart, MapPin, Eye, Clock, CalendarClock, User } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
+import { useAuth } from "@/contexts/auth-context";
 import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice } from "@/lib/utils";
@@ -34,7 +35,9 @@ export const ListingCard = React.memo(function ListingCard({
   priority = false,
 }: ListingCardProps) {
   const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+  const { user } = useAuth();
   const isLiked = isFavorite(listing.id);
+  const isOwnListing = user?.id === listing.user.id;
 
   // Используем ref для isToggling чтобы избежать пересоздания callback
   const isTogglingRef = React.useRef(isToggling);
@@ -79,9 +82,17 @@ export const ListingCard = React.memo(function ListingCard({
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
-        <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
-          {listing.category.name}
-        </span>
+        <div className="absolute top-2 left-2 md:top-3 md:left-3 flex items-center gap-1.5">
+          <span className="text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
+            {listing.category.name}
+          </span>
+          {isOwnListing && (
+            <span className="text-[10px] md:text-[11px] bg-primary text-primary-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm flex items-center gap-1">
+              <User className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              Миний
+            </span>
+          )}
+        </div>
         {/* Like button on image */}
         <button
           onClick={handleLike}

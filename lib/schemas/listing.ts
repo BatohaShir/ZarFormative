@@ -39,12 +39,12 @@ export const listingSchema = z.object({
     ),
   price: z
     .string()
+    .min(1, "Үнэ оруулна уу")
     .transform(val => val?.trim() || "")
     .refine(
-      val => !val || (/^\d+(\.\d{1,2})?$/.test(val) && Number(val) >= 0 && Number(val) <= 999999999),
-      "Үнэ буруу форматтай (0-999,999,999)"
+      val => /^\d+(\.\d{1,2})?$/.test(val) && Number(val) > 0 && Number(val) <= 999999999,
+      "Үнэ 1-999,999,999 хооронд байх ёстой"
     ),
-  is_negotiable: z.boolean(),
   duration_minutes: z
     .string()
     .transform(val => val?.trim() || "")
@@ -83,7 +83,6 @@ export const listingFormDefaults: ListingFormData = {
   category_id: "",
   description: "",
   price: "",
-  is_negotiable: false,
   duration_minutes: "",
   service_type: "on_site",
   address_detail: "",

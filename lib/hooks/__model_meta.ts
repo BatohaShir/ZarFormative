@@ -418,6 +418,18 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'sender',
+                }, reviews_given: {
+                    name: "reviews_given",
+                    type: "reviews",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'client',
+                }, reviews_received: {
+                    name: "reviews_received",
+                    type: "reviews",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'provider',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -1361,9 +1373,13 @@ const metadata: ModelMeta = {
                 }, client_id: {
                     name: "client_id",
                     type: "String",
+                    isForeignKey: true,
+                    relationField: 'client',
                 }, provider_id: {
                     name: "provider_id",
                     type: "String",
+                    isForeignKey: true,
+                    relationField: 'provider',
                 }, rating: {
                     name: "rating",
                     type: "Int",
@@ -1383,6 +1399,22 @@ const metadata: ModelMeta = {
                     isRelationOwner: true,
                     onDeleteAction: 'Cascade',
                     foreignKeyMapping: { "id": "request_id" },
+                }, client: {
+                    name: "client",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'reviews_given',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "client_id" },
+                }, provider: {
+                    name: "provider",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'reviews_received',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "provider_id" },
                 },
             }, uniqueConstraints: {
                 id: {
@@ -1399,7 +1431,7 @@ const metadata: ModelMeta = {
     deleteCascade: {
         aimags: ['districts'],
         districts: ['khoroos'],
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests', 'notifications', 'chat_messages'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests', 'notifications', 'chat_messages', 'reviews'],
         listings: ['listings_images', 'listings_views', 'user_favorites', 'listing_requests'],
         listing_requests: ['chat_messages', 'reviews'],
 

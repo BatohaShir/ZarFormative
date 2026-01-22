@@ -283,6 +283,8 @@ model profiles {
   received_notifications notifications[] @relation("NotificationRecipient") // Уведомления, которые я получил
   triggered_notifications notifications[] @relation("NotificationActor")    // Уведомления, которые я создал
   chat_messages          chat_messages[]                                    // Сообщения чата
+  reviews_given          reviews[] @relation("ReviewClient")               // Отзывы, которые я оставил
+  reviews_received       reviews[] @relation("ReviewProvider")             // Отзывы, которые получил
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -879,6 +881,8 @@ model reviews {
 
   // Relations
   request     listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  client      profiles         @relation("ReviewClient", fields: [client_id], references: [id], onDelete: Cascade)
+  provider    profiles         @relation("ReviewProvider", fields: [provider_id], references: [id], onDelete: Cascade)
 
   // Indexes
   @@index([provider_id, created_at(sort: Desc)])      // Отзывы об исполнителе

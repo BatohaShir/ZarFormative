@@ -31,7 +31,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ImageUpload, ImageFile } from "@/components/image-upload";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -136,7 +135,6 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     defaultValues: listingFormDefaults,
   });
 
-  const watchIsNegotiable = watch("is_negotiable");
   const watchServiceType = watch("service_type");
 
   // Price formatting with thousand separators
@@ -199,7 +197,6 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       description: draft.description || "",
       category_id: draft.category_id || "",
       price: priceValue,
-      is_negotiable: draft.is_negotiable || false,
       duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
       service_type: (draft.service_type as "on_site" | "remote") || "on_site",
       address_detail: draft.address || "",
@@ -287,7 +284,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           district_id: selectedAddress?.districtId || null,
           khoroo_id: selectedAddress?.khorooId || null,
           price: data.price ? parseFloat(data.price) : null,
-          is_negotiable: data.is_negotiable,
+          is_negotiable: false,
           duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
           service_type: data.service_type,
           work_hours_start: data.work_hours_start || "09:00",
@@ -358,7 +355,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
-            is_negotiable: data.is_negotiable,
+            is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
@@ -397,7 +394,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
-            is_negotiable: data.is_negotiable,
+            is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
@@ -476,7 +473,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
-            is_negotiable: data.is_negotiable,
+            is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
@@ -523,7 +520,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
             price: data.price ? parseFloat(data.price) : null,
-            is_negotiable: data.is_negotiable,
+            is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
             work_hours_start: data.work_hours_start || "09:00",
@@ -1063,7 +1060,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                   <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">₮</span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">Үнэ</h3>
+                  <h3 className="font-semibold text-sm">Үнэ <span className="text-destructive">*</span></h3>
                   <p className="text-xs text-muted-foreground">Төгрөгөөр</p>
                 </div>
               </div>
@@ -1077,22 +1074,11 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                     onChange={handlePriceChange}
                     placeholder="50,000"
                     className="h-11 pr-10 text-center font-medium"
-                    disabled={watchIsNegotiable}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
                     ₮
                   </span>
                 </div>
-                <label className="flex items-center justify-center gap-2 cursor-pointer py-1.5 px-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <Checkbox
-                    id="is_negotiable"
-                    checked={watchIsNegotiable}
-                    onCheckedChange={(checked) =>
-                      setValue("is_negotiable", checked as boolean)
-                    }
-                  />
-                  <span className="text-sm">Тохиролцоно</span>
-                </label>
               </div>
               {errors.price && (
                 <p className="text-xs text-destructive mt-2">{errors.price.message}</p>

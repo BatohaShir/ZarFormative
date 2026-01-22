@@ -179,6 +179,8 @@ model profiles {
   received_notifications  notifications[]                 @relation("NotificationRecipient")
   triggered_notifications notifications[]                 @relation("NotificationActor")
   chat_messages           chat_messages[]
+  reviews_given           reviews[]                       @relation("ReviewClient")
+  reviews_received        reviews[]                       @relation("ReviewProvider")
 
   @@index([is_deleted])
   @@index([is_company])
@@ -461,6 +463,8 @@ model reviews {
   comment     String?          @db.Text()
   created_at  DateTime         @default(now())
   request     listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  client      profiles         @relation("ReviewClient", fields: [client_id], references: [id], onDelete: Cascade)
+  provider    profiles         @relation("ReviewProvider", fields: [provider_id], references: [id], onDelete: Cascade)
 
   @@index([provider_id, created_at(sort: Desc)])
   @@index([client_id])
