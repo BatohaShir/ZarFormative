@@ -465,6 +465,7 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
                   <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
                     <Clock className="h-4 w-4" />
                     <span className="font-medium">
+                      Үргэлжлэх хугацаа:{" "}
                       {listing.duration_minutes < 60
                         ? `${listing.duration_minutes} мин`
                         : listing.duration_minutes % 60 === 0

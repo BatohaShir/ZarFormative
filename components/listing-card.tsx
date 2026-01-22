@@ -168,11 +168,12 @@ export const ListingCard = React.memo(function ListingCard({
             {listing.duration_minutes && (
               <span className="flex items-center gap-0.5 md:gap-1 text-[10px] md:text-[11px]">
                 <Clock className="w-2.5 h-2.5 md:w-3 md:h-3 text-blue-500" />
+                <span className="hidden sm:inline">Хугацаа:</span>
                 {listing.duration_minutes < 60
-                  ? `${listing.duration_minutes} мин`
+                  ? ` ${listing.duration_minutes} мин`
                   : listing.duration_minutes % 60 === 0
-                    ? `${Math.floor(listing.duration_minutes / 60)} цаг`
-                    : `${Math.floor(listing.duration_minutes / 60)} ц ${listing.duration_minutes % 60} мин`}
+                    ? ` ${Math.floor(listing.duration_minutes / 60)} цаг`
+                    : ` ${Math.floor(listing.duration_minutes / 60)} ц ${listing.duration_minutes % 60} мин`}
               </span>
             )}
             {listing.work_hours_start && listing.work_hours_end && (
