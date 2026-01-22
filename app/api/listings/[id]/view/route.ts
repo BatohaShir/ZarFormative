@@ -60,7 +60,7 @@ export async function POST(
     const result = await prisma.$queryRaw<{ views_count: number; inserted: boolean }[]>`
       WITH check_existing AS (
         SELECT id FROM listings_views
-        WHERE listing_id = ${listing.id}
+        WHERE listing_id = ${listing.id}::uuid
           AND viewed_at > NOW() - INTERVAL '${Prisma.raw(String(VIEW_UNIQUENESS_PERIOD_HOURS))} hours'
           AND (
             ${viewerId ? Prisma.sql`viewer_id = ${viewerId}::uuid` : Prisma.sql`viewer_id IS NULL AND ip_address = ${ip}`}
@@ -71,7 +71,7 @@ export async function POST(
         INSERT INTO listings_views (id, listing_id, viewer_id, ip_address, viewed_at)
         SELECT
           gen_random_uuid(),
-          ${listing.id},
+          ${listing.id}::uuid,
           ${viewerId ? Prisma.sql`${viewerId}::uuid` : Prisma.sql`NULL`},
           ${viewerId ? Prisma.sql`NULL` : Prisma.sql`${ip}`},
           NOW()
@@ -81,7 +81,7 @@ export async function POST(
       update_count AS (
         UPDATE listings
         SET views_count = views_count + 1
-        WHERE id = ${listing.id}
+        WHERE id = ${listing.id}::uuid
           AND EXISTS (SELECT 1 FROM insert_view)
         RETURNING views_count
       )
