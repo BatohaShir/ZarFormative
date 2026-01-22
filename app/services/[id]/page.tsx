@@ -134,10 +134,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical: fullUrl,
     },
-    other: {
+    other: listing.price ? {
       "product:price:amount": listing.price.toString(),
       "product:price:currency": listing.currency,
-    },
+    } : undefined,
   };
 }
 
