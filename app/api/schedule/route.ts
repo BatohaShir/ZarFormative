@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// UUID regex для валидации providerId (Supabase UUID)
+// UUID regex для валидации providerId и listingId
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// CUID regex для валидации listingId
-const CUID_REGEX = /^c[a-z0-9]{24}$/;
 
 /**
  * API для получения занятых временных слотов исполнителя на определенную дату
@@ -35,8 +33,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Валидация listingId если передан (должен быть CUID)
-    if (listingId && !CUID_REGEX.test(listingId)) {
+    // Валидация listingId если передан (должен быть UUID)
+    if (listingId && !UUID_REGEX.test(listingId)) {
       return NextResponse.json(
         { error: "Invalid listingId format" },
         { status: 400 }
