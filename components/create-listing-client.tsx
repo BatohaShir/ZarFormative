@@ -38,6 +38,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
+import { NotificationsButton } from "@/components/notifications-button";
 
 // Types for modals
 import type { AddressData } from "@/components/address-select-modal";
@@ -201,6 +202,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       is_negotiable: draft.is_negotiable || false,
       duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
       service_type: (draft.service_type as "on_site" | "remote") || "on_site",
+      address_detail: draft.address || "",
       work_hours_start: draft.work_hours_start || "09:00",
       work_hours_end: draft.work_hours_end || "18:00",
     });
@@ -628,8 +630,13 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
               </h1>
             </Link>
           </div>
+          {/* Mobile Nav - notifications bell */}
+          <div className="flex md:hidden items-center gap-2">
+            <NotificationsButton />
+          </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
+            <NotificationsButton />
             <RequestsButton />
             <FavoritesButton />
             <ThemeToggle />
@@ -954,6 +961,25 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                 <span className="text-xs text-muted-foreground text-center">Үйлчлүүлэгч ирнэ</span>
               </label>
             </div>
+
+            {/* Detailed address - only shown when "Миний газар" (remote) is selected */}
+            {watchServiceType === "remote" && (
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="address_detail" className="text-sm font-medium flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-purple-500" />
+                  Дэлгэрэнгүй хаяг
+                </Label>
+                <Input
+                  id="address_detail"
+                  {...register("address_detail")}
+                  placeholder="Жишээ: 15-р байр, 3-р орц, 45 тоот"
+                  className="h-11"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Үйлчлүүлэгч таны газар ирэхэд шаардлагатай хаягийн мэдээлэл
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Duration, Work Hours, Price - Row 2 */}

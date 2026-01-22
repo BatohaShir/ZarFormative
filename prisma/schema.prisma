@@ -32,10 +32,29 @@ enum RequestStatus {
   accepted
   rejected
   in_progress
+  awaiting_client_confirmation
+  awaiting_completion_details
+  awaiting_payment
   completed
   cancelled_by_client
   cancelled_by_provider
   disputed
+}
+
+enum NotificationType {
+  request_accepted
+  request_rejected
+  work_started
+  work_awaiting_confirmation
+  work_completed
+  cancelled_by_provider
+  request_expired
+  new_request
+  request_cancelled
+  work_reminder
+  client_confirmed_completion
+  payment_received
+  new_message
 }
 
 enum ServiceType {
@@ -135,28 +154,31 @@ model categories {
 }
 
 model profiles {
-  id                    String                          @id() @db.Uuid()
-  first_name            String?
-  last_name             String?
-  phone_number          String?
-  is_company            Boolean                         @default(false)
-  avatar_url            String?
-  about                 String?
-  role                  UserRole                        @default(user)
-  created_at            DateTime                        @default(now())
-  updated_at            DateTime                        @default(now())
-  company_name          String?
-  registration_number   String?
-  is_deleted            Boolean                         @default(false)
-  push_subscriptions    profiles_push_subscriptions[]
-  notification_settings profiles_notification_settings?
-  educations            profiles_educations[]
-  work_experiences      profiles_work_experiences[]
-  listings              listings[]
-  viewed_listings       listings_views[]
-  favorites             user_favorites[]
-  sent_requests         listing_requests[]              @relation("ClientRequests")
-  received_requests     listing_requests[]              @relation("ProviderRequests")
+  id                      String                          @id() @db.Uuid()
+  first_name              String?
+  last_name               String?
+  phone_number            String?
+  is_company              Boolean                         @default(false)
+  avatar_url              String?
+  about                   String?
+  role                    UserRole                        @default(user)
+  created_at              DateTime                        @default(now())
+  updated_at              DateTime                        @default(now())
+  company_name            String?
+  registration_number     String?
+  is_deleted              Boolean                         @default(false)
+  push_subscriptions      profiles_push_subscriptions[]
+  notification_settings   profiles_notification_settings?
+  educations              profiles_educations[]
+  work_experiences        profiles_work_experiences[]
+  listings                listings[]
+  viewed_listings         listings_views[]
+  favorites               user_favorites[]
+  sent_requests           listing_requests[]              @relation("ClientRequests")
+  received_requests       listing_requests[]              @relation("ProviderRequests")
+  received_notifications  notifications[]                 @relation("NotificationRecipient")
+  triggered_notifications notifications[]                 @relation("NotificationActor")
+  chat_messages           chat_messages[]
 
   @@index([is_deleted])
   @@index([is_company])
@@ -346,31 +368,36 @@ model user_favorites {
 }
 
 model listing_requests {
-  id                String        @id() @default(cuid())
-  listing_id        String
-  client_id         String        @db.Uuid()
-  provider_id       String        @db.Uuid()
-  message           String        @db.Text()
-  status            RequestStatus @default(pending)
-  aimag_id          String?
-  district_id       String?
-  khoroo_id         String?
-  address_detail    String?
-  preferred_date    DateTime?
-  preferred_time    String?
-  note              String?       @db.Text()
-  image_url         String?
-  provider_response String?       @db.Text()
-  created_at        DateTime      @default(now())
-  updated_at        DateTime      @updatedAt()
-  accepted_at       DateTime?
-  completed_at      DateTime?
-  listing           listings      @relation(fields: [listing_id], references: [id], onDelete: Cascade)
-  client            profiles      @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
-  provider          profiles      @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
-  aimag             aimags?       @relation(fields: [aimag_id], references: [id])
-  district          districts?    @relation(fields: [district_id], references: [id])
-  khoroo            khoroos?      @relation(fields: [khoroo_id], references: [id])
+  id                     String          @id() @default(cuid())
+  listing_id             String
+  client_id              String          @db.Uuid()
+  provider_id            String          @db.Uuid()
+  message                String          @db.Text()
+  status                 RequestStatus   @default(pending)
+  aimag_id               String?
+  district_id            String?
+  khoroo_id              String?
+  address_detail         String?
+  preferred_date         DateTime?
+  preferred_time         String?
+  note                   String?         @db.Text()
+  image_url              String?
+  provider_response      String?         @db.Text()
+  completion_description String?         @db.Text()
+  completion_photos      String[]        @default([])
+  created_at             DateTime        @default(now())
+  updated_at             DateTime        @updatedAt()
+  accepted_at            DateTime?
+  completed_at           DateTime?
+  listing                listings        @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  client                 profiles        @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
+  provider               profiles        @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
+  aimag                  aimags?         @relation(fields: [aimag_id], references: [id])
+  district               districts?      @relation(fields: [district_id], references: [id])
+  khoroo                 khoroos?        @relation(fields: [khoroo_id], references: [id])
+  notifications          notifications[]
+  chat_messages          chat_messages[]
+  review                 reviews?
 
   @@index([listing_id])
   @@index([client_id, status])
@@ -380,4 +407,62 @@ model listing_requests {
   @@index([status, created_at(sort: Desc)])
   @@index([provider_id, preferred_date, status])
   @@map("listing_requests")
+}
+
+model notifications {
+  id         String            @id() @default(cuid())
+  user_id    String            @db.Uuid()
+  type       NotificationType
+  title      String
+  message    String            @db.Text()
+  is_read    Boolean           @default(false)
+  request_id String?
+  actor_id   String?           @db.Uuid()
+  created_at DateTime          @default(now())
+  read_at    DateTime?
+  user       profiles          @relation("NotificationRecipient", fields: [user_id], references: [id], onDelete: Cascade)
+  actor      profiles?         @relation("NotificationActor", fields: [actor_id], references: [id], onDelete: SetNull)
+  request    listing_requests? @relation(fields: [request_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, is_read, created_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([request_id])
+  @@map("notifications")
+}
+
+model chat_messages {
+  id              String           @id() @default(cuid())
+  request_id      String
+  sender_id       String           @db.Uuid()
+  message         String           @db.Text()
+  is_read         Boolean          @default(false)
+  created_at      DateTime         @default(now())
+  read_at         DateTime?
+  attachment_type String?
+  attachment_url  String?
+  location_lat    Decimal?         @db.Decimal(10, 7)
+  location_lng    Decimal?         @db.Decimal(10, 7)
+  location_name   String?
+  request         listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  sender          profiles         @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+
+  @@index([request_id, created_at(sort: Desc)])
+  @@index([sender_id])
+  @@index([request_id, is_read])
+  @@map("chat_messages")
+}
+
+model reviews {
+  id          String           @id() @default(cuid())
+  request_id  String           @unique()
+  client_id   String           @db.Uuid()
+  provider_id String           @db.Uuid()
+  rating      Int
+  comment     String?          @db.Text()
+  created_at  DateTime         @default(now())
+  request     listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  @@index([provider_id, created_at(sort: Desc)])
+  @@index([client_id])
+  @@map("reviews")
 }

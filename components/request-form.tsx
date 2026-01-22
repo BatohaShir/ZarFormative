@@ -13,11 +13,13 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { AddressSelectModal, AddressData } from "@/components/address-select-modal";
 import {
   Send,
   Loader2,
   CheckCircle,
   MessageSquare,
+  MapPin,
   Calendar,
   Clock,
   ChevronLeft,
@@ -30,6 +32,7 @@ import { uploadRequestImage } from "@/lib/storage/requests";
 import {
   useCreatelisting_requests,
   useFindFirstlisting_requests,
+  useCreatenotifications,
 } from "@/lib/hooks";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import { cn } from "@/lib/utils";
@@ -39,6 +42,7 @@ interface RequestFormProps {
   listingTitle: string;
   providerId: string;
   providerName: string;
+  serviceType?: "on_site" | "remote"; // Тип услуги - с выездом или на месте
 }
 
 interface ScheduleData {
@@ -94,12 +98,17 @@ export function RequestForm({
   listingTitle,
   providerId,
   providerName,
+  serviceType = "on_site",
 }: RequestFormProps) {
   const { user, isAuthenticated } = useAuth();
   const [open, setOpen] = React.useState(false);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
+  const [showAddressModal, setShowAddressModal] = React.useState(false);
   const [message, setMessage] = React.useState("");
   const [isSuccess, setIsSuccess] = React.useState(false);
+
+  // Address state (только для услуг с выездом)
+  const [selectedAddress, setSelectedAddress] = React.useState<AddressData | null>(null);
 
   // Date & Time state
   const today = new Date();
@@ -153,6 +162,7 @@ export function RequestForm({
 
   // Create request mutation
   const createRequest = useCreatelisting_requests();
+  const createNotification = useCreatenotifications();
 
   // Мемоизируем генерацию дней календаря
   const calendarDays = React.useMemo(
@@ -209,6 +219,7 @@ export function RequestForm({
     if (!newOpen) {
       // Reset form when closing
       setMessage("");
+      setSelectedAddress(null);
       setSelectedDate(null);
       setSelectedTime("");
       setShowCalendar(false);
@@ -258,6 +269,10 @@ export function RequestForm({
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const handleAddressSelect = (address: AddressData) => {
+    setSelectedAddress(address);
   };
 
   const handlePrevMonth = () => {
@@ -357,6 +372,12 @@ export function RequestForm({
       return;
     }
 
+    // Проверка обязательности адреса для услуг с выездом
+    if (serviceType === "on_site" && !selectedAddress) {
+      toast.error("Байршил сонгоно уу");
+      return;
+    }
+
     // Проверка занятости слота перед отправкой
     if (selectedTime && isTimeSlotUnavailable(selectedTime)) {
       toast.error("Энэ цаг завгүй байна. Өөр цаг сонгоно уу.");
@@ -379,19 +400,37 @@ export function RequestForm({
         uploadedImageUrl = result.url;
       }
 
-      await createRequest.mutateAsync({
+      const newRequest = await createRequest.mutateAsync({
         data: {
           listing_id: listingId,
           client_id: user.id,
           provider_id: providerId,
           message: message.trim(),
           status: "pending",
+          aimag_id: serviceType === "on_site" ? (selectedAddress?.cityId || null) : null,
+          district_id: serviceType === "on_site" ? (selectedAddress?.districtId || null) : null,
+          khoroo_id: serviceType === "on_site" ? (selectedAddress?.khorooId || null) : null,
+          address_detail: null,
           preferred_date: selectedDate || null,
           preferred_time: selectedTime || null,
           note: null,
           image_url: uploadedImageUrl,
         },
       });
+
+      // Send notification to provider about new request
+      if (newRequest) {
+        createNotification.mutate({
+          data: {
+            user_id: providerId,
+            type: "new_request",
+            title: "Шинэ хүсэлт",
+            message: `"${listingTitle}" үйлчилгээнд шинэ хүсэлт ирлээ`,
+            request_id: newRequest.id,
+            actor_id: user.id,
+          },
+        });
+      }
 
       setIsSuccess(true);
       toast.success("Хүсэлт амжилттай илгээгдлээ!");
@@ -403,7 +442,8 @@ export function RequestForm({
       setTimeout(() => {
         setOpen(false);
         setMessage("");
-        setSelectedDate(null);
+        setSelectedAddress(null);
+                setSelectedDate(null);
         setSelectedTime("");
         setIsSuccess(false);
         setScheduleData(null);
@@ -430,15 +470,44 @@ export function RequestForm({
   }
 
   // Show "already sent" state if there's an active request
+  // Статусы, при которых нельзя отправить повторно: pending, accepted, in_progress
+  // Можно отправить повторно при: rejected, cancelled_by_client, cancelled_by_provider, completed
   if (existingRequest) {
+    const statusMessages: Record<string, { title: string; description: string; color: string }> = {
+      pending: {
+        title: "Хүсэлт хүлээгдэж байна",
+        description: "Таны хүсэлт үйлчилгээ үзүүлэгчид илгээгдсэн. Хариуг хүлээнэ үү.",
+        color: "amber",
+      },
+      accepted: {
+        title: "Хүсэлт зөвшөөрөгдсөн",
+        description: "Үйлчилгээ үзүүлэгч таны хүсэлтийг хүлээн авсан байна.",
+        color: "green",
+      },
+      in_progress: {
+        title: "Ажил явагдаж байна",
+        description: "Үйлчилгээ үзүүлэгч таны захиалгыг гүйцэтгэж байна.",
+        color: "blue",
+      },
+    };
+
+    const status = existingRequest.status as keyof typeof statusMessages;
+    const message = statusMessages[status] || statusMessages.pending;
+
+    const colorClasses = {
+      amber: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400",
+      green: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
+      blue: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400",
+    };
+
     return (
-      <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 mb-2">
+      <div className={`p-4 border rounded-lg ${colorClasses[message.color as keyof typeof colorClasses]}`}>
+        <div className="flex items-center gap-2 mb-2">
           <CheckCircle className="h-5 w-5" />
-          <span className="font-medium">Хүсэлт илгээгдсэн</span>
+          <span className="font-medium">{message.title}</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          Та энэ үйлчилгээнд хүсэлт илгээсэн байна. Хариуг хүлээнэ үү.
+          {message.description}
         </p>
       </div>
     );
@@ -477,6 +546,60 @@ export function RequestForm({
               </div>
 
               <form onSubmit={handleSubmit} className="p-5 space-y-5">
+                {/* Address Selection - только для услуг с выездом */}
+                {serviceType === "on_site" && (
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Байршил <span className="text-destructive">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddressModal(true)}
+                      className={cn(
+                        "w-full flex items-center justify-between p-3.5 rounded-xl border-2 border-dashed transition-all text-left group",
+                        selectedAddress
+                          ? "bg-primary/5 border-primary/30 hover:border-primary/50"
+                          : "hover:bg-muted/50 hover:border-muted-foreground/30"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                          selectedAddress
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        )}>
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div>
+                          {selectedAddress ? (
+                            <>
+                              <div className="text-sm font-medium">{selectedAddress.city}, {selectedAddress.district}</div>
+                              <div className="text-xs text-muted-foreground">{selectedAddress.khoroo}</div>
+                            </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Хаяг сонгох</span>
+                          )}
+                        </div>
+                      </div>
+                      {selectedAddress && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedAddress(null);
+                                                      }}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </button>
+
+                  </div>
+                )}
+
                 {/* Date Selection */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium flex items-center gap-2">
@@ -641,23 +764,32 @@ export function RequestForm({
                     {/* Time selector dropdown */}
                     {showTimeSelector && (
                       <div className="space-y-3">
-                        {/* Work hours info */}
-                        {scheduleData && (
-                          <div className="flex items-center justify-between gap-2 text-xs bg-indigo-50 dark:bg-indigo-950/30 rounded-lg px-3 py-2 border border-indigo-200 dark:border-indigo-800">
-                            <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
-                              <Clock className="h-3.5 w-3.5" />
-                              <span>Ажлын цаг: <strong>{scheduleData.workHoursStart} - {scheduleData.workHoursEnd}</strong></span>
-                            </div>
-                            {scheduleData.currentListingDuration > 0 && (
-                              <span className="text-muted-foreground">
-                                ({formatDuration(scheduleData.currentListingDuration)})
-                              </span>
-                            )}
+                        {/* Loading state */}
+                        {isLoadingSchedule && (
+                          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span className="text-sm">Цагийн хуваарь ачаалж байна...</span>
                           </div>
                         )}
 
-                        {/* Time slots table */}
-                        <div className="border rounded-xl overflow-hidden bg-card">
+                        {/* Show schedule only when data is loaded */}
+                        {!isLoadingSchedule && scheduleData && (
+                          <>
+                            {/* Work hours info */}
+                            <div className="flex items-center justify-between gap-2 text-xs bg-indigo-50 dark:bg-indigo-950/30 rounded-lg px-3 py-2 border border-indigo-200 dark:border-indigo-800">
+                              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>Ажлын цаг: <strong>{scheduleData.workHoursStart} - {scheduleData.workHoursEnd}</strong></span>
+                              </div>
+                              {scheduleData.currentListingDuration > 0 && (
+                                <span className="text-muted-foreground">
+                                  ({formatDuration(scheduleData.currentListingDuration)})
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Time slots table */}
+                            <div className="border rounded-xl overflow-hidden bg-card">
                           <table className="w-full">
                             <thead>
                               <tr className="bg-muted/50">
@@ -749,30 +881,12 @@ export function RequestForm({
                             </div>
                           </div>
                         )}
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
-
-                {/* Message */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-primary" />
-                    Мессеж <span className="text-destructive">*</span>
-                  </label>
-                  <Textarea
-                    placeholder="Үйлчилгээний талаар дэлгэрэнгүй бичнэ үү..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    rows={4}
-                    maxLength={2000}
-                    disabled={createRequest.isPending || isUploadingImage}
-                    className="resize-none rounded-xl border-2 focus:border-primary/50 transition-colors"
-                  />
-                  <p className="text-xs text-muted-foreground text-right">
-                    {message.length}/2000
-                  </p>
-                </div>
 
                 {/* Photo Upload */}
                 <div className="space-y-2">
@@ -824,6 +938,26 @@ export function RequestForm({
                   )}
                 </div>
 
+                {/* Message */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    Мессеж <span className="text-destructive">*</span>
+                  </label>
+                  <Textarea
+                    placeholder="Үйлчилгээний талаар дэлгэрэнгүй бичнэ үү..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    disabled={createRequest.isPending || isUploadingImage}
+                    className="resize-none rounded-xl border-2 focus:border-primary/50 transition-colors"
+                  />
+                  <p className="text-xs text-muted-foreground text-right">
+                    {message.length}/2000
+                  </p>
+                </div>
+
                 {/* Buttons */}
                 <div className="flex gap-3 pt-3 sticky bottom-0 bg-background pb-1">
                   <Button
@@ -863,6 +997,14 @@ export function RequestForm({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Address Modal */}
+      <AddressSelectModal
+        open={showAddressModal}
+        onOpenChange={setShowAddressModal}
+        onSelect={handleAddressSelect}
+        initialAddress={selectedAddress || undefined}
+      />
 
       <LoginPromptModal
         open={showLoginModal}

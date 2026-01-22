@@ -49,14 +49,42 @@ enum ListingStatus {
 // ============================================
 
 enum RequestStatus {
-  pending               // Ожидает ответа исполнителя
-  accepted              // Принята исполнителем
-  rejected              // Отклонена исполнителем
-  in_progress           // В работе
-  completed             // Выполнена
-  cancelled_by_client   // Отменена клиентом
-  cancelled_by_provider // Отменена исполнителем
-  disputed              // Спор
+  pending                        // Ожидает ответа исполнителя
+  accepted                       // Принята исполнителем
+  rejected                       // Отклонена исполнителем
+  in_progress                    // В работе
+  awaiting_client_confirmation   // Исполнитель нажал "Дуусгах", ждет подтверждения клиента
+  awaiting_completion_details    // Клиент подтвердил, ждет описание работ от исполнителя
+  awaiting_payment               // Ожидает оплаты (QR код показан)
+  completed                      // Выполнена (после оплаты)
+  cancelled_by_client            // Отменена клиентом
+  cancelled_by_provider          // Отменена исполнителем
+  disputed                       // Спор
+}
+
+// ============================================
+// Notification Type - типы уведомлений
+// ============================================
+
+enum NotificationType {
+  // Для клиента (отправил заявку)
+  request_accepted              // Хүсэлт зөвшөөрөгдлөө
+  request_rejected              // Хүсэлт татгалзагдлаа
+  work_started                  // Ажил эхэллээ
+  work_awaiting_confirmation    // Исполнитель завершил работу, нужно подтвердить
+  work_completed                // Ажил дууслаа (после оплаты)
+  cancelled_by_provider         // Үйлчилгээ үзүүлэгч цуцаллаа
+  request_expired               // Хүсэлт хугацаа дууссан (исполнитель не успел принять за 5 часов до начала)
+
+  // Для исполнителя (получил заявку)
+  new_request                   // Шинэ хүсэлт ирлээ
+  request_cancelled             // Захиалагч хүсэлтээ цуцаллаа
+  work_reminder                 // Ажил удахгүй эхэлнэ
+  client_confirmed_completion   // Клиент подтвердил завершение, нужно заполнить детали
+  payment_received              // Оплата получена, работа завершена
+
+  // Для чата
+  new_message                   // Шинэ мессеж ирлээ
 }
 
 // ============================================
@@ -252,6 +280,9 @@ model profiles {
   favorites              user_favorites[]
   sent_requests          listing_requests[] @relation("ClientRequests")    // Заявки, которые я отправил
   received_requests      listing_requests[] @relation("ProviderRequests")  // Заявки, которые я получил
+  received_notifications notifications[] @relation("NotificationRecipient") // Уведомления, которые я получил
+  triggered_notifications notifications[] @relation("NotificationActor")    // Уведомления, которые я создал
+  chat_messages          chat_messages[]                                    // Сообщения чата
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -688,6 +719,10 @@ model listing_requests {
   // Ответ исполнителя (опционально)
   provider_response String?  @db.Text
 
+  // Данные о завершении работы
+  completion_description String?  @db.Text          // Описание проделанных работ
+  completion_photos      String[] @default([])      // URL фотографий завершенной работы (до 3 фото)
+
   // Timestamps
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
@@ -701,6 +736,9 @@ model listing_requests {
   aimag        aimags?   @relation(fields: [aimag_id], references: [id])
   district     districts? @relation(fields: [district_id], references: [id])
   khoroo       khoroos?  @relation(fields: [khoroo_id], references: [id])
+  notifications notifications[] // Уведомления, связанные с этой заявкой
+  chat_messages chat_messages[] // Сообщения чата
+  review        reviews?        // Отзыв клиента об исполнителе
 
   // Уникальность: одна активная заявка на объявление от клиента
   // Реализуется в API логике (проверка pending/accepted/in_progress)
@@ -737,4 +775,127 @@ model listing_requests {
 
   // Manager может только просматривать
   @@allow('read', auth().role == manager)
+}
+
+// ============================================
+// Notifications - In-app уведомления
+// ============================================
+
+model notifications {
+  id          String           @id @default(cuid())
+  user_id     String           @db.Uuid              // Получатель уведомления
+  type        NotificationType                       // Тип уведомления
+  title       String                                 // Заголовок (локализованный)
+  message     String           @db.Text              // Текст сообщения
+  is_read     Boolean          @default(false)       // Прочитано ли
+  request_id  String?                                // Связь с заявкой (опционально)
+  actor_id    String?          @db.Uuid              // Кто инициировал (опционально)
+  created_at  DateTime         @default(now())
+  read_at     DateTime?                              // Когда прочитано
+
+  // Relations
+  user        profiles         @relation("NotificationRecipient", fields: [user_id], references: [id], onDelete: Cascade)
+  actor       profiles?        @relation("NotificationActor", fields: [actor_id], references: [id], onDelete: SetNull)
+  request     listing_requests? @relation(fields: [request_id], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([user_id, is_read, created_at(sort: Desc)])  // Непрочитанные уведомления
+  @@index([user_id, created_at(sort: Desc)])           // Все уведомления пользователя
+  @@index([request_id])                                 // Уведомления по заявке
+
+  @@map("notifications")
+
+  // === RBAC Rules ===
+  // Пользователь видит свои уведомления
+  @@allow('read', auth() != null && auth().id == user_id)
+
+  // Пользователь может обновлять свои уведомления (пометить прочитанным)
+  @@allow('update', auth() != null && auth().id == user_id)
+
+  // Создание разрешено всем авторизованным (для создания уведомлений другим)
+  @@allow('create', auth() != null)
+
+  // Admin видит все уведомления
+  @@allow('read', auth().role == admin)
+}
+
+// ============================================
+// Chat Messages - Сообщения чата между клиентом и исполнителем
+// ============================================
+
+model chat_messages {
+  id          String           @id @default(cuid())
+  request_id  String                                // Связь с заявкой
+  sender_id   String           @db.Uuid             // Кто отправил
+  message     String           @db.Text             // Текст сообщения
+  is_read     Boolean          @default(false)      // Прочитано ли
+  created_at  DateTime         @default(now())
+  read_at     DateTime?                             // Когда прочитано
+
+  // Вложения (attachments)
+  attachment_type  String?                          // "image" | "location" | null
+  attachment_url   String?                          // Signed URL для изображения
+  location_lat     Decimal?     @db.Decimal(10, 7)  // Широта для геолокации
+  location_lng     Decimal?     @db.Decimal(10, 7)  // Долгота для геолокации
+  location_name    String?                          // Название места (опционально)
+
+  // Relations
+  request     listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  sender      profiles         @relation(fields: [sender_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([request_id, created_at(sort: Desc)])     // Сообщения заявки
+  @@index([sender_id])                               // Сообщения пользователя
+  @@index([request_id, is_read])                     // Непрочитанные сообщения
+
+  @@map("chat_messages")
+
+  // === RBAC Rules ===
+  // Клиент и исполнитель заявки могут читать сообщения
+  @@allow('read', auth() != null && (request.client_id == auth().id || request.provider_id == auth().id))
+
+  // Клиент и исполнитель могут отправлять сообщения
+  @@allow('create', auth() != null && sender_id == auth().id && (request.client_id == auth().id || request.provider_id == auth().id))
+
+  // Получатель может пометить как прочитанное
+  @@allow('update', auth() != null && sender_id != auth().id && (request.client_id == auth().id || request.provider_id == auth().id))
+
+  // Admin видит все сообщения
+  @@allow('read', auth().role == admin)
+}
+
+// ============================================
+// Reviews - Отзывы клиентов об исполнителях
+// ============================================
+
+model reviews {
+  id          String           @id @default(cuid())
+  request_id  String           @unique                  // Один отзыв на одну заявку
+  client_id   String           @db.Uuid                 // Кто оставил отзыв
+  provider_id String           @db.Uuid                 // О ком отзыв
+  rating      Int                                       // Оценка 1-5
+  comment     String?          @db.Text                 // Текст отзыва
+  created_at  DateTime         @default(now())
+
+  // Relations
+  request     listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([provider_id, created_at(sort: Desc)])      // Отзывы об исполнителе
+  @@index([client_id])                                  // Отзывы от клиента
+
+  @@map("reviews")
+
+  // === RBAC Rules ===
+  // Все могут читать отзывы (публичная информация)
+  @@allow('read', true)
+
+  // Клиент может создавать отзыв о своей заявке
+  @@allow('create', auth() != null && auth().id == client_id)
+
+  // Клиент может редактировать свой отзыв
+  @@allow('update', auth() != null && auth().id == client_id)
+
+  // Admin может все
+  @@allow('all', auth().role == admin)
 }

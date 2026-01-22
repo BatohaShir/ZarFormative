@@ -8,6 +8,9 @@ import {
   CheckCircle,
   X,
   AlertCircle,
+  FileText,
+  CreditCard,
+  HourglassIcon,
 } from "lucide-react";
 import type { RequestStatus } from "@prisma/client";
 import type { RequestWithRelations, PersonInfo } from "./types";
@@ -118,6 +121,36 @@ export function getStatusBadge(status: RequestStatus, type: "sent" | "received" 
         React.createElement(AlertCircle, { className: "h-3 w-3 mr-1" }),
         "Маргаантай"
       );
+    case "awaiting_client_confirmation":
+      return React.createElement(
+        Badge,
+        {
+          variant: "outline",
+          className: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800",
+        },
+        React.createElement(HourglassIcon, { className: "h-3 w-3 mr-1" }),
+        type === "sent" ? "Баталгаажуулна уу" : "Баталгаажуулах хүлээгдэж байна"
+      );
+    case "awaiting_completion_details":
+      return React.createElement(
+        Badge,
+        {
+          variant: "outline",
+          className: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800",
+        },
+        React.createElement(FileText, { className: "h-3 w-3 mr-1" }),
+        type === "received" ? "Тайлан бичнэ үү" : "Тайлан хүлээгдэж байна"
+      );
+    case "awaiting_payment":
+      return React.createElement(
+        Badge,
+        {
+          variant: "outline",
+          className: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800",
+        },
+        React.createElement(CreditCard, { className: "h-3 w-3 mr-1" }),
+        type === "received" ? "Төлбөр авна уу" : "Төлбөр хүлээгдэж байна"
+      );
     default:
       return null;
   }
@@ -129,6 +162,20 @@ export function getPersonName(person: PersonInfo): string {
   }
   const parts = [person.first_name, person.last_name].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : "Хэрэглэгч";
+}
+
+/**
+ * Получает инициалы пользователя для аватарки
+ * Для компаний - первые 2 буквы названия
+ * Для пользователей - первая буква имени + первая буква фамилии
+ */
+export function getPersonInitials(person: PersonInfo): string {
+  if (person.is_company && person.company_name) {
+    return person.company_name.slice(0, 2).toUpperCase();
+  }
+  const firstInitial = person.first_name?.charAt(0)?.toUpperCase() || "";
+  const lastInitial = person.last_name?.charAt(0)?.toUpperCase() || "";
+  return firstInitial + lastInitial || "?";
 }
 
 export function getListingImage(listing: RequestWithRelations["listing"]): string {
@@ -147,4 +194,213 @@ export function formatPreferredDateTime(date: Date | null, time: string | null):
     return `${dateStr}, ${time}`;
   }
   return dateStr;
+}
+
+/**
+ * Проверяет, просрочена ли заявка
+ *
+ * Правила:
+ * - pending: истекает за 5 часов до назначенного времени начала
+ *   (если нет preferred_date/time - не истекает автоматически)
+ * - accepted: просрочена если прошло 2 часа после назначенного времени
+ */
+export interface OverdueInfo {
+  isOverdue: boolean;
+  hoursOverdue: number;
+  deadlineType: "response" | "start" | null;
+  message: string | null;
+}
+
+export function checkRequestOverdue(
+  status: RequestStatus,
+  createdAt: Date | string,
+  preferredDate: Date | string | null,
+  preferredTime: string | null
+): OverdueInfo {
+  const now = new Date();
+
+  // Pending: истекает за 5 часов до начала работы
+  if (status === "pending" && preferredDate) {
+    const prefDate = new Date(preferredDate);
+
+    if (preferredTime) {
+      const [hours, minutes] = preferredTime.split(":").map(Number);
+      prefDate.setHours(hours, minutes, 0, 0);
+    } else {
+      prefDate.setHours(9, 0, 0, 0); // Default to 9:00 AM
+    }
+
+    // Дедлайн для принятия: за 5 часов до начала
+    const deadline = new Date(prefDate.getTime() - 5 * 60 * 60 * 1000);
+    const hoursOverdue = Math.floor((now.getTime() - deadline.getTime()) / (60 * 60 * 1000));
+
+    if (now > deadline) {
+      return {
+        isOverdue: true,
+        hoursOverdue: Math.max(0, hoursOverdue),
+        deadlineType: "response",
+        message: "Хугацаа дууссан",
+      };
+    }
+
+    // Check if close to deadline (less than 2 hours left to accept)
+    const hoursLeft = Math.floor((deadline.getTime() - now.getTime()) / (60 * 60 * 1000));
+    if (hoursLeft < 2) {
+      const minutesLeft = Math.floor((deadline.getTime() - now.getTime()) / (60 * 1000));
+      return {
+        isOverdue: false,
+        hoursOverdue: 0,
+        deadlineType: "response",
+        message: minutesLeft > 60 ? `${hoursLeft} цаг үлдлээ` : `${minutesLeft} мин үлдлээ`,
+      };
+    }
+  }
+
+  // Accepted: 2 часа после назначенного времени
+  if (status === "accepted" && preferredDate) {
+    const prefDate = new Date(preferredDate);
+
+    if (preferredTime) {
+      const [hours, minutes] = preferredTime.split(":").map(Number);
+      prefDate.setHours(hours, minutes, 0, 0);
+    } else {
+      prefDate.setHours(9, 0, 0, 0); // Default to 9:00 AM
+    }
+
+    const deadline = new Date(prefDate.getTime() + 2 * 60 * 60 * 1000);
+    const hoursOverdue = Math.floor((now.getTime() - deadline.getTime()) / (60 * 60 * 1000));
+
+    if (now > deadline) {
+      return {
+        isOverdue: true,
+        hoursOverdue: Math.max(0, hoursOverdue),
+        deadlineType: "start",
+        message: "Ажил эхлэх хугацаа хэтэрсэн",
+      };
+    }
+
+    // Check if work should have started (past preferred time but within grace period)
+    if (now > prefDate) {
+      const minutesLeft = Math.floor((deadline.getTime() - now.getTime()) / (60 * 1000));
+      return {
+        isOverdue: false,
+        hoursOverdue: 0,
+        deadlineType: "start",
+        message: `Ажил эхлэх ёстой! ${minutesLeft} мин үлдлээ`,
+      };
+    }
+  }
+
+  return {
+    isOverdue: false,
+    hoursOverdue: 0,
+    deadlineType: null,
+    message: null,
+  };
+}
+
+/**
+ * Проверяет, должна ли заявка отображаться в "Явагдаж буй" табе
+ *
+ * Условия:
+ * - in_progress: всегда
+ * - accepted: если preferred_date наступила или сегодня
+ */
+export function shouldShowInActiveJobs(
+  status: RequestStatus,
+  preferredDate: Date | string | null
+): boolean {
+  if (status === "in_progress") return true;
+
+  if (status === "accepted" && preferredDate) {
+    const now = new Date();
+    const prefDate = new Date(preferredDate);
+
+    // Set both to start of day for comparison
+    now.setHours(0, 0, 0, 0);
+    prefDate.setHours(0, 0, 0, 0);
+
+    // Show if preferred date is today or in the past
+    return prefDate <= now;
+  }
+
+  return false;
+}
+
+/**
+ * Проверяет, доступен ли чат для заявки
+ *
+ * Условия:
+ * - Статус: in_progress, awaiting_*, completed - чат всегда доступен
+ * - Если accepted: за 2 часа до начала работы или позже
+ * - Чат НЕ доступен: pending, rejected, cancelled_*, disputed, expired
+ */
+export function isChatAvailable(
+  status: RequestStatus,
+  preferredDate: Date | string | null,
+  preferredTime: string | null
+): { available: boolean; message: string | null } {
+  // Chat NOT available for these terminal/cancelled statuses
+  const chatUnavailableStatuses = [
+    "pending",
+    "rejected",
+    "cancelled_by_client",
+    "cancelled_by_provider",
+    "disputed",
+    "expired",
+  ];
+
+  if (chatUnavailableStatuses.includes(status)) {
+    return { available: false, message: null };
+  }
+
+  // Chat available for in_progress, all completion flow statuses, and completed
+  const chatAlwaysAvailableStatuses = [
+    "in_progress",
+    "awaiting_client_confirmation",
+    "awaiting_completion_details",
+    "awaiting_payment",
+    "completed",
+  ];
+
+  if (chatAlwaysAvailableStatuses.includes(status)) {
+    return { available: true, message: null };
+  }
+
+  // For accepted - check if within 2 hours of start
+  if (status === "accepted" && preferredDate) {
+    const now = new Date();
+    const prefDate = new Date(preferredDate);
+
+    if (preferredTime) {
+      const [hours, minutes] = preferredTime.split(":").map(Number);
+      prefDate.setHours(hours, minutes, 0, 0);
+    } else {
+      prefDate.setHours(9, 0, 0, 0);
+    }
+
+    // Chat opens 2 hours before start
+    const chatOpenTime = new Date(prefDate.getTime() - 2 * 60 * 60 * 1000);
+
+    if (now >= chatOpenTime) {
+      return { available: true, message: null };
+    }
+
+    // Calculate time until chat opens
+    const hoursUntilChat = Math.floor((chatOpenTime.getTime() - now.getTime()) / (60 * 60 * 1000));
+    const minutesUntilChat = Math.floor((chatOpenTime.getTime() - now.getTime()) / (60 * 1000)) % 60;
+
+    if (hoursUntilChat > 0) {
+      return {
+        available: false,
+        message: `Чат ${hoursUntilChat} цаг ${minutesUntilChat} минутын дараа нээгдэнэ`,
+      };
+    }
+    return {
+      available: false,
+      message: `Чат ${minutesUntilChat} минутын дараа нээгдэнэ`,
+    };
+  }
+
+  return { available: false, message: null };
 }

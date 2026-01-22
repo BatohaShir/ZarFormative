@@ -400,6 +400,24 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'provider',
+                }, received_notifications: {
+                    name: "received_notifications",
+                    type: "notifications",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
+                }, triggered_notifications: {
+                    name: "triggered_notifications",
+                    type: "notifications",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'actor',
+                }, chat_messages: {
+                    name: "chat_messages",
+                    type: "chat_messages",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'sender',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -1074,6 +1092,15 @@ const metadata: ModelMeta = {
                     name: "provider_response",
                     type: "String",
                     isOptional: true,
+                }, completion_description: {
+                    name: "completion_description",
+                    type: "String",
+                    isOptional: true,
+                }, completion_photos: {
+                    name: "completion_photos",
+                    type: "String",
+                    isArray: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": [] }] }],
                 }, created_at: {
                     name: "created_at",
                     type: "DateTime",
@@ -1138,6 +1165,24 @@ const metadata: ModelMeta = {
                     backLink: 'requests',
                     isRelationOwner: true,
                     foreignKeyMapping: { "id": "khoroo_id" },
+                }, notifications: {
+                    name: "notifications",
+                    type: "notifications",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'request',
+                }, chat_messages: {
+                    name: "chat_messages",
+                    type: "chat_messages",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'request',
+                }, review: {
+                    name: "review",
+                    type: "reviews",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'request',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -1146,13 +1191,217 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        notifications: {
+            name: 'notifications', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'user',
+                }, type: {
+                    name: "type",
+                    type: "NotificationType",
+                }, title: {
+                    name: "title",
+                    type: "String",
+                }, message: {
+                    name: "message",
+                    type: "String",
+                }, is_read: {
+                    name: "is_read",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, request_id: {
+                    name: "request_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'request',
+                }, actor_id: {
+                    name: "actor_id",
+                    type: "String",
+                    isOptional: true,
+                    isForeignKey: true,
+                    relationField: 'actor',
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, read_at: {
+                    name: "read_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, user: {
+                    name: "user",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'received_notifications',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                }, actor: {
+                    name: "actor",
+                    type: "profiles",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'triggered_notifications',
+                    isRelationOwner: true,
+                    onDeleteAction: 'SetNull',
+                    foreignKeyMapping: { "id": "actor_id" },
+                }, request: {
+                    name: "request",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    isOptional: true,
+                    backLink: 'notifications',
+                    isRelationOwner: true,
+                    onDeleteAction: 'SetNull',
+                    foreignKeyMapping: { "id": "request_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
+        chat_messages: {
+            name: 'chat_messages', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, request_id: {
+                    name: "request_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'request',
+                }, sender_id: {
+                    name: "sender_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'sender',
+                }, message: {
+                    name: "message",
+                    type: "String",
+                }, is_read: {
+                    name: "is_read",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, read_at: {
+                    name: "read_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, attachment_type: {
+                    name: "attachment_type",
+                    type: "String",
+                    isOptional: true,
+                }, attachment_url: {
+                    name: "attachment_url",
+                    type: "String",
+                    isOptional: true,
+                }, location_lat: {
+                    name: "location_lat",
+                    type: "Decimal",
+                    isOptional: true,
+                }, location_lng: {
+                    name: "location_lng",
+                    type: "Decimal",
+                    isOptional: true,
+                }, location_name: {
+                    name: "location_name",
+                    type: "String",
+                    isOptional: true,
+                }, request: {
+                    name: "request",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    backLink: 'chat_messages',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "request_id" },
+                }, sender: {
+                    name: "sender",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'chat_messages',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "sender_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                },
+            },
+        },
+        reviews: {
+            name: 'reviews', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, request_id: {
+                    name: "request_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'request',
+                }, client_id: {
+                    name: "client_id",
+                    type: "String",
+                }, provider_id: {
+                    name: "provider_id",
+                    type: "String",
+                }, rating: {
+                    name: "rating",
+                    type: "Int",
+                }, comment: {
+                    name: "comment",
+                    type: "String",
+                    isOptional: true,
+                }, created_at: {
+                    name: "created_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, request: {
+                    name: "request",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    backLink: 'review',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "request_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, request_id: {
+                    name: "request_id",
+                    fields: ["request_id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
         aimags: ['districts'],
         districts: ['khoroos'],
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests', 'notifications', 'chat_messages'],
         listings: ['listings_images', 'listings_views', 'user_favorites', 'listing_requests'],
+        listing_requests: ['chat_messages', 'reviews'],
 
     },
     authModel: 'profiles'

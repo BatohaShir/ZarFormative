@@ -17,9 +17,20 @@ import {
   MessageSquare,
   Loader2,
   ImageIcon,
+  ZoomIn,
+  MessageCircle,
+  Clock,
+  CreditCard,
 } from "lucide-react";
 import type { RequestWithRelations, RequestActions } from "./types";
-import { getStatusBadge, getPersonName, getListingImage, formatCreatedAt } from "./utils";
+import { getStatusBadge, getPersonName, getListingImage, formatCreatedAt, isChatAvailable } from "./utils";
+import { RequestChat } from "./request-chat";
+import {
+  ClientReviewForm,
+  ProviderCompletionForm,
+  QRPaymentModal,
+  CompletionSuccessModal,
+} from "./work-completion-flow";
 
 // Lazy load AddressMap - heavy component with Leaflet
 const AddressMap = dynamic(
@@ -40,6 +51,12 @@ interface RequestDetailModalProps {
   actions: RequestActions;
   onClose: () => void;
   onDeleteRequest: () => void;
+  autoOpenChat?: boolean;
+  onChatOpened?: () => void;
+  autoOpenCompletionForm?: boolean;
+  onCompletionFormOpened?: () => void;
+  autoOpenQRPayment?: boolean;
+  onQRPaymentOpened?: () => void;
 }
 
 export const RequestDetailModal = React.memo(function RequestDetailModal({
@@ -48,27 +65,80 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   actions,
   onClose,
   onDeleteRequest,
+  autoOpenChat = false,
+  onChatOpened,
+  autoOpenCompletionForm = false,
+  onCompletionFormOpened,
+  autoOpenQRPayment = false,
+  onQRPaymentOpened,
 }: RequestDetailModalProps) {
+  const [showImagePreview, setShowImagePreview] = React.useState(false);
+  const [showChat, setShowChat] = React.useState(false);
+  const [showCompletionPhoto, setShowCompletionPhoto] = React.useState<string | null>(null);
+
+  // Completion flow states
+  const [showClientReview, setShowClientReview] = React.useState(false);
+  const [showProviderForm, setShowProviderForm] = React.useState(autoOpenCompletionForm);
+  const [showQRPayment, setShowQRPayment] = React.useState(autoOpenQRPayment);
+  const [showCompletionSuccess, setShowCompletionSuccess] = React.useState(false);
+
+  // Auto-open completion form if requested
+  React.useEffect(() => {
+    if (autoOpenCompletionForm && !showProviderForm) {
+      setShowProviderForm(true);
+      onCompletionFormOpened?.();
+    }
+  }, [autoOpenCompletionForm, showProviderForm, onCompletionFormOpened]);
+
+  // Auto-open QR payment if requested
+  React.useEffect(() => {
+    if (autoOpenQRPayment && !showQRPayment) {
+      setShowQRPayment(true);
+      onQRPaymentOpened?.();
+    }
+  }, [autoOpenQRPayment, showQRPayment, onQRPaymentOpened]);
+
+  // Auto-open chat if requested (from notification)
+  React.useEffect(() => {
+    if (autoOpenChat && !showChat) {
+      const chatStatus = isChatAvailable(
+        request.status,
+        request.preferred_date,
+        request.preferred_time
+      );
+      if (chatStatus.available) {
+        setShowChat(true);
+        onChatOpened?.();
+      }
+    }
+  }, [autoOpenChat, showChat, request.status, request.preferred_date, request.preferred_time, onChatOpened]);
   const isMyRequest = request.client_id === userId;
   const isProvider = request.provider_id === userId;
   const otherPerson = isMyRequest ? request.provider : request.client;
 
+  // Check if chat is available
+  const chatStatus = isChatAvailable(
+    request.status,
+    request.preferred_date,
+    request.preferred_time
+  );
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center">
-      <div className="bg-background w-full md:max-w-2xl md:rounded-xl rounded-t-xl max-h-[90vh] overflow-auto">
+    <div className="fixed inset-x-0 top-0 bottom-21.5 md:bottom-0 md:inset-0 bg-black/50 z-100 flex items-stretch md:items-center justify-center">
+      <div className="bg-background w-full h-full md:h-auto md:max-w-2xl md:rounded-xl md:max-h-[90vh] overflow-hidden flex flex-col">
         {/* Modal Header */}
-        <div className="sticky top-0 z-10 bg-background border-b p-4 flex items-center justify-between">
-          <h3 className="font-semibold text-lg">Хүсэлтийн дэлгэрэнгүй</h3>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
+        <div className="shrink-0 bg-background border-b p-3 md:p-4 flex items-center justify-between md:rounded-t-xl">
+          <h3 className="font-semibold text-base md:text-lg">Хүсэлтийн дэлгэрэнгүй</h3>
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 md:h-10 md:w-10">
+            <X className="h-4 w-4 md:h-5 md:w-5" />
           </Button>
         </div>
 
         {/* Modal Content */}
-        <div className="p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 md:space-y-4">
           {/* Service Info */}
-          <div className="flex gap-4">
-            <div className="relative w-24 h-24 rounded-xl overflow-hidden shrink-0">
+          <div className="flex gap-3 md:gap-4">
+            <div className="relative w-16 h-16 md:w-24 md:h-24 rounded-xl overflow-hidden shrink-0">
               <Image
                 src={getListingImage(request.listing)}
                 alt={request.listing.title}
@@ -76,47 +146,87 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                 className="object-cover"
               />
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <Link
                   href={`/services/${request.listing.slug}`}
-                  className="font-semibold text-lg hover:underline"
+                  className="font-semibold text-sm md:text-lg hover:underline line-clamp-2"
                 >
                   {request.listing.title}
                 </Link>
               </div>
-              <div className="mt-2">
+              <div className="mt-1.5 md:mt-2">
                 {getStatusBadge(request.status, isMyRequest ? "sent" : "received")}
               </div>
             </div>
           </div>
 
-          {/* Message */}
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-sm font-medium mb-1 flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Мессеж
-            </p>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {request.message}
-            </p>
-          </div>
+          {/* Chat Button - MOVED UP, prominent placement */}
+          {(request.status === "accepted" ||
+            request.status === "in_progress" ||
+            request.status === "awaiting_client_confirmation" ||
+            request.status === "awaiting_completion_details" ||
+            request.status === "awaiting_payment" ||
+            request.status === "completed") && (
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 rounded-xl p-3 md:p-4 text-white shadow-lg">
+              <div className="flex items-center justify-between gap-2 md:gap-3">
+                <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                  <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                    <MessageCircle className="h-5 w-5 md:h-6 md:w-6 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm md:text-base">Чат</p>
+                    {chatStatus.available ? (
+                      <p className="text-xs md:text-sm text-white/90 truncate">
+                        Мессеж бичих боломжтой
+                      </p>
+                    ) : chatStatus.message ? (
+                      <p className="text-xs md:text-sm text-white/80 flex items-center gap-1 truncate">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {chatStatus.message}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="default"
+                  onClick={() => setShowChat(true)}
+                  disabled={!chatStatus.available}
+                  className="font-semibold shadow-md shrink-0 h-9 md:h-10 px-3 md:px-4 text-sm"
+                >
+                  <MessageCircle className="h-4 w-4 md:h-5 md:w-5 mr-1.5 md:mr-2" />
+                  <span className="hidden sm:inline">Чат нээх</span>
+                  <span className="sm:hidden">Нээх</span>
+                </Button>
+              </div>
+            </div>
+          )}
 
-          {/* Client Image - показываем только для incoming заявок (исполнитель смотрит) */}
-          {request.image_url && isProvider && (
+          {/* Client Image - показываем для всех */}
+          {request.image_url && (
             <div className="border rounded-lg overflow-hidden">
               <p className="text-sm font-medium p-3 border-b bg-muted/30 flex items-center gap-2">
                 <ImageIcon className="h-4 w-4" />
                 Зураг
               </p>
-              <div className="relative w-full aspect-video">
+              <button
+                type="button"
+                onClick={() => setShowImagePreview(true)}
+                className="relative w-full aspect-video group cursor-zoom-in"
+              >
                 <Image
                   src={request.image_url}
                   alt="Хүсэлтийн зураг"
                   fill
                   className="object-cover"
                 />
-              </div>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-3">
+                    <ZoomIn className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </button>
             </div>
           )}
 
@@ -129,6 +239,118 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
               </p>
             </div>
           )}
+
+          {/* Work Completion Report - shown after provider submits */}
+          {request.completion_description && (
+            <div className="border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/30 rounded-lg overflow-hidden">
+              <div className="p-3 border-b border-emerald-200 dark:border-emerald-800 bg-emerald-100/50 dark:bg-emerald-900/30">
+                <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  Ажлын тайлан
+                </p>
+              </div>
+              <div className="p-3">
+                {/* Completion Photos */}
+                {request.completion_photos && request.completion_photos.length > 0 && (
+                  <>
+                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      Зураг ({request.completion_photos.length})
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      {request.completion_photos.map((photoUrl, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setShowCompletionPhoto(photoUrl)}
+                          className="relative aspect-square rounded-lg overflow-hidden group cursor-zoom-in border border-emerald-200 dark:border-emerald-800"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={photoUrl}
+                            alt={`Ажлын зураг ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-2">
+                              <ZoomIn className="h-4 w-4 text-white" />
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="border-t border-emerald-200 dark:border-emerald-800 my-3" />
+                  </>
+                )}
+                {/* Completion Description */}
+                <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Тайлбар
+                </p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">
+                  {request.completion_description}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Client Review - shown after client confirms completion */}
+          {request.review && (
+            <div className="border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30 rounded-lg overflow-hidden">
+              <div className="p-3 border-b border-amber-200 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/30">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                  <span className="text-lg">⭐</span>
+                  Үйлчлүүлэгчийн үнэлгээ
+                </p>
+              </div>
+              <div className="p-3">
+                {/* Rating Stars */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={`text-xl ${
+                          star <= request.review!.rating
+                            ? "text-amber-500"
+                            : "text-gray-300 dark:text-gray-600"
+                        }`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+                    {request.review.rating} / 5
+                  </span>
+                </div>
+                {/* Comment */}
+                {request.review.comment && (
+                  <>
+                    <div className="border-t border-amber-200 dark:border-amber-800 my-2" />
+                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Сэтгэгдэл
+                    </p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">
+                      {request.review.comment}
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Message - moved below completion report and review */}
+          <div className="bg-muted/50 rounded-lg p-3">
+            <p className="text-sm font-medium mb-1 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Мессеж
+            </p>
+            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              {request.message}
+            </p>
+          </div>
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
@@ -195,8 +417,21 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             </div>
           </div>
 
-          {/* Address Info - only show for incoming requests (I'm provider) */}
-          {isProvider && request.aimag && (
+          {/* Address Info - show for both client and provider */}
+          {/* If remote service - show provider's address from listing */}
+          {request.listing.service_type === "remote" && request.listing.address ? (
+            <div className="border rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Үйлчилгээ үзүүлэх хаяг (Гүйцэтгэгчийн байршил)
+                </p>
+                <p className="text-sm font-medium">
+                  {request.listing.address}
+                </p>
+              </div>
+            </div>
+          ) : request.aimag && (
             <div className="border rounded-lg p-4 space-y-3">
               <div>
                 <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
@@ -225,32 +460,34 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="sticky bottom-0 bg-background border-t p-4">
+        <div className="shrink-0 bg-background border-t p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:p-4 md:pb-4 md:rounded-b-xl">
           {/* Actions for INCOMING pending requests (я provider) */}
           {isProvider && request.status === "pending" && (
-            <div className="flex gap-3">
+            <div className="flex gap-2 md:gap-3">
               <Button
                 variant="outline"
-                className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                size="sm"
+                className="flex-1 text-red-600 border-red-200 hover:bg-red-50 h-9 md:h-10 text-sm"
                 onClick={() => actions.onReject(request.id)}
                 disabled={actions.isUpdating}
               >
                 {actions.isUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
                 ) : (
-                  <X className="h-4 w-4 mr-2" />
+                  <X className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
                 Татгалзах
               </Button>
               <Button
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                size="sm"
+                className="flex-1 bg-green-600 hover:bg-green-700 h-9 md:h-10 text-sm"
                 onClick={() => actions.onAccept(request.id)}
                 disabled={actions.isUpdating}
               >
                 {actions.isUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
                 ) : (
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
                 Хүлээн авах
               </Button>
@@ -259,71 +496,143 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
 
           {/* Actions for ACCEPTED requests (provider can start work or cancel) */}
           {isProvider && request.status === "accepted" && (
-            <div className="flex gap-3">
+            <div className="flex gap-2 md:gap-3">
               <Button
                 variant="outline"
-                className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                size="sm"
+                className="flex-1 text-red-600 border-red-200 hover:bg-red-50 h-9 md:h-10 text-sm"
                 onClick={() => actions.onCancelByProvider(request.id)}
                 disabled={actions.isUpdating}
               >
                 {actions.isUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
                 ) : (
-                  <X className="h-4 w-4 mr-2" />
+                  <X className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
                 Цуцлах
               </Button>
               <Button
-                className="flex-1"
+                size="sm"
+                className="flex-1 h-9 md:h-10 text-sm"
                 onClick={() => actions.onStartWork(request.id)}
                 disabled={actions.isUpdating}
               >
                 {actions.isUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
                 ) : (
-                  <Play className="h-4 w-4 mr-2" />
+                  <Play className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
-                Ажил эхлүүлэх
+                <span className="hidden sm:inline">Ажил эхлүүлэх</span>
+                <span className="sm:hidden">Эхлүүлэх</span>
               </Button>
             </div>
           )}
 
-          {/* Actions for IN_PROGRESS requests (provider can complete) */}
+          {/* Actions for IN_PROGRESS requests (provider can initiate completion) */}
           {isProvider && request.status === "in_progress" && (
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={onClose}>
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
                 Хаах
               </Button>
               <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => actions.onComplete(request.id)}
+                size="sm"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-9 md:h-10 text-sm"
+                onClick={() => setShowProviderForm(true)}
                 disabled={actions.isUpdating}
               >
                 {actions.isUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
                 ) : (
-                  <CheckCircle className="h-4 w-4 mr-2" />
+                  <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
                 Дуусгах
               </Button>
             </div>
           )}
 
+          {/* AWAITING_CLIENT_CONFIRMATION: Client can confirm and leave review */}
+          {isMyRequest && request.status === "awaiting_client_confirmation" && (
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 h-9 md:h-10 text-sm"
+                onClick={() => setShowClientReview(true)}
+                disabled={actions.isUpdating}
+              >
+                <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                Баталгаажуулах
+              </Button>
+            </div>
+          )}
+
+          {/* AWAITING_CLIENT_CONFIRMATION: Provider waiting for client */}
+          {isProvider && request.status === "awaiting_client_confirmation" && (
+            <div className="flex flex-col gap-2">
+              <div className="p-2.5 md:p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                <p className="text-xs md:text-sm text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
+                  Захиалагч баталгаажуулахыг хүлээж байна...
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+            </div>
+          )}
+
+          {/* AWAITING_PAYMENT: Provider shows QR code */}
+          {isProvider && request.status === "awaiting_payment" && (
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-purple-600 hover:bg-purple-700 h-9 md:h-10 text-sm"
+                onClick={() => setShowQRPayment(true)}
+                disabled={actions.isUpdating}
+              >
+                <CreditCard className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                Төлбөр авах
+              </Button>
+            </div>
+          )}
+
+          {/* AWAITING_PAYMENT: Client waiting for payment */}
+          {isMyRequest && request.status === "awaiting_payment" && (
+            <div className="flex flex-col gap-2">
+              <div className="p-2.5 md:p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <p className="text-xs md:text-sm text-purple-800 dark:text-purple-200 flex items-center gap-2">
+                  <CreditCard className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
+                  Төлбөр төлөхийг хүлээж байна...
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+            </div>
+          )}
+
           {/* Actions for MY pending requests (я client - могу отменить) */}
           {isMyRequest && request.status === "pending" && (
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={onClose}>
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
                 Хаах
               </Button>
               <Button
                 variant="destructive"
+                size="sm"
+                className="h-9 md:h-10 text-sm"
                 onClick={() => actions.onCancelByClient(request.id)}
                 disabled={actions.isUpdating}
               >
                 {actions.isUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
                 ) : (
-                  <X className="h-4 w-4 mr-2" />
+                  <X className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
                 Цуцлах
               </Button>
@@ -331,19 +640,19 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
           )}
 
           {/* Default close button for other states */}
-          {((isMyRequest && !["pending"].includes(request.status)) ||
+          {((isMyRequest && !["pending", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment"].includes(request.status)) ||
             (isProvider &&
               ["rejected", "completed", "cancelled_by_client", "cancelled_by_provider", "disputed"].includes(
                 request.status
               ))) && (
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={onClose}>
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
                 Хаах
               </Button>
               {isMyRequest &&
                 ["rejected", "cancelled_by_client", "cancelled_by_provider"].includes(request.status) && (
-                  <Button variant="destructive" onClick={onDeleteRequest}>
-                    <Trash2 className="h-4 w-4 mr-2" />
+                  <Button variant="destructive" size="sm" className="h-9 md:h-10 text-sm" onClick={onDeleteRequest}>
+                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                     Устгах
                   </Button>
                 )}
@@ -351,6 +660,115 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
           )}
         </div>
       </div>
+
+      {/* Chat Modal */}
+      {showChat && (
+        <RequestChat
+          request={request}
+          onClose={() => setShowChat(false)}
+        />
+      )}
+
+      {/* Full screen image preview */}
+      {showImagePreview && request.image_url && (
+        <div
+          className="fixed inset-0 bg-black/90 z-60 flex items-center justify-center p-4"
+          onClick={() => setShowImagePreview(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowImagePreview(false)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <X className="h-6 w-6 text-white" />
+          </button>
+          <div className="relative w-full max-w-4xl max-h-[90vh] aspect-auto">
+            <Image
+              src={request.image_url}
+              alt="Хүсэлтийн зураг"
+              fill
+              className="object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Full screen completion photo preview */}
+      {showCompletionPhoto && (
+        <div
+          className="fixed inset-0 bg-black/90 z-60 flex items-center justify-center p-4"
+          onClick={() => setShowCompletionPhoto(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setShowCompletionPhoto(null)}
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <X className="h-6 w-6 text-white" />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={showCompletionPhoto}
+            alt="Ажлын зураг"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {/* Client Review Form Modal */}
+      {showClientReview && (
+        <ClientReviewForm
+          request={request}
+          onSubmit={async (rating, comment) => {
+            await actions.onClientConfirmCompletion(request.id, rating, comment);
+            setShowClientReview(false);
+            onClose(); // Close modal, payment step is next for provider
+          }}
+          onClose={() => setShowClientReview(false)}
+          isSubmitting={actions.isUpdating}
+        />
+      )}
+
+      {/* Provider Completion Details Form Modal */}
+      {showProviderForm && (
+        <ProviderCompletionForm
+          request={request}
+          onSubmit={async (description, photoUrls) => {
+            await actions.onProviderSubmitDetails(request.id, description, photoUrls);
+            setShowProviderForm(false);
+            onClose();
+          }}
+          onClose={() => setShowProviderForm(false)}
+          isSubmitting={actions.isUpdating}
+        />
+      )}
+
+      {/* QR Payment Modal */}
+      {showQRPayment && (
+        <QRPaymentModal
+          request={request}
+          onPaymentComplete={async () => {
+            await actions.onPaymentComplete(request.id);
+            setShowQRPayment(false);
+            setShowCompletionSuccess(true);
+          }}
+          onClose={() => setShowQRPayment(false)}
+          isProcessing={actions.isUpdating}
+        />
+      )}
+
+      {/* Completion Success Modal */}
+      {showCompletionSuccess && (
+        <CompletionSuccessModal
+          isProvider={isProvider}
+          onClose={() => {
+            setShowCompletionSuccess(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 });

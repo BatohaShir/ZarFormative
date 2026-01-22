@@ -16,6 +16,9 @@ export interface RequestWithRelations {
   updated_at: Date;
   accepted_at: Date | null;
   completed_at: Date | null;
+  // Данные о завершении работы
+  completion_description: string | null;
+  completion_photos: string[];
   // Адрес оказания услуги
   aimag_id: string | null;
   district_id: string | null;
@@ -28,6 +31,9 @@ export interface RequestWithRelations {
     id: string;
     title: string;
     slug: string;
+    service_type: "on_site" | "remote";
+    address: string | null;
+    price?: string | number | null;
     images: Array<{
       url: string;
       is_cover: boolean;
@@ -35,6 +41,13 @@ export interface RequestWithRelations {
   };
   client: PersonInfo;
   provider: PersonInfo;
+  // Отзыв клиента (после завершения)
+  review: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    created_at: Date;
+  } | null;
 }
 
 export interface PersonInfo {
@@ -55,6 +68,13 @@ export interface RequestActions {
   onStartWork: (requestId: string) => void;
   onComplete: (requestId: string) => void;
   onDelete: (requestId: string) => void;
+  // Completion flow actions
+  // Step 1: Provider submits report (in_progress -> awaiting_client_confirmation)
+  onProviderSubmitDetails: (requestId: string, description: string, photoUrls: string[]) => Promise<void>;
+  // Step 2: Client confirms and writes review (awaiting_client_confirmation -> awaiting_payment)
+  onClientConfirmCompletion: (requestId: string, rating: number, comment: string) => Promise<void>;
+  // Step 3: Payment complete (awaiting_payment -> completed)
+  onPaymentComplete: (requestId: string) => Promise<void>;
   isUpdating: boolean;
   isDeleting: boolean;
 }
