@@ -308,8 +308,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
         });
         setLocationLoading(false);
       },
-      (error) => {
-        console.error("Geolocation error:", error);
+      () => {
         alert("Байршил тодорхойлоход алдаа гарлаа. Зөвшөөрөл өгсөн эсэхийг шалгана уу.");
         setLocationLoading(false);
       },
@@ -397,25 +396,19 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
           request_id: request.id,
           actor_id: user.id,
         };
-        console.log("[Chat] Creating notification:", notificationData);
 
         createNotification.mutate({
           data: notificationData,
-        }, {
-          onError: (error) => {
-            console.error("[Chat] Notification creation failed:", error);
-          },
         });
-      } catch (notifError) {
+      } catch {
         // Notification failed but message was sent - don't block
-        console.error("Failed to send notification:", notifError);
       }
 
       setMessage("");
       clearAttachment();
       refetch();
-    } catch (error) {
-      console.error("Failed to send message:", error);
+    } catch {
+      // Message sending failed - user will see the message wasn't sent
     } finally {
       setIsUploading(false);
     }

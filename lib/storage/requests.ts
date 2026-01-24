@@ -44,14 +44,11 @@ export async function uploadRequestImage(
   // Валидация
   const validationError = validateImageFile(file);
   if (validationError) {
-    console.error("[Storage] Validation error:", validationError);
     return { url: null, error: validationError };
   }
 
   const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const filePath = `${userId}/${uuid}.${fileExt}`;
-
-  console.log("[Storage] Uploading request image to path:", filePath);
 
   const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
     cacheControl: "3600",
@@ -59,12 +56,10 @@ export async function uploadRequestImage(
   });
 
   if (error) {
-    console.error("[Storage] Upload error:", error);
     return { url: null, error: error.message };
   }
 
   const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
-  console.log("[Storage] Public URL:", data.publicUrl);
 
   return { url: data.publicUrl, error: null };
 }

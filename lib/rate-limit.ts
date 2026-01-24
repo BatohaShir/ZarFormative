@@ -178,8 +178,7 @@ export async function checkRateLimit(
         remaining: result.remaining,
         reset: result.reset,
       };
-    } catch (error) {
-      console.error("Redis rate limit error, falling back to in-memory:", error);
+    } catch {
       // Fallback to in-memory при ошибке Redis
     }
   }

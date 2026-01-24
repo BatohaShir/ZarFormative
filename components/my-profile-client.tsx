@@ -259,10 +259,8 @@ export function MyProfileClient() {
     if (file) {
       setIsUploadingAvatar(true);
       try {
-        const { error } = await uploadAvatar(file);
-        if (error) {
-          console.error("Avatar upload error:", error);
-        }
+        await uploadAvatar(file);
+        // Errors are handled by the uploadAvatar function (shows toast)
       } finally {
         setIsUploadingAvatar(false);
       }

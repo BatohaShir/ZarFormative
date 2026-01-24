@@ -15,21 +15,30 @@ import { NotificationsButton } from "@/components/notifications-button";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import { RequestForm } from "@/components/request-form";
-import { ChevronLeft, MapPin, Heart, Clock, MessageSquare, UserCircle, Eye, CalendarClock, Star } from "lucide-react";
+import { ChevronLeft, MapPin, Heart, Clock, Eye, CalendarClock } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
-import { useFindManyreviews } from "@/lib/hooks/reviews";
 
-// Dynamic import для ImageLightbox - загружается только когда открывается галерея
+// Dynamic imports for code-splitting
 const ImageLightbox = dynamic(
   () => import("@/components/image-lightbox").then((mod) => mod.ImageLightbox),
   { ssr: false }
 );
 
-// Тип для данных листинга с сервера
+const ProviderCard = dynamic(
+  () => import("@/components/provider-card").then((mod) => mod.ProviderCard),
+  { ssr: false }
+);
+
+const ReviewsList = dynamic(
+  () => import("@/components/reviews-list").then((mod) => mod.ReviewsList),
+  { ssr: false }
+);
+
+// Type for listing data from server
 export interface ServiceDetailListing {
   id: string;
   title: string;
@@ -72,239 +81,6 @@ interface ServiceDetailClientProps {
   listing: ServiceDetailListing;
 }
 
-// Тип для отзыва
-interface ReviewWithClient {
-  id: string;
-  rating: number;
-  comment: string | null;
-  created_at: Date;
-  client: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-    is_company: boolean;
-    company_name: string | null;
-  };
-}
-
-// Компонент для отображения звёзд
-function StarRating({ rating, size = "sm" }: { rating: number; size?: "sm" | "md" }) {
-  const starSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`${starSize} ${
-            star <= rating
-              ? "fill-amber-400 text-amber-400"
-              : "fill-muted text-muted"
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
-
-// Компонент для отображения одного отзыва
-function ReviewItem({ review }: { review: ReviewWithClient }) {
-  const reviewerName = review.client.is_company
-    ? review.client.company_name || "Компани"
-    : [review.client.first_name, review.client.last_name].filter(Boolean).join(" ") || "Хэрэглэгч";
-
-  const formattedDate = new Date(review.created_at).toLocaleDateString("mn-MN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-
-  return (
-    <div className="py-3 border-b last:border-b-0">
-      <div className="flex items-start gap-3">
-        {review.client.avatar_url ? (
-          <Image
-            src={review.client.avatar_url}
-            alt={reviewerName}
-            width={36}
-            height={36}
-            unoptimized={review.client.avatar_url.includes("dicebear")}
-            className="rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-xs font-medium text-primary">
-            {reviewerName.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium text-sm truncate">{reviewerName}</span>
-            <span className="text-xs text-muted-foreground shrink-0">{formattedDate}</span>
-          </div>
-          <StarRating rating={review.rating} size="sm" />
-          {review.comment && (
-            <p className="text-sm text-muted-foreground mt-1.5 whitespace-pre-wrap">{review.comment}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Компонент списка отзывов
-function ReviewsList({ providerId, variant }: { providerId: string; variant: "desktop" | "mobile" }) {
-  const { data: reviews, isLoading } = useFindManyreviews({
-    where: { provider_id: providerId },
-    include: {
-      client: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          is_company: true,
-          company_name: true,
-        },
-      },
-    },
-    orderBy: { created_at: "desc" },
-    take: 10,
-  });
-
-  const isDesktop = variant === "desktop";
-  const reviewCount = reviews?.length || 0;
-
-  // Вычисляем средний рейтинг
-  const averageRating = reviews && reviews.length > 0
-    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-    : 0;
-
-  if (isLoading) {
-    return (
-      <div className={`${isDesktop ? "border-t pt-4 mt-4" : ""} space-y-3`}>
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-20 w-full" />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${isDesktop ? "border-t pt-4 mt-4" : ""} space-y-3`}>
-      <div className="flex items-center justify-between">
-        <h3 className={`font-semibold ${isDesktop ? "text-sm" : "text-base"} flex items-center gap-2`}>
-          <MessageSquare className="h-4 w-4" />
-          Сэтгэгдэл ({reviewCount})
-        </h3>
-        {reviewCount > 0 && (
-          <div className="flex items-center gap-1.5">
-            <StarRating rating={Math.round(averageRating)} size="sm" />
-            <span className="text-sm font-medium">{averageRating.toFixed(1)}</span>
-          </div>
-        )}
-      </div>
-
-      {reviewCount === 0 ? (
-        <div className={`text-center ${isDesktop ? "py-6" : "py-8"} bg-muted/30 rounded-lg`}>
-          <MessageSquare className={`${isDesktop ? "h-10 w-10" : "h-12 w-12"} mx-auto mb-2 text-muted-foreground/40`} />
-          <p className={`${isDesktop ? "text-xs" : "text-sm"} text-muted-foreground`}>
-            Одоогоор сэтгэгдэл байхгүй байна
-          </p>
-        </div>
-      ) : (
-        <div className="bg-muted/30 rounded-lg px-3">
-          {(reviews as ReviewWithClient[]).map((review) => (
-            <ReviewItem key={review.id} review={review} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Компонент карточки провайдера (объединён для Desktop/Mobile)
-function ProviderCard({
-  listing,
-  providerName,
-  memberSince,
-  isOwnListing,
-  variant,
-}: {
-  listing: ServiceDetailListing;
-  providerName: string;
-  memberSince: string;
-  isOwnListing: boolean;
-  variant: "desktop" | "mobile";
-}) {
-  const isDesktop = variant === "desktop";
-  const avatarSize = isDesktop ? 64 : 48;
-
-  return (
-    <div className={`border ${isDesktop ? "rounded-2xl p-6" : "rounded-xl p-4"} space-y-${isDesktop ? "4" : "3"}`}>
-      <div className={`flex items-center gap-${isDesktop ? "4" : "3"}`}>
-        <div className="relative">
-          {listing.user.avatar_url ? (
-            <Image
-              src={listing.user.avatar_url}
-              alt={providerName}
-              width={avatarSize}
-              height={avatarSize}
-              unoptimized={listing.user.avatar_url.includes("dicebear")}
-              className="rounded-full object-cover"
-            />
-          ) : (
-            <div
-              className={`${isDesktop ? "w-16 h-16 text-xl" : "w-12 h-12 text-lg"} rounded-full bg-primary/20 flex items-center justify-center font-medium text-primary`}
-            >
-              {providerName.charAt(0).toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className={isDesktop ? "" : "flex-1"}>
-          <h3 className={`font-semibold ${isDesktop ? "" : "text-sm"}`}>{providerName}</h3>
-          <div className={`flex items-center gap-${isDesktop ? "2" : "1.5"} text-${isDesktop ? "sm" : "xs"} text-muted-foreground`}>
-            <Clock className={`${isDesktop ? "h-4 w-4" : "h-3 w-3"}`} />
-            <span>{memberSince} оноос хойш{isDesktop && " гишүүн"}</span>
-          </div>
-        </div>
-      </div>
-
-      {isDesktop ? (
-        <div className="space-y-3 pt-2">
-          {!isOwnListing && (
-            <RequestForm
-              listingId={listing.id}
-              listingTitle={listing.title}
-              providerId={listing.user.id}
-              providerName={providerName}
-            />
-          )}
-          {!isOwnListing && (
-            <Link href={`/account/${listing.user.id}`}>
-              <Button variant="ghost" className="w-full" size="lg">
-                <UserCircle className="h-4 w-4 mr-2" />
-                Профиль харах
-              </Button>
-            </Link>
-          )}
-        </div>
-      ) : (
-        !isOwnListing && (
-          <Link href={`/account/${listing.user.id}`}>
-            <Button variant="outline" className="w-full" size="sm">
-              <UserCircle className="h-4 w-4 mr-2" />
-              Профиль харах
-            </Button>
-          </Link>
-        )
-      )}
-
-      {isDesktop && (
-        <ReviewsList providerId={listing.user.id} variant="desktop" />
-      )}
-    </div>
-  );
-}
-
 export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -342,8 +118,8 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
           );
         }
       })
-      .catch((err) => {
-        console.error("Failed to track view:", err);
+      .catch(() => {
+        // Silently fail - view tracking is not critical
       });
   }, [listing.slug, queryClient]);
 
@@ -486,7 +262,9 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
             {/* Mobile Provider Card */}
             <div className="lg:hidden">
               <ProviderCard
-                listing={listing}
+                listingId={listing.id}
+                listingTitle={listing.title}
+                user={listing.user}
                 providerName={providerName}
                 memberSince={memberSince}
                 isOwnListing={isOwnListing}
@@ -541,7 +319,9 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
           <div className="hidden lg:block space-y-4">
             <div className="sticky top-24">
               <ProviderCard
-                listing={listing}
+                listingId={listing.id}
+                listingTitle={listing.title}
+                user={listing.user}
                 providerName={providerName}
                 memberSince={memberSince}
                 isOwnListing={isOwnListing}

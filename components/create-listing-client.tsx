@@ -247,8 +247,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
         setImages([]);
         setDisplayPrice("");
       }
-    } catch (error) {
-      console.error("Черновик устгахад алдаа:", error);
+    } catch {
+      // Draft deletion failed silently - drafts will be cleaned up later
     } finally {
       setDeletingDraftId(null);
     }
@@ -293,8 +293,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       });
 
       lastSavedDataRef.current = dataString;
-    } catch (error) {
-      console.error("Auto-save failed:", error);
+    } catch {
+      // Auto-save failed silently - will retry on next change
     }
   }, [user?.id, editingDraftId, getValues, formatAddress, selectedAddress, updateListing]);
 
@@ -429,8 +429,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       setImages([]);
       refetchDrafts();
       toast.success("Черновик хадгалагдлаа!");
-    } catch (error) {
-      console.error("Черновик хадгалахад алдаа:", error);
+    } catch {
       toast.error("Черновик хадгалахад алдаа гарлаа");
     } finally {
       setIsSavingDraft(false);
@@ -564,8 +563,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       }
 
       router.push(`/services/${listingSlug}`);
-    } catch (error) {
-      console.error("Зар үүсгэхэд алдаа:", error);
+    } catch {
       toast.error("Зар үүсгэхэд алдаа гарлаа");
     } finally {
       setIsSubmitting(false);

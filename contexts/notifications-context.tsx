@@ -150,7 +150,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           },
           (payload: { new: Record<string, unknown> }) => {
             // Новое уведомление пришло - немедленно рефетчим для получения полных данных с relations
-            console.log("[Notifications] New notification received via realtime:", payload.new);
 
             // Показываем анимацию нового уведомления
             setHasNewNotification(true);
@@ -181,16 +180,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             refetch();
           }
         )
-        .subscribe((status: string) => {
-          console.log("[Notifications] Realtime subscription status:", status);
-        });
+        .subscribe();
     };
 
     setupRealtimeSubscription();
 
     return () => {
       if (channel) {
-        console.log("[Notifications] Unsubscribing from realtime channel");
         supabase.removeChannel(channel);
       }
     };
