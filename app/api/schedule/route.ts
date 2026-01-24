@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit, rateLimitResponse, addRateLimitHeaders } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 // UUID regex для валидации providerId и listingId
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -218,7 +219,7 @@ export async function GET(request: NextRequest) {
 
     return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
-    console.error("Schedule API error:", error);
+    logger.error("Schedule API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

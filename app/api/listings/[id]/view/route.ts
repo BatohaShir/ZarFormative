@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
-import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { withRateLimit, rateLimitResponse, addRateLimitHeaders } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 // Период уникальности просмотра (24 часа)
 const VIEW_UNIQUENESS_PERIOD_HOURS = 24;
@@ -99,20 +100,22 @@ export async function POST(
     const viewsCountNumber = typeof views_count === 'bigint' ? Number(views_count) : views_count;
 
     if (!inserted) {
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         views_count: viewsCountNumber,
         skipped: true,
         reason: "already_viewed",
       });
+      return addRateLimitHeaders(response, rateLimitResult);
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       views_count: viewsCountNumber,
     });
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
-    console.error("Error tracking view:", error);
+    logger.error("Error tracking view:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -26,7 +26,7 @@ const initialEducationForm: NewEducationForm = {
   is_current: false,
 };
 
-export function EducationSection() {
+export const EducationSection = React.memo(function EducationSection() {
   const {
     educations,
     isLoading,
@@ -295,4 +295,4 @@ export function EducationSection() {
       )}
     </div>
   );
-}
+});

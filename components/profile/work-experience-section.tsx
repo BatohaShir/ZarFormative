@@ -24,7 +24,7 @@ const initialWorkForm: NewWorkExperienceForm = {
   is_current: false,
 };
 
-export function WorkExperienceSection() {
+export const WorkExperienceSection = React.memo(function WorkExperienceSection() {
   const {
     workExperiences,
     isLoading,
@@ -281,4 +281,4 @@ export function WorkExperienceSection() {
       )}
     </div>
   );
-}
+});

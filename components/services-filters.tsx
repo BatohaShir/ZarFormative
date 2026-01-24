@@ -28,7 +28,7 @@ interface ServicesFiltersProps {
  * - Desktop: вертикальная раскладка в сайдбаре
  * - Mobile: компактная раскладка в collapsible
  */
-export function ServicesFilters({
+export const ServicesFilters = React.memo(function ServicesFilters({
   selectedCategories,
   onCategoriesChange,
   priceRange,
@@ -40,10 +40,15 @@ export function ServicesFilters({
   variant,
 }: ServicesFiltersProps) {
   const isDesktop = variant === "desktop";
-  const activeFiltersCount =
-    selectedCategories.length +
-    (priceRange[0] > 0 || priceRange[1] < 1000000 ? 1 : 0) +
-    (providerType !== "all" ? 1 : 0);
+
+  // Memoize active filters count calculation
+  const activeFiltersCount = React.useMemo(() => {
+    return (
+      selectedCategories.length +
+      (priceRange[0] > 0 || priceRange[1] < 1000000 ? 1 : 0) +
+      (providerType !== "all" ? 1 : 0)
+    );
+  }, [selectedCategories.length, priceRange, providerType]);
 
   return (
     <div className={isDesktop ? "space-y-6" : "space-y-5"}>
@@ -166,4 +171,4 @@ export function ServicesFilters({
       )}
     </div>
   );
-}
+});

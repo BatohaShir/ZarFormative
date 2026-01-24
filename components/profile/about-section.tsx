@@ -10,7 +10,7 @@ interface AboutSectionProps {
   isCompany?: boolean;
 }
 
-export function AboutSection({ isCompany = false }: AboutSectionProps) {
+export const AboutSection = React.memo(function AboutSection({ isCompany = false }: AboutSectionProps) {
   const { profile, updateProfile } = useAuth();
 
   const [isEditing, setIsEditing] = React.useState(false);
@@ -156,4 +156,4 @@ export function AboutSection({ isCompany = false }: AboutSectionProps) {
       )}
     </div>
   );
-}
+});

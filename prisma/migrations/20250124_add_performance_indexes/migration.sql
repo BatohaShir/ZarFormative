@@ -33,3 +33,17 @@ ON listing_requests(provider_id, status);
 -- Composite index for listing_requests client queries
 CREATE INDEX IF NOT EXISTS idx_listing_requests_client_status
 ON listing_requests(client_id, status);
+
+-- Index for profiles created_at DESC (for sorting recent profiles)
+CREATE INDEX IF NOT EXISTS idx_profiles_created_at
+ON profiles(created_at DESC);
+
+-- Composite index for categories (is_active + sort_order) for active categories display
+CREATE INDEX IF NOT EXISTS idx_categories_active_sort
+ON categories(is_active, sort_order)
+WHERE is_active = true;
+
+-- Index for listings_images (is_cover + listing_id) for finding cover images efficiently
+CREATE INDEX IF NOT EXISTS idx_listings_images_cover
+ON listings_images(is_cover, listing_id)
+WHERE is_cover = true;

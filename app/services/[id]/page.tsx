@@ -45,6 +45,7 @@ async function getListingBySlug(slug: string) {
         orderBy: {
           sort_order: "asc",
         },
+        take: 10, // Limit images for performance
       },
       aimag: {
         select: {

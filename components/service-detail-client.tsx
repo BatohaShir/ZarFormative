@@ -81,7 +81,7 @@ interface ServiceDetailClientProps {
   listing: ServiceDetailListing;
 }
 
-export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
+export const ServiceDetailClient = React.memo(function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   // Используем раздельные хуки для лучшей производительности
@@ -353,7 +353,7 @@ export function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
       />
     </div>
   );
-}
+});
 
 // Loading skeleton component
 export function ServiceDetailSkeleton() {

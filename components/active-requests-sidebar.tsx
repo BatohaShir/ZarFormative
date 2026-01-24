@@ -59,7 +59,7 @@ function formatDateTime(date: Date | null, time: string | null): string | null {
   return dateStr;
 }
 
-export function ActiveRequestsSidebar({
+export const ActiveRequestsSidebar = React.memo(function ActiveRequestsSidebar({
   requests,
   onSelectRequest,
 }: ActiveRequestsSidebarProps) {
@@ -306,4 +306,4 @@ export function ActiveRequestsSidebar({
       </div>
     </>
   );
-}
+});

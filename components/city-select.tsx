@@ -58,7 +58,7 @@ function clearStoredLocation() {
   }
 }
 
-export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
+export const CitySelect = React.memo(function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
   const [open, setOpen] = React.useState(false);
   const [selectedAimag, setSelectedAimag] = React.useState<aimags | null>(null);
   const [selectedDistrict, setSelectedDistrict] = React.useState<districts | null>(null);
@@ -390,4 +390,4 @@ export function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
       </DialogContent>
     </Dialog>
   );
-}
+});
