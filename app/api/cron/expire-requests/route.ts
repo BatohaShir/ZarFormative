@@ -69,12 +69,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (expiredPendingRequests.length > 0) {
+      const pendingRequestIds = expiredPendingRequests.map((r) => r.id);
+
       // Update all expired pending requests
       await prisma.listing_requests.updateMany({
         where: {
-          id: {
-            in: expiredPendingRequests.map((r) => r.id),
-          },
+          id: { in: pendingRequestIds },
         },
         data: {
           status: "cancelled_by_provider", // Using existing status, можно добавить auto_expired
@@ -84,32 +84,53 @@ export async function GET(request: NextRequest) {
 
       results.expiredPending = expiredPendingRequests.length;
 
-      // Create notifications for clients
-      const clientNotifications = expiredPendingRequests.map((r) => ({
-        user_id: r.client_id,
-        type: "request_rejected" as const,
-        title: "Хүсэлт хугацаа дууссан",
-        message: `"${r.listing.title}" хүсэлт 24 цагийн дотор хариулагдаагүй тул цуцлагдлаа`,
-        request_id: r.id,
-        actor_id: null,
-      }));
-
-      await prisma.notifications.createMany({
-        data: clientNotifications,
+      // Idempotency check: find existing notifications for these requests
+      const existingNotifications = await prisma.notifications.findMany({
+        where: {
+          request_id: { in: pendingRequestIds },
+          type: "request_rejected",
+        },
+        select: { request_id: true, user_id: true },
       });
 
-      results.notificationsCreated += clientNotifications.length;
+      const existingNotifKeys = new Set(
+        existingNotifications.map((n) => `${n.request_id}-${n.user_id}`)
+      );
+
+      // Create notifications only for those that don't exist
+      const clientNotifications = expiredPendingRequests
+        .filter((r) => !existingNotifKeys.has(`${r.id}-${r.client_id}`))
+        .map((r) => ({
+          user_id: r.client_id,
+          type: "request_rejected" as const,
+          title: "Хүсэлт хугацаа дууссан",
+          message: `"${r.listing.title}" хүсэлт 24 цагийн дотор хариулагдаагүй тул цуцлагдлаа`,
+          request_id: r.id,
+          actor_id: null,
+        }));
+
+      if (clientNotifications.length > 0) {
+        await prisma.notifications.createMany({
+          data: clientNotifications,
+        });
+        results.notificationsCreated += clientNotifications.length;
+      }
     }
 
     // ========================================
     // 2. Отмена ACCEPTED заявок с просроченным временем
     // ========================================
-    // Находим accepted заявки где preferred_date + preferred_time уже прошло + 2 часа
+    // Оптимизация: фильтруем по дате на уровне БД вместо загрузки всех записей
+    // Ищем только заявки с датой раньше (сегодня - 2 часа) - они точно просрочены
+    const acceptedDeadline = new Date(now.getTime() - 2 * 60 * 60 * 1000); // now - 2 hours
+
     const acceptedRequests = await prisma.listing_requests.findMany({
       where: {
         status: "accepted",
         preferred_date: {
-          not: null,
+          // Фильтр на уровне БД: дата <= (текущее время - 2 часа)
+          // Это отсекает большинство записей сразу в SQL
+          lte: acceptedDeadline,
         },
       },
       select: {
@@ -124,6 +145,8 @@ export async function GET(request: NextRequest) {
           },
         },
       },
+      // Лимит для безопасности - обрабатываем пакетами
+      take: 100,
     });
 
     const expiredAcceptedIds: string[] = [];
@@ -180,9 +203,7 @@ export async function GET(request: NextRequest) {
     if (expiredAcceptedIds.length > 0) {
       await prisma.listing_requests.updateMany({
         where: {
-          id: {
-            in: expiredAcceptedIds,
-          },
+          id: { in: expiredAcceptedIds },
         },
         data: {
           status: "cancelled_by_provider",
@@ -192,11 +213,30 @@ export async function GET(request: NextRequest) {
 
       results.expiredAccepted = expiredAcceptedIds.length;
 
-      await prisma.notifications.createMany({
-        data: acceptedNotifications,
+      // Idempotency check: find existing notifications for these requests
+      const existingAcceptedNotifs = await prisma.notifications.findMany({
+        where: {
+          request_id: { in: expiredAcceptedIds },
+          type: "cancelled_by_provider",
+        },
+        select: { request_id: true, user_id: true },
       });
 
-      results.notificationsCreated += acceptedNotifications.length;
+      const existingAcceptedKeys = new Set(
+        existingAcceptedNotifs.map((n) => `${n.request_id}-${n.user_id}`)
+      );
+
+      // Filter out already existing notifications
+      const newAcceptedNotifications = acceptedNotifications.filter(
+        (n) => !existingAcceptedKeys.has(`${n.request_id}-${n.user_id}`)
+      );
+
+      if (newAcceptedNotifications.length > 0) {
+        await prisma.notifications.createMany({
+          data: newAcceptedNotifications,
+        });
+        results.notificationsCreated += newAcceptedNotifications.length;
+      }
     }
 
     return NextResponse.json({

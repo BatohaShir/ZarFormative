@@ -6,10 +6,11 @@ import type { ListingWithRelations } from "@/components/listing-card";
 export const dynamic = 'force-dynamic';
 
 // Загрузка данных на сервере
+// Оптимизация: параллельные запросы с Promise.all (вместо последовательных)
 async function getServicesData() {
   const PAGE_SIZE = 12;
 
-  // Параллельно загружаем первую страницу объявлений и общее количество
+  // Параллельно загружаем объявления и считаем общее количество
   const [listingsData, totalCount] = await Promise.all([
     prisma.listings.findMany({
       where: {
@@ -35,9 +36,7 @@ async function getServicesData() {
           },
         },
         images: {
-          where: {
-            is_cover: true,
-          },
+          where: { is_cover: true },
           select: {
             id: true,
             url: true,
@@ -47,27 +46,16 @@ async function getServicesData() {
           take: 1,
         },
         aimag: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
         district: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
         khoroo: {
-          select: {
-            id: true,
-            name: true,
-          },
+          select: { id: true, name: true },
         },
       },
-      orderBy: {
-        created_at: "desc",
-      },
+      orderBy: { created_at: "desc" },
       take: PAGE_SIZE,
     }),
     prisma.listings.count({

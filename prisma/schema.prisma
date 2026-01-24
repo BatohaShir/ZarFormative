@@ -411,6 +411,7 @@ model listing_requests {
   @@index([provider_id, created_at(sort: Desc)])
   @@index([status, created_at(sort: Desc)])
   @@index([provider_id, preferred_date, status])
+  @@index([status, preferred_date])
   @@map("listing_requests")
 }
 

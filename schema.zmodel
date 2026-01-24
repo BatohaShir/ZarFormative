@@ -759,6 +759,7 @@ model listing_requests {
   @@index([provider_id, created_at(sort: Desc)])  // Сортировка по дате
   @@index([status, created_at(sort: Desc)])       // Фильтр по статусу
   @@index([provider_id, preferred_date, status])  // Система расписаний: занятость исполнителя
+  @@index([status, preferred_date])               // Cron: поиск просроченных accepted заявок
 
   @@map("listing_requests")
 
