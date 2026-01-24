@@ -856,6 +856,7 @@ model chat_messages {
   @@index([request_id, created_at(sort: Desc)])     // Сообщения заявки
   @@index([sender_id])                               // Сообщения пользователя
   @@index([request_id, is_read])                     // Непрочитанные сообщения
+  @@index([request_id, sender_id, is_read])          // OPTIMIZED: подсчёт непрочитанных от конкретного отправителя
 
   @@map("chat_messages")
 

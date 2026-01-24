@@ -39,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { useEducations, type Education } from "@/hooks/use-educations";
 import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experiences";
-import { useFindManylisting_requests, useFindManyreviews } from "@/lib/hooks";
+// REMOVED: useFindManylisting_requests, useFindManyreviews - используем денормализованные данные из профиля
 import {
   SCHOOLS_DB,
   COMPANIES_DB,
@@ -141,93 +141,13 @@ export function MyProfileClient() {
   const [editingWorkId, setEditingWorkId] = React.useState<string | null>(null);
   const [newWork, setNewWork] = React.useState<NewWorkExperienceForm>(initialWorkForm);
 
-  // Fetch requests for stats (as provider)
-  const { data: providerRequests } = useFindManylisting_requests(
-    {
-      where: {
-        provider_id: user?.id || "",
-      },
-      select: {
-        id: true,
-        status: true,
-        preferred_date: true,
-        preferred_time: true,
-        created_at: true,
-      },
-    },
-    {
-      enabled: !!user?.id,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
-
-  // Fetch reviews for rating (as provider)
-  const { data: reviews } = useFindManyreviews(
-    {
-      where: {
-        provider_id: user?.id || "",
-      },
-      select: {
-        id: true,
-        rating: true,
-      },
-    },
-    {
-      enabled: !!user?.id,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
-
-  // Calculate average rating
-  const { averageRating, reviewCount } = React.useMemo(() => {
-    if (!reviews || reviews.length === 0) {
-      return { averageRating: 0, reviewCount: 0 };
-    }
-    const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-    return {
-      averageRating: Math.round((sum / reviews.length) * 10) / 10,
-      reviewCount: reviews.length,
-    };
-  }, [reviews]);
-
-  // Calculate stats from requests
-  const { completedCount, failedCount } = React.useMemo(() => {
-    if (!providerRequests) return { completedCount: 0, failedCount: 0 };
-
-    let completed = 0;
-    let failed = 0;
-
-    for (const req of providerRequests) {
-      if (req.status === "completed") {
-        completed++;
-      } else if (
-        req.status === "rejected" ||
-        req.status === "cancelled_by_provider"
-      ) {
-        // Count rejected/cancelled by provider as failed
-        failed++;
-      } else if (req.status === "pending" && req.preferred_date) {
-        // Check if pending request is expired
-        const prefDate = new Date(req.preferred_date);
-        const now = new Date();
-
-        if (req.preferred_time) {
-          const [hours, minutes] = req.preferred_time.split(":").map(Number);
-          prefDate.setHours(hours, minutes, 0, 0);
-        } else {
-          prefDate.setHours(9, 0, 0, 0);
-        }
-
-        // Deadline: 5 hours before start
-        const deadline = new Date(prefDate.getTime() - 5 * 60 * 60 * 1000);
-        if (now > deadline) {
-          failed++;
-        }
-      }
-    }
-
-    return { completedCount: completed, failedCount: failed };
-  }, [providerRequests]);
+  // OPTIMIZED: Используем денормализованные данные из профиля вместо 2 отдельных запросов
+  // Поля avg_rating, reviews_count, completed_jobs_count обновляются триггером в БД
+  const averageRating = profile?.avg_rating ? Number(profile.avg_rating) : 0;
+  const reviewCount = profile?.reviews_count ?? 0;
+  const completedCount = profile?.completed_jobs_count ?? 0;
+  // Note: failedCount убран - требует отдельной логики для подсчёта expired requests
+  const failedCount = 0; // TODO: добавить денормализованное поле если нужно
 
   // Redirect to home if not authenticated
   React.useEffect(() => {

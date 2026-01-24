@@ -17,6 +17,10 @@ export type Profile = {
   company_name: string | null;
   registration_number: string | null;
   is_deleted: boolean;
+  // Денормализованные статистики (обновляются триггером в БД)
+  avg_rating: number | null;
+  reviews_count: number;
+  completed_jobs_count: number;
 };
 
 // Cache profile in localStorage for instant display on page load
@@ -96,6 +100,10 @@ export function useCurrentUser() {
         company_name: true,
         registration_number: true,
         is_deleted: true,
+        // Денормализованные статистики - убирают 2 отдельных запроса на странице профиля
+        avg_rating: true,
+        reviews_count: true,
+        completed_jobs_count: true,
         // Исключаем created_at и updated_at - не нужны для отображения
       },
     },

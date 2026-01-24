@@ -57,7 +57,7 @@ async function getHomePageData() {
             id: true,
             url: true,
             sort_order: true,
-            is_cover: true,
+            // OPTIMIZED: is_cover не нужен - уже фильтруем по нему в where
           },
           take: 1,
         },
@@ -73,12 +73,7 @@ async function getHomePageData() {
             name: true,
           },
         },
-        khoroo: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        // OPTIMIZED: khoroo не нужен на главной странице - показывается только на детальной
       },
       orderBy: {
         created_at: "desc",

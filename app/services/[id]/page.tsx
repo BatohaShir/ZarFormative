@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { ServiceDetailClient, ServiceNotFound, type ServiceDetailListing } from "@/components/service-detail-client";
 import { formatListingPrice } from "@/lib/utils";
@@ -12,8 +13,9 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// Загрузка данных на сервере
-async function getListingBySlug(slug: string) {
+// Загрузка данных на сервере - cache() дедуплицирует запросы
+// в рамках одного рендера (generateMetadata + page)
+const getListingBySlug = cache(async function getListingBySlug(slug: string) {
   const listing = await prisma.listings.findUnique({
     where: { slug },
     include: {
@@ -75,7 +77,7 @@ async function getListingBySlug(slug: string) {
     ...listing,
     price: listing.price ? Number(listing.price) : null,
   } as ServiceDetailListing;
-}
+});
 
 // Dynamic SEO metadata для каждого объявления
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

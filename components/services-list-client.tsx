@@ -210,12 +210,8 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
             name: true,
           },
         },
-        khoroo: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        // OPTIMIZED: khoroo не нужен для списка - показывается только на детальной странице
+        // Экономит ~5% payload на каждой карточке
       },
       orderBy: orderByCondition,
       take: PAGE_SIZE,

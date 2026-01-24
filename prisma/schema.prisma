@@ -455,6 +455,7 @@ model chat_messages {
   @@index([request_id, created_at(sort: Desc)])
   @@index([sender_id])
   @@index([request_id, is_read])
+  @@index([request_id, sender_id, is_read])
   @@map("chat_messages")
 }
 
