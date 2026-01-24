@@ -68,6 +68,7 @@ export const ListingCard = React.memo(function ListingCard({
   return (
     <Link
       href={`/services/${listing.slug}`}
+      prefetch={true}
       className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/30 hover:shadow-xl transition-all duration-300"
     >
       {/* Image */}

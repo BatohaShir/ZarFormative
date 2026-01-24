@@ -93,6 +93,7 @@ export function MobileBottomNav() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   className="relative -top-4 flex flex-col items-center justify-center"
                 >
                   <div
@@ -123,6 +124,7 @@ export function MobileBottomNav() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   onClick={item.onClick}
                   className={cn(
                     "flex flex-col items-center justify-center min-w-15 py-2 relative rounded-xl transition-all",
@@ -160,6 +162,7 @@ export function MobileBottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 onClick={item.onClick}
                 className={cn(
                   "flex flex-col items-center justify-center min-w-15 py-2 relative rounded-xl transition-all",

@@ -102,7 +102,7 @@ export function CategoriesModal({
         if (onSelectSubcategory) {
           onSelectSubcategory(selectedCategory, subcategory);
         } else {
-          router.push(`/services?category=${encodeURIComponent(subcategory.slug)}`);
+          router.push(`/services?category=${encodeURIComponent(subcategory.slug)}`, { scroll: false });
         }
         setOpen(false);
         setSelectedCategory(null);
@@ -116,7 +116,7 @@ export function CategoriesModal({
       if (onSelectCategory) {
         onSelectCategory(selectedCategory);
       } else {
-        router.push(`/services?category=${encodeURIComponent(selectedCategory.slug)}`);
+        router.push(`/services?category=${encodeURIComponent(selectedCategory.slug)}`, { scroll: false });
       }
       setOpen(false);
       setSelectedCategory(null);

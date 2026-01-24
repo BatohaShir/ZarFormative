@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useFindUniqueprofiles } from "@/lib/hooks/profiles";
+import { useAuth } from "@/contexts/auth-context";
 import {
   LayoutDashboard,
   FolderTree,
@@ -13,8 +14,6 @@ import {
   LogOut,
   Menu,
   X,
-  Loader2,
-  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +24,8 @@ const navigation = [
   { name: "Настройки", href: "/admin/settings", icon: Settings },
 ];
 
+// Middleware handles auth check - this component just renders the admin layout
+// Unauthorized users are redirected before reaching this component
 export default function AdminLayout({
   children,
 }: {
@@ -32,67 +33,16 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  // Получаем user id
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id ?? null);
-      setIsAuthLoading(false);
-    };
-    getUser();
-  }, [supabase.auth]);
-
-  // Получаем профиль с ролью
-  const { data: profile, isLoading: isProfileLoading } = useFindUniqueprofiles(
+  // Get profile for display purposes only (auth is already verified by middleware)
+  const { data: profile } = useFindUniqueprofiles(
     {
-      where: { id: userId ?? "" },
+      where: { id: user?.id ?? "" },
     },
-    { enabled: !!userId }
+    { enabled: !!user?.id }
   );
-
-  const isLoading = isAuthLoading || isProfileLoading;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isAuthorized = (profile as any)?.role === "admin" || (profile as any)?.role === "manager";
-
-  // Показываем загрузку
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-400" />
-          <p className="mt-2 text-sm text-gray-500">Загрузка...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Нет доступа
-  if (!isAuthorized) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <ShieldAlert className="h-16 w-16 mx-auto text-red-500 mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Доступ запрещён
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mb-6">
-            У вас нет прав для доступа к административной панели.
-            Требуется роль admin или manager.
-          </p>
-          <Link
-            href="/"
-            className="inline-flex items-center px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors"
-          >
-            Вернуться на главную
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -118,7 +68,7 @@ export default function AdminLayout({
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
-          <Link href="/admin" className="flex items-center gap-2">
+          <Link href="/admin" prefetch={true} className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gray-900 dark:bg-white rounded-lg flex items-center justify-center">
               <span className="text-white dark:text-gray-900 font-bold text-sm">Z</span>
             </div>
@@ -138,6 +88,7 @@ export default function AdminLayout({
             <Link
               key={item.name}
               href={item.href}
+              prefetch={true}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <item.icon className="h-5 w-5" />
@@ -185,6 +136,7 @@ export default function AdminLayout({
           <div className="flex-1" />
           <Link
             href="/"
+            prefetch={true}
             className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           >
             ← Вернуться на сайт

@@ -98,15 +98,18 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
     enabled: !!listing.id,
   });
 
-  // Track view when page loads (only once per session)
+  // Track view when page loads (only once per session) with abort controller
   const viewTrackedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (!listing.slug || viewTrackedRef.current === listing.slug) return;
+
+    const controller = new AbortController();
     viewTrackedRef.current = listing.slug;
 
     fetch(`/api/listings/${listing.slug}/view`, {
       method: "POST",
       credentials: "include",
+      signal: controller.signal,
     })
       .then((res) => res.json())
       .then((data) => {
@@ -118,9 +121,15 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
           );
         }
       })
-      .catch(() => {
+      .catch((error) => {
         // Silently fail - view tracking is not critical
+        // Only log if not aborted
+        if (error.name !== "AbortError") {
+          // View tracking failed silently
+        }
       });
+
+    return () => controller.abort();
   }, [listing.slug, queryClient]);
 
   const handleSave = () => {
