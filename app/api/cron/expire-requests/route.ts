@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 /**
  * API для ручного запуска отмены просроченных заявок
@@ -13,16 +14,25 @@ import { prisma } from "@/lib/prisma";
  *
  * GET /api/cron/expire-requests
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  // Rate limit: 5 requests per minute (CRON config)
+  const rateLimitResult = await withRateLimit(request, undefined, "CRON");
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult);
+  }
+
   // Verify cron secret for security
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
 
-  // В development режиме разрешаем без секрета
-  if (process.env.NODE_ENV === "production" && cronSecret) {
-    if (authHeader !== `Bearer ${cronSecret}`) {
+  // ВАЖНО: В production режиме ВСЕГДА требуем секрет
+  if (process.env.NODE_ENV === "production") {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+  } else if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    // В development если секрет задан, проверяем его
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const now = new Date();

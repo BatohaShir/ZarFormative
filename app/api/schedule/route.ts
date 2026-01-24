@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { withRateLimit, rateLimitResponse, addRateLimitHeaders } from "@/lib/rate-limit";
 
 // UUID regex для валидации providerId и listingId
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -12,6 +13,12 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * Возвращает массив занятых слотов с учетом длительности услуги
  */
 export async function GET(request: NextRequest) {
+  // Rate limit: 100 requests per minute per IP (API config)
+  const rateLimitResult = await withRateLimit(request, undefined, "API");
+  if (!rateLimitResult.success) {
+    return rateLimitResponse(rateLimitResult);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const providerId = searchParams.get("providerId");
@@ -71,60 +78,53 @@ export async function GET(request: NextRequest) {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Получаем все принятые заявки исполнителя на эту дату
-    // Статусы, которые считаются занятыми: accepted, in_progress
-    const bookedRequests = await prisma.listing_requests.findMany({
-      where: {
-        provider_id: providerId,
-        preferred_date: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-        status: {
-          in: ["accepted", "in_progress"],
-        },
-        preferred_time: {
-          not: null,
-        },
-      },
-      include: {
-        listing: {
-          select: {
-            id: true,
-            duration_minutes: true,
-            title: true,
+    // ОПТИМИЗАЦИЯ: Один запрос вместо двух
+    // Получаем все принятые заявки И данные листинга одним запросом
+    const [bookedRequests, listingData] = await Promise.all([
+      // Запрос 1: Получаем бронирования исполнителя
+      prisma.listing_requests.findMany({
+        where: {
+          provider_id: providerId,
+          preferred_date: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+          status: {
+            in: ["accepted", "in_progress"],
+          },
+          preferred_time: {
+            not: null,
           },
         },
-      },
-      orderBy: {
-        preferred_time: "asc",
-      },
-    });
-
-    // Если передан listingId, получаем длительность услуги и рабочие часы
-    let currentListingDuration = 60; // По умолчанию 60 минут
-    let workHoursStart = "09:00";    // Дефолт: 9:00
-    let workHoursEnd = "18:00";      // Дефолт: 18:00
-
-    if (listingId) {
-      const currentListing = await prisma.listings.findUnique({
-        where: { id: listingId },
         select: {
-          duration_minutes: true,
-          work_hours_start: true,
-          work_hours_end: true,
+          preferred_time: true,
+          listing: {
+            select: {
+              duration_minutes: true,
+            },
+          },
         },
-      });
-      if (currentListing?.duration_minutes) {
-        currentListingDuration = currentListing.duration_minutes;
-      }
-      if (currentListing?.work_hours_start) {
-        workHoursStart = currentListing.work_hours_start;
-      }
-      if (currentListing?.work_hours_end) {
-        workHoursEnd = currentListing.work_hours_end;
-      }
-    }
+        orderBy: {
+          preferred_time: "asc",
+        },
+      }),
+      // Запрос 2: Получаем данные листинга (если передан listingId)
+      listingId
+        ? prisma.listings.findUnique({
+            where: { id: listingId },
+            select: {
+              duration_minutes: true,
+              work_hours_start: true,
+              work_hours_end: true,
+            },
+          })
+        : null,
+    ]);
+
+    // Устанавливаем дефолтные значения
+    const currentListingDuration = listingData?.duration_minutes || 60;
+    const workHoursStart = listingData?.work_hours_start || "09:00";
+    const workHoursEnd = listingData?.work_hours_end || "18:00";
 
     // Формируем массив занятых слотов с учетом длительности
     // Не раскрываем информацию о чужих бронированиях (privacy)
@@ -197,16 +197,26 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      date: dateStr,
-      providerId,
-      busySlots,
-      unavailableSlots,
-      currentListingDuration,
-      allSlots,
-      workHoursStart,
-      workHoursEnd,
-    });
+    const response = NextResponse.json(
+      {
+        date: dateStr,
+        providerId,
+        busySlots,
+        unavailableSlots,
+        currentListingDuration,
+        allSlots,
+        workHoursStart,
+        workHoursEnd,
+      },
+      {
+        headers: {
+          // Кэшируем на 1 минуту - расписание может меняться
+          "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=120",
+        },
+      }
+    );
+
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
     console.error("Schedule API error:", error);
     return NextResponse.json(

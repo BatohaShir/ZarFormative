@@ -270,6 +270,12 @@ model profiles {
   registration_number String?
   is_deleted          Boolean  @default(false)
 
+  // Денормализованные агрегатные поля для производительности
+  // Обновляются триггером при изменении reviews/listing_requests
+  avg_rating          Decimal? @db.Decimal(2, 1)  // Средний рейтинг (1.0 - 5.0)
+  reviews_count       Int      @default(0)        // Количество отзывов
+  completed_jobs_count Int     @default(0)        // Количество выполненных заказов
+
   // Relations
   push_subscriptions     profiles_push_subscriptions[]
   notification_settings  profiles_notification_settings?

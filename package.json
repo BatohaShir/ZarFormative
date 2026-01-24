@@ -47,6 +47,8 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.90.1",
     "@types/bcryptjs": "^2.4.6",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.1",
     "@zenstackhq/runtime": "2.22.1",
     "@zenstackhq/server": "2.22.1",
     "@zenstackhq/tanstack-query": "2.22.1",

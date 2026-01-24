@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { withRateLimit, rateLimitResponse, addRateLimitHeaders } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
-  // Rate limit: 30 requests per minute per IP
-  const rateLimitResult = withRateLimit(request, undefined, { limit: 30, windowSeconds: 60 });
+  // Rate limit: 30 requests per minute per IP (SEARCH config)
+  const rateLimitResult = await withRateLimit(request, undefined, "SEARCH");
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult);
   }
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
     const total = results.length > 0 ? Number(results[0].total_count) : 0;
 
     // Кэшируем результаты поиска на 30 секунд (клиент) / 60 секунд (CDN)
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         results: results.map((r) => ({
           id: r.id,
@@ -151,6 +151,7 @@ export async function GET(request: NextRequest) {
         },
       }
     );
+    return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
     console.error("Search error:", error);
     return NextResponse.json(

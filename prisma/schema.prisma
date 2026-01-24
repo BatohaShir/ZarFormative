@@ -167,6 +167,9 @@ model profiles {
   company_name            String?
   registration_number     String?
   is_deleted              Boolean                         @default(false)
+  avg_rating              Decimal?                        @db.Decimal(2, 1)
+  reviews_count           Int                             @default(0)
+  completed_jobs_count    Int                             @default(0)
   push_subscriptions      profiles_push_subscriptions[]
   notification_settings   profiles_notification_settings?
   educations              profiles_educations[]

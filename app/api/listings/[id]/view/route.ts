@@ -11,8 +11,8 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Rate limit: 60 view requests per minute per IP (prevent view farming)
-  const rateLimitResult = withRateLimit(request, undefined, { limit: 60, windowSeconds: 60 });
+  // Rate limit: 60 view requests per minute per IP (VIEW config)
+  const rateLimitResult = await withRateLimit(request, undefined, "VIEW");
   if (!rateLimitResult.success) {
     return rateLimitResponse(rateLimitResult);
   }

@@ -346,6 +346,18 @@ const metadata: ModelMeta = {
                     name: "is_deleted",
                     type: "Boolean",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, avg_rating: {
+                    name: "avg_rating",
+                    type: "Decimal",
+                    isOptional: true,
+                }, reviews_count: {
+                    name: "reviews_count",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
+                }, completed_jobs_count: {
+                    name: "completed_jobs_count",
+                    type: "Int",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": 0 }] }],
                 }, push_subscriptions: {
                     name: "push_subscriptions",
                     type: "profiles_push_subscriptions",
