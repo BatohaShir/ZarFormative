@@ -531,38 +531,40 @@ export default function MyServicesPage() {
         {/* Filter Tabs */}
         {!isLoadingListings && counts.all > 0 && (
           <Tabs value={filterStatus} onValueChange={(v) => setFilterStatus(v as FilterStatus)} className="mb-6">
-            <TabsList className="inline-flex p-1 h-10 bg-muted/50 rounded-full">
-              <TabsTrigger
-                value="all"
-                className="rounded-full px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
-              >
-                <LayoutGrid className="h-4 w-4 mr-2" />
-                Бүгд
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                  {counts.all}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="active"
-                className="rounded-full px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
-              >
-                <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                Идэвхтэй
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 text-xs font-semibold">
-                  {counts.active}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="paused"
-                className="rounded-full px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-sm font-medium"
-              >
-                <PauseCircle className="h-4 w-4 mr-2 text-orange-500" />
-                Зогсоосон
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 text-xs font-semibold">
-                  {counts.paused}
-                </span>
-              </TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
+              <TabsList className="inline-flex p-1 h-10 bg-muted/50 rounded-full whitespace-nowrap">
+                <TabsTrigger
+                  value="all"
+                  className="rounded-full px-3 md:px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs md:text-sm font-medium"
+                >
+                  <LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                  Бүгд
+                  <span className="ml-1 md:ml-1.5 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] md:text-xs font-semibold">
+                    {counts.all}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="active"
+                  className="rounded-full px-3 md:px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs md:text-sm font-medium"
+                >
+                  <CheckCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 text-green-500" />
+                  Идэвхтэй
+                  <span className="ml-1 md:ml-1.5 px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[10px] md:text-xs font-semibold">
+                    {counts.active}
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="paused"
+                  className="rounded-full px-3 md:px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs md:text-sm font-medium"
+                >
+                  <PauseCircle className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 text-orange-500" />
+                  Зогсоосон
+                  <span className="ml-1 md:ml-1.5 px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 text-[10px] md:text-xs font-semibold">
+                    {counts.paused}
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
           </Tabs>
         )}
 
