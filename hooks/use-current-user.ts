@@ -4,6 +4,7 @@ import * as React from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useFindUniqueprofiles, useUpdateprofiles } from "@/lib/hooks/profiles";
 import { useAuth, clearAuthCache } from "./use-auth";
+
 // Тип для отображения - без created_at/updated_at (используем select в запросе)
 export type Profile = {
   id: string;
@@ -18,10 +19,58 @@ export type Profile = {
   is_deleted: boolean;
 };
 
+// Cache profile in localStorage for instant display on page load
+const PROFILE_CACHE_KEY = "cached_profile";
+const PROFILE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+function getCachedProfile(userId: string): Profile | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const cached = localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!cached) return null;
+    const { profile, timestamp, id } = JSON.parse(cached);
+    if (id !== userId) return null;
+    if (Date.now() - timestamp > PROFILE_CACHE_TTL) {
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+      return null;
+    }
+    return profile;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedProfile(userId: string, profile: Profile) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      PROFILE_CACHE_KEY,
+      JSON.stringify({ profile, timestamp: Date.now(), id: userId })
+    );
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+export function clearProfileCache() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(PROFILE_CACHE_KEY);
+  } catch {
+    // Ignore
+  }
+}
+
 export function useCurrentUser() {
   // Используем общий хук для auth - предотвращает дублирование запросов
   const { user, isLoading: isAuthLoading } = useAuth();
   const supabase = createClient();
+
+  // Get cached profile for instant display
+  const cachedProfile = React.useMemo(
+    () => (user?.id ? getCachedProfile(user.id) : null),
+    [user?.id]
+  );
 
   // ВАЖНО: Мутационный хук должен вызываться ДО условного запроса,
   // чтобы порядок хуков был стабильным независимо от состояния user
@@ -29,7 +78,7 @@ export function useCurrentUser() {
 
   // Fetch profile using ZenStack hook - optimized with select
   const {
-    data: profile,
+    data: fetchedProfile,
     isLoading: isProfileLoading,
     error: profileError,
     refetch: refetchProfile,
@@ -54,8 +103,20 @@ export function useCurrentUser() {
       enabled: !!user?.id,
       staleTime: 30 * 60 * 1000, // 30 минут - профиль редко меняется
       gcTime: 60 * 60 * 1000, // 1 час в памяти
+      // Use cached profile as initial data for instant display
+      initialData: cachedProfile ?? undefined,
     }
   );
+
+  // Use fetched profile or fall back to cached
+  const profile = fetchedProfile ?? cachedProfile;
+
+  // Update cache when profile is fetched
+  React.useEffect(() => {
+    if (fetchedProfile && user?.id) {
+      setCachedProfile(user.id, fetchedProfile);
+    }
+  }, [fetchedProfile, user?.id]);
 
   const updateProfile = async (data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>) => {
     if (!user?.id) return { error: "Not authenticated" };
@@ -65,6 +126,8 @@ export function useCurrentUser() {
         where: { id: user.id },
         data,
       });
+      // Clear cache to force refresh
+      clearProfileCache();
       return { error: null };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Update failed" };
@@ -106,6 +169,7 @@ export function useCurrentUser() {
   const signOut = async () => {
     await supabase.auth.signOut();
     clearAuthCache(); // Очищаем кэш auth при выходе
+    clearProfileCache(); // Очищаем кэш профиля
     window.location.href = "/"; // Переход на главную страницу
   };
 
@@ -136,7 +200,8 @@ export function useCurrentUser() {
     return { error: error?.message ?? null };
   };
 
-  const isLoading = isAuthLoading || isProfileLoading;
+  // Loading: only true if we have no cached data AND we're still loading
+  const isLoading = isAuthLoading || (isProfileLoading && !cachedProfile);
   const isAuthenticated = !!user;
 
   // Мемоизированное display name

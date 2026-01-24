@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     signIn,
     signUp,
     isAuthenticated,
+    isLoading,
     displayName,
     avatarUrl,
   } = useAuth();
@@ -45,11 +47,22 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
     setOpen(false);
   }, [setOpen]);
 
+  // Show skeleton while loading auth state
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2">
+        <Skeleton className="w-8 h-8 md:w-9 md:h-9 rounded-full" />
+        <Skeleton className="hidden md:block h-4 w-20" />
+      </div>
+    );
+  }
+
   // If user is authenticated, show direct link to profile
   if (isAuthenticated && user) {
     return (
       <Link
         href="/account/me"
+        prefetch={true}
         className="flex items-center gap-2 hover:opacity-80 transition-opacity"
       >
         <div className="relative">
