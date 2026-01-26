@@ -45,6 +45,19 @@ const AddressMap = dynamic(
   }
 );
 
+// Lazy load LiveTrackingMap - для live-отслеживания
+const LiveTrackingMap = dynamic(
+  () => import("@/components/live-tracking-map").then((mod) => ({ default: mod.LiveTrackingMap })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[300px] bg-muted animate-pulse rounded-lg flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  }
+);
+
 interface RequestDetailModalProps {
   request: RequestWithRelations;
   userId: string;
@@ -454,6 +467,29 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                 aimagName={request.aimag?.name}
                 districtName={request.district?.name}
                 khorooName={request.khoroo?.name}
+              />
+            </div>
+          )}
+
+          {/* Live Tracking Map - для активных заявок (accepted, in_progress) */}
+          {(request.status === "accepted" || request.status === "in_progress") && (
+            <div className="border rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Live байршил хянах
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Байршлаа хуваалцаж, бие биенээ газрын зурагт харах
+                </p>
+              </div>
+              <LiveTrackingMap
+                requestId={request.id}
+                clientId={request.client_id}
+                providerId={request.provider_id}
+                clientName={getPersonName(request.client)}
+                providerName={getPersonName(request.provider)}
+                isActiveJob={true}
               />
             </div>
           )}

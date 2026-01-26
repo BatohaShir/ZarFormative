@@ -291,6 +291,7 @@ model profiles {
   chat_messages          chat_messages[]                                    // Сообщения чата
   reviews_given          reviews[] @relation("ReviewClient")               // Отзывы, которые я оставил
   reviews_received       reviews[] @relation("ReviewProvider")             // Отзывы, которые получил
+  location_tracks        request_locations[]                               // Мои геолокации в заявках
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -744,9 +745,10 @@ model listing_requests {
   aimag        aimags?   @relation(fields: [aimag_id], references: [id])
   district     districts? @relation(fields: [district_id], references: [id])
   khoroo       khoroos?  @relation(fields: [khoroo_id], references: [id])
-  notifications notifications[] // Уведомления, связанные с этой заявкой
-  chat_messages chat_messages[] // Сообщения чата
-  review        reviews?        // Отзыв клиента об исполнителе
+  notifications notifications[]      // Уведомления, связанные с этой заявкой
+  chat_messages chat_messages[]      // Сообщения чата
+  review        reviews?             // Отзыв клиента об исполнителе
+  locations     request_locations[]  // Live геолокации участников
 
   // Уникальность: одна активная заявка на объявление от клиента
   // Реализуется в API логике (проверка pending/accepted/in_progress)
@@ -909,5 +911,49 @@ model reviews {
   @@allow('update', auth() != null && auth().id == client_id)
 
   // Admin может все
+  @@allow('all', auth().role == admin)
+}
+
+// ============================================
+// Request Location Tracking - Live геолокация во время выполнения заявки
+// ============================================
+
+model request_locations {
+  id          String   @id @default(uuid()) @db.Uuid
+  request_id  String   @db.Uuid              // Связь с заявкой
+  user_id     String   @db.Uuid              // Пользователь (client или provider)
+  latitude    Float                          // Широта
+  longitude   Float                          // Долгота
+  accuracy    Float?                         // Точность в метрах
+  heading     Float?                         // Направление движения (0-360)
+  speed       Float?                         // Скорость в м/с
+  is_active   Boolean  @default(true)        // Активно ли отслеживание
+  updated_at  DateTime @updatedAt            // Время последнего обновления
+
+  // Relations
+  request     listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  user        profiles         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Unique constraint - один активный трек на пользователя/заявку
+  @@unique([request_id, user_id])
+
+  // Indexes
+  @@index([request_id, is_active])           // Активные треки по заявке
+  @@index([user_id, is_active])              // Активные треки пользователя
+  @@index([updated_at])                       // Для очистки старых записей
+
+  @@map("request_locations")
+
+  // === RBAC Rules ===
+  // Участники заявки могут читать локации
+  @@allow('read', auth() != null && (request.client_id == auth().id || request.provider_id == auth().id))
+
+  // Пользователь может обновлять свою локацию
+  @@allow('create,update', auth() != null && auth().id == user_id)
+
+  // Пользователь может удалить свой трек
+  @@allow('delete', auth() != null && auth().id == user_id)
+
+  // Admin видит все
   @@allow('all', auth().role == admin)
 }

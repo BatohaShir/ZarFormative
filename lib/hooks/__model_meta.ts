@@ -442,6 +442,12 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isArray: true,
                     backLink: 'provider',
+                }, location_tracks: {
+                    name: "location_tracks",
+                    type: "request_locations",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'user',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -1207,6 +1213,12 @@ const metadata: ModelMeta = {
                     isDataModel: true,
                     isOptional: true,
                     backLink: 'request',
+                }, locations: {
+                    name: "locations",
+                    type: "request_locations",
+                    isDataModel: true,
+                    isArray: true,
+                    backLink: 'request',
                 },
             }, uniqueConstraints: {
                 id: {
@@ -1438,14 +1450,84 @@ const metadata: ModelMeta = {
                 },
             },
         },
+        request_locations: {
+            name: 'request_locations', fields: {
+                id: {
+                    name: "id",
+                    type: "String",
+                    isId: true,
+                    attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, request_id: {
+                    name: "request_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'request',
+                }, user_id: {
+                    name: "user_id",
+                    type: "String",
+                    isForeignKey: true,
+                    relationField: 'user',
+                }, latitude: {
+                    name: "latitude",
+                    type: "Float",
+                }, longitude: {
+                    name: "longitude",
+                    type: "Float",
+                }, accuracy: {
+                    name: "accuracy",
+                    type: "Float",
+                    isOptional: true,
+                }, heading: {
+                    name: "heading",
+                    type: "Float",
+                    isOptional: true,
+                }, speed: {
+                    name: "speed",
+                    type: "Float",
+                    isOptional: true,
+                }, is_active: {
+                    name: "is_active",
+                    type: "Boolean",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": true }] }],
+                }, updated_at: {
+                    name: "updated_at",
+                    type: "DateTime",
+                    attributes: [{ "name": "@updatedAt", "args": [] }],
+                }, request: {
+                    name: "request",
+                    type: "listing_requests",
+                    isDataModel: true,
+                    backLink: 'locations',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "request_id" },
+                }, user: {
+                    name: "user",
+                    type: "profiles",
+                    isDataModel: true,
+                    backLink: 'location_tracks',
+                    isRelationOwner: true,
+                    onDeleteAction: 'Cascade',
+                    foreignKeyMapping: { "id": "user_id" },
+                },
+            }, uniqueConstraints: {
+                id: {
+                    name: "id",
+                    fields: ["id"]
+                }, request_id_user_id: {
+                    name: "request_id_user_id",
+                    fields: ["request_id", "user_id"]
+                },
+            },
+        },
 
     },
     deleteCascade: {
         aimags: ['districts'],
         districts: ['khoroos'],
-        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests', 'notifications', 'chat_messages', 'reviews'],
+        profiles: ['profiles_push_subscriptions', 'profiles_notification_settings', 'profiles_educations', 'profiles_work_experiences', 'listings', 'user_favorites', 'listing_requests', 'notifications', 'chat_messages', 'reviews', 'request_locations'],
         listings: ['listings_images', 'listings_views', 'user_favorites', 'listing_requests'],
-        listing_requests: ['chat_messages', 'reviews'],
+        listing_requests: ['chat_messages', 'reviews', 'request_locations'],
 
     },
     authModel: 'profiles'

@@ -184,6 +184,7 @@ model profiles {
   chat_messages           chat_messages[]
   reviews_given           reviews[]                       @relation("ReviewClient")
   reviews_received        reviews[]                       @relation("ReviewProvider")
+  location_tracks         request_locations[]
 
   @@index([is_deleted])
   @@index([is_company])
@@ -373,36 +374,37 @@ model user_favorites {
 }
 
 model listing_requests {
-  id                     String          @id() @default(uuid()) @db.Uuid()
-  listing_id             String          @db.Uuid()
-  client_id              String          @db.Uuid()
-  provider_id            String          @db.Uuid()
-  message                String          @db.Text()
-  status                 RequestStatus   @default(pending)
-  aimag_id               String?         @db.Uuid()
-  district_id            String?         @db.Uuid()
-  khoroo_id              String?         @db.Uuid()
+  id                     String              @id() @default(uuid()) @db.Uuid()
+  listing_id             String              @db.Uuid()
+  client_id              String              @db.Uuid()
+  provider_id            String              @db.Uuid()
+  message                String              @db.Text()
+  status                 RequestStatus       @default(pending)
+  aimag_id               String?             @db.Uuid()
+  district_id            String?             @db.Uuid()
+  khoroo_id              String?             @db.Uuid()
   address_detail         String?
   preferred_date         DateTime?
   preferred_time         String?
-  note                   String?         @db.Text()
+  note                   String?             @db.Text()
   image_url              String?
-  provider_response      String?         @db.Text()
-  completion_description String?         @db.Text()
-  completion_photos      String[]        @default([])
-  created_at             DateTime        @default(now())
-  updated_at             DateTime        @updatedAt()
+  provider_response      String?             @db.Text()
+  completion_description String?             @db.Text()
+  completion_photos      String[]            @default([])
+  created_at             DateTime            @default(now())
+  updated_at             DateTime            @updatedAt()
   accepted_at            DateTime?
   completed_at           DateTime?
-  listing                listings        @relation(fields: [listing_id], references: [id], onDelete: Cascade)
-  client                 profiles        @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
-  provider               profiles        @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
-  aimag                  aimags?         @relation(fields: [aimag_id], references: [id])
-  district               districts?      @relation(fields: [district_id], references: [id])
-  khoroo                 khoroos?        @relation(fields: [khoroo_id], references: [id])
+  listing                listings            @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  client                 profiles            @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
+  provider               profiles            @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
+  aimag                  aimags?             @relation(fields: [aimag_id], references: [id])
+  district               districts?          @relation(fields: [district_id], references: [id])
+  khoroo                 khoroos?            @relation(fields: [khoroo_id], references: [id])
   notifications          notifications[]
   chat_messages          chat_messages[]
   review                 reviews?
+  locations              request_locations[]
 
   @@index([listing_id])
   @@index([client_id, status])
@@ -474,4 +476,25 @@ model reviews {
   @@index([provider_id, created_at(sort: Desc)])
   @@index([client_id])
   @@map("reviews")
+}
+
+model request_locations {
+  id         String           @id() @default(uuid()) @db.Uuid()
+  request_id String           @db.Uuid()
+  user_id    String           @db.Uuid()
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  heading    Float?
+  speed      Float?
+  is_active  Boolean          @default(true)
+  updated_at DateTime         @updatedAt()
+  request    listing_requests @relation(fields: [request_id], references: [id], onDelete: Cascade)
+  user       profiles         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([request_id, user_id])
+  @@index([request_id, is_active])
+  @@index([user_id, is_active])
+  @@index([updated_at])
+  @@map("request_locations")
 }

@@ -21,6 +21,7 @@ export * from './listing-requests';
 export * from './notifications';
 export * from './chat-messages';
 export * from './reviews';
+export * from './request-locations';
 export { getQueryKey } from '@zenstackhq/tanstack-query/runtime-v5';
 export { Provider } from '@zenstackhq/tanstack-query/runtime-v5/react';
 export { default as metadata } from './__model_meta';
