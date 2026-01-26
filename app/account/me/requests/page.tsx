@@ -119,7 +119,17 @@ function RequestsPageContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // OPTIMIZED: Debounced search to prevent excessive re-renders
+  const [searchInput, setSearchInput] = React.useState("");
   const [searchQuery, setSearchQuery] = React.useState("");
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
   const [selectedRequest, setSelectedRequest] = React.useState<RequestWithRelations | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [requestToDelete, setRequestToDelete] = React.useState<string | null>(null);
@@ -469,6 +479,9 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Хүсэлт зөвшөөрөгдлөө!", {
           action: {
             label: "Буцаах",
@@ -489,7 +502,7 @@ function RequestsPageContent() {
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   const handleReject = React.useCallback(
@@ -518,6 +531,9 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Хүсэлт татгалзагдлаа", {
           action: {
             label: "Буцаах",
@@ -538,7 +554,7 @@ function RequestsPageContent() {
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   const handleCancelByClient = React.useCallback(
@@ -567,6 +583,9 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Хүсэлт цуцлагдлаа", {
           action: {
             label: "Буцаах",
@@ -587,7 +606,7 @@ function RequestsPageContent() {
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   const handleCancelByProvider = React.useCallback(
@@ -616,6 +635,9 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Хүсэлт цуцлагдлаа", {
           action: {
             label: "Буцаах",
@@ -636,7 +658,7 @@ function RequestsPageContent() {
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   const handleStartWork = React.useCallback(
@@ -665,6 +687,9 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Ажил эхэллээ!");
         setSelectedRequest(null);
       } catch {
@@ -672,7 +697,7 @@ function RequestsPageContent() {
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   // Legacy handleComplete - no longer used in new workflow
@@ -724,13 +749,16 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Амжилттай баталгаажууллаа!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createReview, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createReview, createNotification, user?.id, queryClient, queryKey]
   );
 
   // Step 2: Provider submits work details (in_progress -> awaiting_client_confirmation)
@@ -768,13 +796,16 @@ function RequestsPageContent() {
           });
         }
 
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
+
         toast.success("Ажлын тайлан илгээгдлээ!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   // Step 3: Payment complete (awaiting_payment -> completed)
@@ -790,32 +821,38 @@ function RequestsPageContent() {
           data: { status: "completed", completed_at: new Date() },
         });
 
-        // Create notifications for both parties
+        // OPTIMIZED: Create notifications for both parties in parallel
         if (request && user?.id) {
-          // Notification for client
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "work_completed",
-              title: "Ажил дууслаа",
-              message: `"${request.listing.title}" ажил амжилттай дууслаа. Баярлалаа!`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-
-          // Notification for provider
-          createNotification.mutate({
-            data: {
-              user_id: request.provider_id,
-              type: "payment_received",
-              title: "Төлбөр хүлээн авлаа",
-              message: `"${request.listing.title}" ажлын төлбөр хүлээн авлаа. Баярлалаа!`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
+          Promise.all([
+            // Notification for client
+            createNotification.mutateAsync({
+              data: {
+                user_id: request.client_id,
+                type: "work_completed",
+                title: "Ажил дууслаа",
+                message: `"${request.listing.title}" ажил амжилттай дууслаа. Баярлалаа!`,
+                request_id: requestId,
+                actor_id: user.id,
+              },
+            }),
+            // Notification for provider
+            createNotification.mutateAsync({
+              data: {
+                user_id: request.provider_id,
+                type: "payment_received",
+                title: "Төлбөр хүлээн авлаа",
+                message: `"${request.listing.title}" ажлын төлбөр хүлээн авлаа. Баярлалаа!`,
+                request_id: requestId,
+                actor_id: user.id,
+              },
+            }),
+          ]).catch(() => {
+            // Silently fail - notifications are not critical
           });
         }
+
+        // OPTIMIZED: Invalidate cache to ensure consistency
+        await queryClient.invalidateQueries({ queryKey });
 
         toast.success("Төлбөр амжилттай!");
       } catch {
@@ -823,7 +860,7 @@ function RequestsPageContent() {
         toast.error("Алдаа гарлаа");
       }
     },
-    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id]
+    [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -984,8 +1021,8 @@ function RequestsPageContent() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Хайх..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="pl-10"
           />
         </div>
