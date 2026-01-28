@@ -124,6 +124,8 @@ model aimags {
   name_en     String?                        // Название на английском
   code        String    @unique              // Код (UB, DH, OR...)
   type        AimagType @default(aimag)      // Тип: аймаг или столица
+  latitude    Float?                         // Координаты центра аймага
+  longitude   Float?                         // Координаты центра аймага
   sort_order  Int       @default(0)          // Порядок отображения
   is_active   Boolean   @default(true)
   created_at  DateTime  @default(now())
@@ -155,6 +157,8 @@ model districts {
   name        String                          // Название (Баянгол, Сүхбаатар...)
   name_en     String?                         // Название на английском
   type        DistrictType @default(duureg)   // Тип: дүүрэг или сум
+  latitude    Float?                          // Координаты центра дүүрэга
+  longitude   Float?                          // Координаты центра дүүрэга
   sort_order  Int          @default(0)
   is_active   Boolean      @default(true)
   created_at  DateTime     @default(now())
@@ -186,6 +190,8 @@ model khoroos {
   district_id String   @db.Uuid
   name        String                          // Название (1-р хороо, 2-р хороо...)
   number      Int?                            // Номер хороо (1, 2, 3...)
+  latitude    Float?                          // Координаты центра хороо
+  longitude   Float?                          // Координаты центра хороо
   sort_order  Int      @default(0)
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
@@ -709,11 +715,16 @@ model listing_requests {
   message      String        @db.Text  // Сообщение клиента
   status       RequestStatus @default(pending)
 
+  // Контактный телефон клиента
+  client_phone   String?       // Номер телефона клиента для связи
+
   // Адрес оказания услуги (опционально, для услуг с выездом)
   aimag_id       String?      @db.Uuid
   district_id    String?      @db.Uuid
   khoroo_id      String?      @db.Uuid
   address_detail String?       // Детальный адрес (дом, подъезд, квартира)
+  latitude       Float?        // Координаты местоположения клиента
+  longitude      Float?        // Координаты местоположения клиента
 
   // Желаемые дата и время (опционально)
   preferred_date DateTime?

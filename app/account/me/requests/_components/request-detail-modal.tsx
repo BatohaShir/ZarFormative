@@ -21,6 +21,9 @@ import {
   MessageCircle,
   Clock,
   CreditCard,
+  Phone,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import type { RequestWithRelations, RequestActions } from "./types";
 import { getStatusBadge, getPersonName, getListingImage, formatCreatedAt, isChatAvailable } from "./utils";
@@ -32,31 +35,19 @@ import {
   CompletionSuccessModal,
 } from "./work-completion-flow";
 
-// Lazy load AddressMap - heavy component with Leaflet
-const AddressMap = dynamic(
-  () => import("@/components/address-map").then((mod) => ({ default: mod.AddressMap })),
+// Lazy load RequestLocationMap - карта локации заявки
+const RequestLocationMap = dynamic(
+  () => import("@/components/request-location-map").then((mod) => ({ default: mod.RequestLocationMap })),
   {
     ssr: false,
     loading: () => (
-      <div className="h-40 bg-muted animate-pulse rounded-lg flex items-center justify-center">
+      <div className="h-50 bg-muted animate-pulse rounded-lg flex items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     ),
   }
 );
 
-// Lazy load LiveTrackingMap - для live-отслеживания
-const LiveTrackingMap = dynamic(
-  () => import("@/components/live-tracking-map").then((mod) => ({ default: mod.LiveTrackingMap })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[300px] bg-muted animate-pulse rounded-lg flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    ),
-  }
-);
 
 interface RequestDetailModalProps {
   request: RequestWithRelations;
@@ -88,6 +79,7 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   const [showImagePreview, setShowImagePreview] = React.useState(false);
   const [showChat, setShowChat] = React.useState(false);
   const [showCompletionPhoto, setShowCompletionPhoto] = React.useState<string | null>(null);
+  const [showClientPhone, setShowClientPhone] = React.useState(false);
 
   // Completion flow states
   const [showClientReview, setShowClientReview] = React.useState(false);
@@ -419,80 +411,104 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                   </div>
                 )}
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold">{getPersonName(otherPerson)}</p>
+                {/* Client Phone - только для провайдера */}
+                {isProvider && request.client_phone && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowClientPhone(!showClientPhone)}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      {showClientPhone ? (
+                        <>
+                          <span>+976 {request.client_phone.slice(0, 4)}-{request.client_phone.slice(4)}</span>
+                          <EyeOff className="h-3.5 w-3.5 ml-1" />
+                        </>
+                      ) : (
+                        <>
+                          <span>+976 </span>
+                          <span className="blur-sm select-none">{request.client_phone.slice(0, 4)}-{request.client_phone.slice(4)}</span>
+                          <Eye className="h-3.5 w-3.5 ml-1" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
-              <Link href={`/account/${otherPerson.id}`}>
-                <Button variant="outline" size="sm">
-                  Профайл
-                </Button>
-              </Link>
+              <div className="flex items-center gap-2">
+                {/* Call Button - только когда номер раскрыт */}
+                {isProvider && request.client_phone && showClientPhone && (
+                  <a href={`tel:+976${request.client_phone}`}>
+                    <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700">
+                      <Phone className="h-4 w-4 mr-1.5" />
+                      Залгах
+                    </Button>
+                  </a>
+                )}
+                <Link href={`/account/${otherPerson.id}`}>
+                  <Button variant="outline" size="sm">
+                    Профайл
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
 
-          {/* Address Info - show for both client and provider */}
-          {/* If remote service - show provider's address from listing */}
-          {request.listing.service_type === "remote" && request.listing.address ? (
-            <div className="border rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Үйлчилгээ үзүүлэх хаяг (Гүйцэтгэгчийн байршил)
-                </p>
-                <p className="text-sm font-medium">
-                  {request.listing.address}
-                </p>
-              </div>
-            </div>
-          ) : request.aimag && (
-            <div className="border rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Үйлчилгээ үзүүлэх хаяг
-                </p>
-                <p className="text-sm font-medium">
-                  {[request.aimag?.name, request.district?.name, request.khoroo?.name]
-                    .filter(Boolean)
-                    .join(", ")}
-                </p>
-                {request.address_detail && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {request.address_detail}
-                  </p>
-                )}
-              </div>
-              {/* Map with circle marker */}
-              <AddressMap
-                aimagName={request.aimag?.name}
-                districtName={request.district?.name}
-                khorooName={request.khoroo?.name}
-              />
-            </div>
-          )}
+          {/* Location Map - показываем карту с координатами */}
+          {/* remote услуги: показываем координаты исполнителя (из listing) */}
+          {/* on_site услуги: показываем координаты клиента (из request) */}
+          {(() => {
+            const isRemote = request.listing.service_type === "remote";
+            // Для remote - координаты из listing (исполнителя)
+            // Для on_site - координаты из request (клиента)
+            const lat = isRemote ? request.listing.latitude : request.latitude;
+            const lng = isRemote ? request.listing.longitude : request.longitude;
+            const hasCoordinates = lat && lng;
 
-          {/* Live Tracking Map - для активных заявок (accepted, in_progress) */}
-          {(request.status === "accepted" || request.status === "in_progress") && (
-            <div className="border rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
-                  Live байршил хянах
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Байршлаа хуваалцаж, бие биенээ газрын зурагт харах
-                </p>
+            // Определяем текст адреса
+            const addressText = isRemote
+              ? request.listing.address || "Гүйцэтгэгчийн байршил"
+              : request.address_detail ||
+                [request.aimag?.name, request.district?.name, request.khoroo?.name]
+                  .filter(Boolean)
+                  .join(", ") ||
+                "Захиалагчийн байршил";
+
+            if (!hasCoordinates) {
+              // Нет координат - показываем только текст
+              return (
+                <div className="border rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {isRemote ? "Гүйцэтгэгчийн хаяг" : "Захиалагчийн хаяг"}
+                  </p>
+                  <p className="text-sm font-medium">{addressText}</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="border rounded-lg p-4 space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {isRemote ? "Гүйцэтгэгчийн байршил" : "Захиалагчийн байршил"}
+                  </p>
+                  <p className="text-sm font-medium">{addressText}</p>
+                </div>
+                {/* Карта с координатами */}
+                <RequestLocationMap
+                  coordinates={[lat, lng]}
+                  status={request.status}
+                  addressText={addressText}
+                />
               </div>
-              <LiveTrackingMap
-                requestId={request.id}
-                clientId={request.client_id}
-                providerId={request.provider_id}
-                clientName={getPersonName(request.client)}
-                providerName={getPersonName(request.provider)}
-                isActiveJob={true}
-              />
-            </div>
-          )}
+            );
+          })()}
+
         </div>
 
         {/* Modal Footer */}
@@ -708,7 +724,7 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
       {/* Full screen image preview */}
       {showImagePreview && request.image_url && (
         <div
-          className="fixed inset-0 bg-black/90 z-60 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/95 z-200 flex items-center justify-center p-4"
           onClick={() => setShowImagePreview(false)}
         >
           <button
@@ -733,7 +749,7 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
       {/* Full screen completion photo preview */}
       {showCompletionPhoto && (
         <div
-          className="fixed inset-0 bg-black/90 z-60 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/95 z-200 flex items-center justify-center p-4"
           onClick={() => setShowCompletionPhoto(null)}
         >
           <button

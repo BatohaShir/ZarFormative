@@ -128,7 +128,7 @@ export function CategoryFilterModal({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-hidden flex flex-col overflow-x-hidden">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             {expandedCategory && (
@@ -145,7 +145,7 @@ export function CategoryFilterModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+        <div className="flex-1 overflow-hidden overflow-x-hidden flex flex-col gap-4">
           {!expandedCategory && (
             <div className="relative shrink-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -168,7 +168,7 @@ export function CategoryFilterModal({
           )}
 
           {!expandedCategory ? (
-            <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-1 pr-2">
               {filteredCategories.map((category) => {
                 const isSelected = tempSelectedCategories.includes(category.slug);
                 const children = getChildren(category.id);
@@ -176,13 +176,13 @@ export function CategoryFilterModal({
                 return (
                   <div
                     key={category.id}
-                    className={`flex items-center p-3 rounded-lg transition-colors border ${
+                    className={`flex items-center gap-2 p-3 rounded-lg transition-colors border ${
                       isSelected ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-muted"
                     }`}
                   >
                     <label
                       htmlFor={`filter-cat-${category.id}`}
-                      className="flex items-center space-x-3 flex-1 cursor-pointer"
+                      className="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer"
                     >
                       <Checkbox
                         id={`filter-cat-${category.id}`}
@@ -194,7 +194,7 @@ export function CategoryFilterModal({
                       ) : (
                         <span className="text-lg shrink-0">{category.icon || "📁"}</span>
                       )}
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <p className="text-sm font-medium truncate">{category.name}</p>
                         {hasSubcategories && (
                           <p className="text-xs text-muted-foreground truncate">
@@ -207,20 +207,18 @@ export function CategoryFilterModal({
                         )}
                       </div>
                     </label>
-                    {hasSubcategories && (
-                      <button
-                        onClick={() => setExpandedCategory(category)}
-                        className="p-2 hover:bg-muted rounded-lg transition-colors"
-                      >
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => hasSubcategories && setExpandedCategory(category)}
+                      className={`shrink-0 p-2 rounded-lg transition-colors ${hasSubcategories ? "hover:bg-muted" : "invisible"}`}
+                    >
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </button>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto space-y-1 pr-2">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-1 pr-2">
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg mb-2">
                 {isImageIcon(expandedCategory.icon) ? (
                   <Image src={expandedCategory.icon!} alt={expandedCategory.name} width={32} height={32} />

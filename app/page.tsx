@@ -91,6 +91,8 @@ async function getHomePageData() {
   const serializedListings = listingsData.map((listing) => ({
     ...listing,
     price: listing.price ? Number(listing.price) : null,
+    latitude: listing.latitude ? Number(listing.latitude) : null,
+    longitude: listing.longitude ? Number(listing.longitude) : null,
   }));
 
   return {
@@ -169,7 +171,7 @@ export default async function Home() {
             className="h-12 md:h-14 px-3 md:pl-4 md:pr-5 rounded-full shadow-lg hover:shadow-xl transition-all bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 gap-1.5 md:gap-2"
           >
             <Plus className="h-4 w-4 md:h-5 md:w-5" />
-            <span className="font-medium text-sm md:text-base">Зарлах</span>
+            <span className="font-medium text-sm md:text-base">Зар оруулах</span>
           </Button>
           {/* Pulse animation */}
           <span className="absolute -top-1 -right-1 flex h-3 w-3">

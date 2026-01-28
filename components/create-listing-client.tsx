@@ -21,8 +21,6 @@ import {
   Edit3,
   Trash2,
   AlertCircle,
-  Clock,
-  CalendarClock,
   Briefcase,
   Building2,
 } from "lucide-react";
@@ -51,6 +49,10 @@ const AddressSelectModal = dynamic(
 const CategorySelectModal = dynamic(
   () => import("@/components/category-select-modal").then((mod) => ({ default: mod.CategorySelectModal })),
   { ssr: false }
+);
+const LocationPickerMap = dynamic(
+  () => import("@/components/location-picker-map").then((mod) => ({ default: mod.LocationPickerMap })),
+  { ssr: false, loading: () => <div className="w-full h-15 bg-muted/50 rounded-xl animate-pulse" /> }
 );
 
 import { useCreatelistings, useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
@@ -96,6 +98,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [showDraftBanner, setShowDraftBanner] = useState(true);
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
+  const [locationCoordinates, setLocationCoordinates] = useState<[number, number] | null>(null);
 
   // Auto-save ref for debounce
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -224,6 +227,13 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
         khorooId: draft.khoroo_id,
       });
     }
+
+    // Load coordinates if available
+    if (draft.latitude && draft.longitude) {
+      setLocationCoordinates([Number(draft.latitude), Number(draft.longitude)]);
+    } else {
+      setLocationCoordinates(null);
+    }
   }, [categories, formatPriceDisplay, reset]);
 
   // Delete draft
@@ -275,11 +285,12 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       await updateListing.mutateAsync({
         where: { id: editingDraftId },
         data: {
-          title: data.title || "Черновик",
+          title: data.title || "Ноорог",
           slug,
           description: data.description || "",
           ...(data.category_id && { category_id: data.category_id }),
-          address: addressStr,
+          // Для "Миний газар" сохраняем детальный адрес
+          address: data.service_type === "remote" ? data.address_detail : addressStr,
           aimag_id: selectedAddress?.cityId || null,
           district_id: selectedAddress?.districtId || null,
           khoroo_id: selectedAddress?.khorooId || null,
@@ -287,6 +298,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           is_negotiable: false,
           duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
           service_type: data.service_type,
+          latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+          longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
           work_hours_start: data.work_hours_start || "09:00",
           work_hours_end: data.work_hours_end || "18:00",
         },
@@ -296,7 +309,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     } catch {
       // Auto-save failed silently - will retry on next change
     }
-  }, [user?.id, editingDraftId, getValues, formatAddress, selectedAddress, updateListing]);
+  }, [user?.id, editingDraftId, getValues, formatAddress, selectedAddress, locationCoordinates, updateListing]);
 
   // Watch form changes for auto-save
   useEffect(() => {
@@ -350,7 +363,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             slug,
             description: data.description || "",
             ...(data.category_id && { category_id: data.category_id }),
-            address: addressStr,
+            // Для "Миний газар" сохраняем детальный адрес
+            address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
@@ -358,6 +372,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+            longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
           },
@@ -389,7 +405,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             description: data.description || "",
             ...(data.category_id && { category_id: data.category_id }),
             user_id: user.id,
-            address: addressStr,
+            // Для "Миний газар" сохраняем детальный адрес
+            address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
@@ -397,6 +414,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+            longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
             status: "draft",
@@ -428,9 +447,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
 
       setImages([]);
       refetchDrafts();
-      toast.success("Черновик хадгалагдлаа!");
+      toast.success("Ноорог хадгалагдлаа!");
     } catch {
-      toast.error("Черновик хадгалахад алдаа гарлаа");
+      toast.error("Ноорог хадгалахад алдаа гарлаа");
     } finally {
       setIsSavingDraft(false);
     }
@@ -467,7 +486,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             slug,
             description: data.description,
             category_id: data.category_id,
-            address: addressStr,
+            // Для "Миний газар" сохраняем детальный адрес, для "Зочны газар" - адрес из модалки
+            address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
@@ -475,6 +495,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+            longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
             status: "active",
@@ -514,7 +536,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             description: data.description,
             category_id: data.category_id,
             user_id: user.id,
-            address: addressStr,
+            // Для "Миний газар" сохраняем детальный адрес, для "Зочны газар" - адрес из модалки
+            address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
             khoroo_id: selectedAddress?.khorooId || null,
@@ -522,6 +545,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+            longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
             work_hours_end: data.work_hours_end || "18:00",
             status: "active",
@@ -577,6 +602,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     setSelectedAddress(null);
     setImages([]);
     setDisplayPrice("");
+    setLocationCoordinates(null);
     setShowDraftBanner(true);
   }, [reset]);
 
@@ -652,10 +678,10 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           </div>
           <div className="flex-1">
             <h2 className="text-xl md:text-2xl font-bold">
-              {editingDraftId ? "Черновик засах" : "Шинэ зар"}
+              {editingDraftId ? "Ноорог засах" : "Шинэ зар"}
             </h2>
             <p className="text-sm text-muted-foreground">
-              {editingDraftId ? "Черновикоо засаад нийтлэнэ үү" : "Үйлчилгээний мэдээллээ оруулна уу"}
+              {editingDraftId ? "Ноорогоо засаад нийтлэнэ үү" : "Үйлчилгээний мэдээллээ оруулна уу"}
             </p>
           </div>
         </div>
@@ -668,7 +694,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                 <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-amber-800 dark:text-amber-200">
-                    Танд {drafts.length} черновик байна
+                    Танд {drafts.length} ноорог байна
                   </p>
                   <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
                     Өмнө хадгалсан зараа үргэлжлүүлэх үү?
@@ -720,7 +746,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
 
                   {drafts.length > 3 && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                      + {drafts.length - 3} бусад черновик
+                      + {drafts.length - 3} бусад ноорог
                     </p>
                   )}
                 </div>
@@ -746,7 +772,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                 <div className="flex items-center gap-2">
                   <Edit3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   <span className="text-sm text-blue-800 dark:text-blue-200">
-                    Черновик засаж байна (автоматаар хадгалагдана)
+                    Ноорог засаж байна (автоматаар хадгалагдана)
                   </span>
                 </div>
                 <Button
@@ -820,8 +846,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             </div>
           </div>
 
-          {/* Ангилал, Байршил - Row 1 */}
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-4 items-stretch">
+          {/* Ангилал, Байршил, Үнэ - Row 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
             {/* Category */}
             <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
               <div className="flex items-start gap-3 mb-3">
@@ -897,6 +923,41 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                 </p>
               </div>
             </div>
+
+            {/* Price */}
+            <div className="col-span-1 md:col-span-1 bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                  <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">₮</span>
+                </div>
+                <div className="min-h-10 flex flex-col justify-center">
+                  <h3 className="font-semibold text-sm leading-tight">Үнэ <span className="text-destructive">*</span></h3>
+                  <p className="text-xs text-muted-foreground leading-tight">Төгрөгөөр</p>
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col justify-end">
+                <div className="relative">
+                  <Input
+                    id="price"
+                    type="text"
+                    inputMode="numeric"
+                    value={displayPrice}
+                    onChange={handlePriceChange}
+                    placeholder="50,000"
+                    className="h-11 pr-10 text-center font-medium"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                    ₮
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground text-center py-1.5 h-8 flex items-center justify-center">
+                  Үнийн санал
+                </p>
+              </div>
+              {errors.price && (
+                <p className="text-xs text-destructive mt-2">{errors.price.message}</p>
+              )}
+            </div>
           </div>
 
           {/* Service Type */}
@@ -957,131 +1018,46 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
               </label>
             </div>
 
-            {/* Detailed address - only shown when "Миний газар" (remote) is selected */}
+            {/* Detailed address and map - only shown when "Миний газар" (remote) is selected */}
             {watchServiceType === "remote" && (
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="address_detail" className="text-sm font-medium flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-purple-500" />
-                  Дэлгэрэнгүй хаяг
-                </Label>
-                <Input
-                  id="address_detail"
-                  {...register("address_detail")}
-                  placeholder="Жишээ: 15-р байр, 3-р орц, 45 тоот"
-                  className="h-11"
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="address_detail" className="text-sm font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-purple-500" />
+                    Дэлгэрэнгүй хаяг
+                  </Label>
+                  <Input
+                    id="address_detail"
+                    {...register("address_detail")}
+                    placeholder="Жишээ: 15-р байр, 3-р орц, 45 тоот"
+                    className="h-11"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Үйлчлүүлэгч таны газар ирэхэд шаардлагатай хаягийн мэдээлэл
+                  </p>
+                </div>
+
+                {/* Location picker map */}
+                <LocationPickerMap
+                  coordinates={locationCoordinates}
+                  onCoordinatesChange={(coords, address) => {
+                    setLocationCoordinates(coords);
+                    if (coords) {
+                      setValue("latitude", coords[0]);
+                      setValue("longitude", coords[1]);
+                      // Auto-fill address field with reverse geocoded address
+                      if (address) {
+                        setValue("address_detail", address);
+                      }
+                    } else {
+                      setValue("latitude", null);
+                      setValue("longitude", null);
+                      setValue("address_detail", "");
+                    }
+                  }}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Үйлчлүүлэгч таны газар ирэхэд шаардлагатай хаягийн мэдээлэл
-                </p>
               </div>
             )}
-          </div>
-
-          {/* Duration, Work Hours, Price - Row 2 */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {/* Duration */}
-            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                  <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm">Хугацаа</h3>
-                  <p className="text-xs text-muted-foreground">Гүйцэтгэх хугацаа</p>
-                </div>
-              </div>
-              <div className="flex-1 flex flex-col justify-center space-y-2">
-                <div className="relative">
-                  <Input
-                    id="duration_minutes"
-                    type="number"
-                    step="15"
-                    min="15"
-                    max="1440"
-                    {...register("duration_minutes")}
-                    placeholder="60"
-                    className="h-11 pr-14 text-center font-medium [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">
-                    мин
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground text-center py-1.5">
-                  Цагийн хуваарьт ашиглана
-                </p>
-              </div>
-              {errors.duration_minutes && (
-                <p className="text-xs text-destructive mt-2">{errors.duration_minutes.message}</p>
-              )}
-            </div>
-
-            {/* Work Hours */}
-            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
-                  <CalendarClock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm">Ажлын цаг</h3>
-                  <p className="text-xs text-muted-foreground">Захиалга хүлээн авах цаг</p>
-                </div>
-              </div>
-              <div className="flex-1 flex flex-col justify-center space-y-3">
-                <div className="flex items-center justify-center gap-2">
-                  <Input
-                    id="work_hours_start"
-                    type="time"
-                    {...register("work_hours_start")}
-                    className="h-11 font-medium px-2 text-sm w-24 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:md:block"
-                  />
-                  <span className="text-muted-foreground font-medium">—</span>
-                  <Input
-                    id="work_hours_end"
-                    type="time"
-                    {...register("work_hours_end")}
-                    className="h-11 font-medium px-2 text-sm w-24 [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:md:block"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground text-center">
-                  Захиалга хүлээн авах цаг
-                </p>
-              </div>
-              {errors.work_hours_end && (
-                <p className="text-xs text-destructive mt-2">{errors.work_hours_end.message}</p>
-              )}
-            </div>
-
-            {/* Price */}
-            <div className="col-span-2 md:col-span-1 bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                  <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">₮</span>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm">Үнэ <span className="text-destructive">*</span></h3>
-                  <p className="text-xs text-muted-foreground">Төгрөгөөр</p>
-                </div>
-              </div>
-              <div className="flex-1 flex flex-col justify-center space-y-2">
-                <div className="relative">
-                  <Input
-                    id="price"
-                    type="text"
-                    inputMode="numeric"
-                    value={displayPrice}
-                    onChange={handlePriceChange}
-                    placeholder="50,000"
-                    className="h-11 pr-10 text-center font-medium"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                    ₮
-                  </span>
-                </div>
-              </div>
-              {errors.price && (
-                <p className="text-xs text-destructive mt-2">{errors.price.message}</p>
-              )}
-            </div>
           </div>
 
           {/* Images */}
@@ -1144,7 +1120,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Черновик хадгалах
+                    Ноорог хадгалах
                   </>
                 )}
               </Button>

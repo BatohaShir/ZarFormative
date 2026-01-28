@@ -56,6 +56,18 @@ export const listingSchema = z.object({
   address_detail: z
     .string()
     .transform(val => val?.trim() || ""),
+  latitude: z
+    .number()
+    .min(-90)
+    .max(90)
+    .nullable()
+    .optional(),
+  longitude: z
+    .number()
+    .min(-180)
+    .max(180)
+    .nullable()
+    .optional(),
   work_hours_start: z
     .string()
     .transform(val => val || "09:00")
@@ -86,6 +98,8 @@ export const listingFormDefaults: ListingFormData = {
   duration_minutes: "",
   service_type: "on_site",
   address_detail: "",
+  latitude: null,
+  longitude: null,
   work_hours_start: "09:00",
   work_hours_end: "18:00",
 };

@@ -78,6 +78,8 @@ model aimags {
   name_en    String?
   code       String             @unique()
   type       AimagType          @default(aimag)
+  latitude   Float?
+  longitude  Float?
   sort_order Int                @default(0)
   is_active  Boolean            @default(true)
   created_at DateTime           @default(now())
@@ -97,6 +99,8 @@ model districts {
   name       String
   name_en    String?
   type       DistrictType       @default(duureg)
+  latitude   Float?
+  longitude  Float?
   sort_order Int                @default(0)
   is_active  Boolean            @default(true)
   created_at DateTime           @default(now())
@@ -118,6 +122,8 @@ model khoroos {
   district_id String             @db.Uuid()
   name        String
   number      Int?
+  latitude    Float?
+  longitude   Float?
   sort_order  Int                @default(0)
   is_active   Boolean            @default(true)
   created_at  DateTime           @default(now())
@@ -380,10 +386,13 @@ model listing_requests {
   provider_id            String              @db.Uuid()
   message                String              @db.Text()
   status                 RequestStatus       @default(pending)
+  client_phone           String?
   aimag_id               String?             @db.Uuid()
   district_id            String?             @db.Uuid()
   khoroo_id              String?             @db.Uuid()
   address_detail         String?
+  latitude               Float?
+  longitude              Float?
   preferred_date         DateTime?
   preferred_time         String?
   note                   String?             @db.Text()

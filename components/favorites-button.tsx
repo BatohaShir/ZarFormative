@@ -17,7 +17,7 @@ export function FavoritesButton({ className }: FavoritesButtonProps) {
       <Button variant="ghost" size="icon" className={`relative ${className || ""}`}>
         <Heart className="h-5 w-5" />
         {count > 0 && (
-          <span className="absolute -top-1 -right-1 h-4 w-4 md:h-5 md:w-5 flex items-center justify-center rounded-full bg-pink-500 text-white text-[10px] md:text-xs font-medium">
+          <span className="absolute -top-1 -right-1 min-w-4.5 h-4.5 px-1 bg-pink-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center leading-none">
             {count > 99 ? "99+" : count}
           </span>
         )}

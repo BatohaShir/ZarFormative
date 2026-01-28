@@ -161,7 +161,30 @@ function RequestsPageContent() {
           { provider_id: user?.id || "" },
         ],
       },
-      include: {
+      select: {
+        id: true,
+        listing_id: true,
+        client_id: true,
+        provider_id: true,
+        message: true,
+        status: true,
+        provider_response: true,
+        image_url: true,
+        preferred_date: true,
+        preferred_time: true,
+        created_at: true,
+        updated_at: true,
+        accepted_at: true,
+        completed_at: true,
+        completion_description: true,
+        completion_photos: true,
+        aimag_id: true,
+        district_id: true,
+        khoroo_id: true,
+        address_detail: true,
+        latitude: true,
+        longitude: true,
+        client_phone: true,
         listing: {
           select: {
             id: true,
@@ -170,6 +193,8 @@ function RequestsPageContent() {
             service_type: true,
             address: true,
             price: true,
+            latitude: true,
+            longitude: true,
             images: {
               select: { url: true, is_cover: true },
               take: 1,
@@ -197,9 +222,9 @@ function RequestsPageContent() {
             avatar_url: true,
           },
         },
-        aimag: { select: { id: true, name: true } },
-        district: { select: { id: true, name: true } },
-        khoroo: { select: { id: true, name: true } },
+        aimag: { select: { id: true, name: true, latitude: true, longitude: true } },
+        district: { select: { id: true, name: true, latitude: true, longitude: true } },
+        khoroo: { select: { id: true, name: true, latitude: true, longitude: true } },
         review: {
           select: {
             id: true,

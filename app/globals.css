@@ -160,3 +160,51 @@ html:not(.dark) {
   80% { transform: rotate(-2deg); }
   90% { transform: rotate(0deg); }
 }
+
+
+/* Leaflet map modal rounded corners fix */
+.leaflet-map-modal {
+  overflow: hidden !important;
+}
+@media (min-width: 768px) {
+  .leaflet-map-modal {
+    border-radius: 1rem !important;
+  }
+  .leaflet-map-modal .leaflet-container {
+    border-radius: 1rem !important;
+  }
+  .leaflet-map-modal .leaflet-pane,
+  .leaflet-map-modal .leaflet-tile-pane,
+  .leaflet-map-modal .leaflet-layer {
+    border-radius: 1rem !important;
+  }
+}
+
+/* Fix Leaflet map sticky behavior - ensure map container has proper stacking context */
+.leaflet-container {
+  z-index: 0 !important;
+  isolation: isolate;
+}
+
+/* Ensure Leaflet controls don't escape their container */
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 400 !important;
+}
+
+/* Keep map tiles within bounds */
+.leaflet-tile-container {
+  z-index: 1 !important;
+}
+
+/* Dark mode map - invert OSM tiles for dark theme while keeping details */
+.dark .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+/* Keep markers and overlays normal in dark mode */
+.dark .leaflet-marker-pane,
+.dark .leaflet-shadow-pane,
+.dark .leaflet-overlay-pane {
+  filter: invert(100%) hue-rotate(180deg);
+}

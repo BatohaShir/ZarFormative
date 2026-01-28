@@ -328,7 +328,7 @@ export function useSuspenseCountlisting_requests<TArgs extends Prisma.listing_re
 }
 import type { RequestStatus } from '@prisma/client';
 
-export function useChecklisting_requests<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; listing_id?: string; client_id?: string; provider_id?: string; message?: string; status?: RequestStatus; aimag_id?: string; district_id?: string; khoroo_id?: string; address_detail?: string; preferred_time?: string; note?: string; image_url?: string; provider_response?: string; completion_description?: string; completion_photos?: string }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
+export function useChecklisting_requests<TError = DefaultError>(args: { operation: PolicyCrudKind; where?: { id?: string; listing_id?: string; client_id?: string; provider_id?: string; message?: string; status?: RequestStatus; client_phone?: string; aimag_id?: string; district_id?: string; khoroo_id?: string; address_detail?: string; preferred_time?: string; note?: string; image_url?: string; provider_response?: string; completion_description?: string; completion_photos?: string }; }, options?: (Omit<UseQueryOptions<boolean, TError, boolean>, 'queryKey'> & ExtraQueryOptions)) {
     const { endpoint, fetch } = getHooksContext();
     return useModelQuery<boolean, boolean, TError>('listing_requests', `${endpoint}/listing_requests/check`, args, options, fetch);
 }

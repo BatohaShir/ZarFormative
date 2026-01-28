@@ -19,14 +19,18 @@ export interface RequestWithRelations {
   // Данные о завершении работы
   completion_description: string | null;
   completion_photos: string[];
-  // Адрес оказания услуги
+  // Адрес оказания услуги (для on_site заявок - координаты клиента)
   aimag_id: string | null;
   district_id: string | null;
   khoroo_id: string | null;
   address_detail: string | null;
-  aimag: { id: string; name: string } | null;
-  district: { id: string; name: string } | null;
-  khoroo: { id: string; name: string } | null;
+  latitude: number | null;
+  longitude: number | null;
+  // Телефон клиента
+  client_phone: string | null;
+  aimag: { id: string; name: string; latitude?: number | null; longitude?: number | null } | null;
+  district: { id: string; name: string; latitude?: number | null; longitude?: number | null } | null;
+  khoroo: { id: string; name: string; latitude?: number | null; longitude?: number | null } | null;
   listing: {
     id: string;
     title: string;
@@ -34,6 +38,9 @@ export interface RequestWithRelations {
     service_type: "on_site" | "remote";
     address: string | null;
     price?: string | number | null;
+    // Координаты исполнителя (для remote услуг)
+    latitude?: number | null;
+    longitude?: number | null;
     images: Array<{
       url: string;
       is_cover: boolean;

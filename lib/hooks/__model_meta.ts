@@ -29,6 +29,14 @@ const metadata: ModelMeta = {
                     name: "type",
                     type: "AimagType",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, latitude: {
+                    name: "latitude",
+                    type: "Float",
+                    isOptional: true,
+                }, longitude: {
+                    name: "longitude",
+                    type: "Float",
+                    isOptional: true,
                 }, sort_order: {
                     name: "sort_order",
                     type: "Int",
@@ -100,6 +108,14 @@ const metadata: ModelMeta = {
                     name: "type",
                     type: "DistrictType",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, latitude: {
+                    name: "latitude",
+                    type: "Float",
+                    isOptional: true,
+                }, longitude: {
+                    name: "longitude",
+                    type: "Float",
+                    isOptional: true,
                 }, sort_order: {
                     name: "sort_order",
                     type: "Int",
@@ -171,6 +187,14 @@ const metadata: ModelMeta = {
                 }, number: {
                     name: "number",
                     type: "Int",
+                    isOptional: true,
+                }, latitude: {
+                    name: "latitude",
+                    type: "Float",
+                    isOptional: true,
+                }, longitude: {
+                    name: "longitude",
+                    type: "Float",
                     isOptional: true,
                 }, sort_order: {
                     name: "sort_order",
@@ -1080,6 +1104,10 @@ const metadata: ModelMeta = {
                     name: "status",
                     type: "RequestStatus",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, client_phone: {
+                    name: "client_phone",
+                    type: "String",
+                    isOptional: true,
                 }, aimag_id: {
                     name: "aimag_id",
                     type: "String",
@@ -1101,6 +1129,14 @@ const metadata: ModelMeta = {
                 }, address_detail: {
                     name: "address_detail",
                     type: "String",
+                    isOptional: true,
+                }, latitude: {
+                    name: "latitude",
+                    type: "Float",
+                    isOptional: true,
+                }, longitude: {
+                    name: "longitude",
+                    type: "Float",
                     isOptional: true,
                 }, preferred_date: {
                     name: "preferred_date",

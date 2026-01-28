@@ -16,7 +16,9 @@ interface ListingWithLocation {
   aimag?: { name: string } | null;
   district?: { name: string } | null;
   khoroo?: { name: string } | null;
-  address?: string | null;
+  address?: string | null;        // В БД детальный адрес хранится тут для remote услуг
+  address_detail?: string | null; // Используется в клиентских компонентах
+  service_type?: string | null;
 }
 
 // Типы для изображений
@@ -41,9 +43,18 @@ export function getProviderName(user: UserForName): string {
 
 /**
  * Форматировать локацию листинга
- * Возвращает строку вида "Улаанбаатар, Баянзүрх, 1-р хороо"
+ * - Для "remote" (Миний газар) - показываем address (детальный адрес)
+ * - Для "on_site" (Зочны газар) - показываем aimag/district/khoroo
  */
 export function formatLocation(listing: ListingWithLocation): string {
+  // Если услуга типа "Миний газар" и есть детальный адрес - показываем его
+  // Сначала проверяем address_detail (для клиентских компонентов), потом address (из БД)
+  const detailAddress = listing.address_detail || listing.address;
+  if (listing.service_type === "remote" && detailAddress) {
+    return detailAddress;
+  }
+
+  // Для "Зочны газар" или если нет address - показываем aimag/district
   const parts: string[] = [];
 
   if (listing.aimag?.name) {

@@ -76,6 +76,10 @@ const getListingBySlug = cache(async function getListingBySlug(slug: string) {
   return {
     ...listing,
     price: listing.price ? Number(listing.price) : null,
+    latitude: listing.latitude ? Number(listing.latitude) : null,
+    longitude: listing.longitude ? Number(listing.longitude) : null,
+    // Для "Миний газар" детальный адрес хранится в поле address
+    address_detail: listing.address || null,
   } as ServiceDetailListing;
 });
 

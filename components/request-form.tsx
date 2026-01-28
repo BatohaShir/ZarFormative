@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
-import { AddressSelectModal, AddressData } from "@/components/address-select-modal";
+import { LocationPickerMap } from "@/components/location-picker-map";
 import {
   Send,
   Loader2,
@@ -26,6 +27,7 @@ import {
   ChevronRight,
   X,
   ImageIcon,
+  Phone,
 } from "lucide-react";
 import Image from "next/image";
 import { uploadRequestImage } from "@/lib/storage/requests";
@@ -34,6 +36,7 @@ import {
   useFindFirstlisting_requests,
   useCreatenotifications,
 } from "@/lib/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import { cn } from "@/lib/utils";
 
@@ -43,17 +46,6 @@ interface RequestFormProps {
   providerId: string;
   providerName: string;
   serviceType?: "on_site" | "remote"; // Тип услуги - с выездом или на месте
-}
-
-interface ScheduleData {
-  busySlots: Array<{
-    start: string;
-    end: string;
-  }>;
-  unavailableSlots: string[];
-  currentListingDuration: number;
-  workHoursStart: string;
-  workHoursEnd: string;
 }
 
 // Генерируем дни для календаря
@@ -84,13 +76,39 @@ const monthNames = [
 
 const weekDays = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
 
-// Форматирование длительности
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} мин`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (mins === 0) return `${hours} цаг`;
-  return `${hours} цаг ${mins} мин`;
+// Форматирование монгольского номера телефона (+976 9911-2233)
+function formatMongolianPhone(value: string): string {
+  // Убираем всё кроме цифр
+  let digits = value.replace(/\D/g, "");
+
+  // Если начинается с 976, убираем код страны (пользователь ввёл с кодом)
+  if (digits.startsWith("976")) {
+    digits = digits.slice(3);
+  }
+
+  // Ограничиваем до 8 цифр
+  const limited = digits.slice(0, 8);
+
+  // Пустое поле - возвращаем пустую строку
+  if (limited.length === 0) {
+    return "";
+  }
+
+  // Форматируем: +976 XXXX-XXXX
+  if (limited.length <= 4) {
+    return `+976 ${limited}`;
+  }
+  return `+976 ${limited.slice(0, 4)}-${limited.slice(4)}`;
+}
+
+// Получить чистые цифры из форматированного номера (без кода страны)
+function getPhoneDigits(formatted: string): string {
+  const digits = formatted.replace(/\D/g, "");
+  // Убираем код страны 976 если есть
+  if (digits.startsWith("976")) {
+    return digits.slice(3);
+  }
+  return digits;
 }
 
 export function RequestForm({
@@ -101,14 +119,18 @@ export function RequestForm({
   serviceType = "on_site",
 }: RequestFormProps) {
   const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
-  const [showAddressModal, setShowAddressModal] = React.useState(false);
   const [message, setMessage] = React.useState("");
   const [isSuccess, setIsSuccess] = React.useState(false);
 
-  // Address state (только для услуг с выездом)
-  const [selectedAddress, setSelectedAddress] = React.useState<AddressData | null>(null);
+  // Location state (только для услуг с выездом - on_site)
+  const [locationCoordinates, setLocationCoordinates] = React.useState<[number, number] | null>(null);
+  const [locationAddress, setLocationAddress] = React.useState<string | null>(null);
+
+  // Phone state (для всех типов услуг)
+  const [clientPhone, setClientPhone] = React.useState("");
 
   // Date & Time state
   const today = new Date();
@@ -118,10 +140,6 @@ export function RequestForm({
   const [selectedTime, setSelectedTime] = React.useState<string>("");
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [showTimeSelector, setShowTimeSelector] = React.useState(false);
-
-  // Schedule state
-  const [scheduleData, setScheduleData] = React.useState<ScheduleData | null>(null);
-  const [isLoadingSchedule, setIsLoadingSchedule] = React.useState(false);
 
   // Image state
   const [selectedImage, setSelectedImage] = React.useState<File | null>(null);
@@ -170,46 +188,6 @@ export function RequestForm({
     [currentYear, currentMonth]
   );
 
-  // Динамическая генерация часов для расписания на основе рабочих часов
-  const scheduleHours = React.useMemo(() => {
-    if (!scheduleData) return [9, 10, 11, 12, 13, 14, 15, 16, 17, 18]; // Default
-    const startH = parseInt(scheduleData.workHoursStart.split(":")[0]);
-    const endH = parseInt(scheduleData.workHoursEnd.split(":")[0]);
-    return Array.from({ length: endH - startH + 1 }, (_, i) => startH + i);
-  }, [scheduleData]);
-
-  // Fetch schedule data when date is selected
-  React.useEffect(() => {
-    if (!selectedDate || !providerId) {
-      setScheduleData(null);
-      return;
-    }
-
-    const fetchSchedule = async () => {
-      setIsLoadingSchedule(true);
-      try {
-        const dateStr = selectedDate.toISOString().split("T")[0];
-        const response = await fetch(
-          `/api/schedule?providerId=${providerId}&date=${dateStr}&listingId=${listingId}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setScheduleData(data);
-          // Сбрасываем выбранное время если оно стало недоступным
-          if (selectedTime && data.unavailableSlots.includes(selectedTime)) {
-            setSelectedTime("");
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch schedule:", error);
-      } finally {
-        setIsLoadingSchedule(false);
-      }
-    };
-
-    fetchSchedule();
-  }, [selectedDate, providerId, listingId, selectedTime]);
-
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && !isAuthenticated) {
       setShowLoginModal(true);
@@ -219,13 +197,14 @@ export function RequestForm({
     if (!newOpen) {
       // Reset form when closing
       setMessage("");
-      setSelectedAddress(null);
+      setLocationCoordinates(null);
+      setLocationAddress(null);
+      setClientPhone("");
       setSelectedDate(null);
       setSelectedTime("");
       setShowCalendar(false);
       setShowTimeSelector(false);
       setIsSuccess(false);
-      setScheduleData(null);
       // Cleanup image
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
@@ -271,8 +250,11 @@ export function RequestForm({
     }
   };
 
-  const handleAddressSelect = (address: AddressData) => {
-    setSelectedAddress(address);
+  const handleLocationChange = (coords: [number, number] | null, address?: string | null) => {
+    setLocationCoordinates(coords);
+    if (address !== undefined) {
+      setLocationAddress(address);
+    }
   };
 
   const handlePrevMonth = () => {
@@ -355,10 +337,6 @@ export function RequestForm({
     return `${selectedDate.getFullYear()}.${(selectedDate.getMonth() + 1).toString().padStart(2, "0")}.${selectedDate.getDate().toString().padStart(2, "0")}`;
   };
 
-  const isTimeSlotUnavailable = (time: string) => {
-    return scheduleData?.unavailableSlots.includes(time) ?? false;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -372,15 +350,16 @@ export function RequestForm({
       return;
     }
 
-    // Проверка обязательности адреса для услуг с выездом
-    if (serviceType === "on_site" && !selectedAddress) {
-      toast.error("Байршил сонгоно уу");
+    // Проверка номера телефона (обязательно для всех, должно быть 8 цифр)
+    const phoneDigits = getPhoneDigits(clientPhone);
+    if (phoneDigits.length !== 8) {
+      toast.error("Утасны дугаар 8 оронтой байх ёстой");
       return;
     }
 
-    // Проверка занятости слота перед отправкой
-    if (selectedTime && isTimeSlotUnavailable(selectedTime)) {
-      toast.error("Энэ цаг завгүй байна. Өөр цаг сонгоно уу.");
+    // Проверка обязательности местоположения для услуг с выездом
+    if (serviceType === "on_site" && !locationCoordinates) {
+      toast.error("Газрын зураг дээр байршил сонгоно уу");
       return;
     }
 
@@ -407,10 +386,11 @@ export function RequestForm({
           provider_id: providerId,
           message: message.trim(),
           status: "pending",
-          aimag_id: serviceType === "on_site" ? (selectedAddress?.cityId || null) : null,
-          district_id: serviceType === "on_site" ? (selectedAddress?.districtId || null) : null,
-          khoroo_id: serviceType === "on_site" ? (selectedAddress?.khorooId || null) : null,
-          address_detail: null,
+          client_phone: getPhoneDigits(clientPhone),
+          // Для on_site сохраняем координаты и адрес
+          latitude: serviceType === "on_site" ? locationCoordinates?.[0] : null,
+          longitude: serviceType === "on_site" ? locationCoordinates?.[1] : null,
+          address_detail: serviceType === "on_site" ? locationAddress : null,
           preferred_date: selectedDate || null,
           preferred_time: selectedTime || null,
           note: null,
@@ -420,7 +400,7 @@ export function RequestForm({
 
       // Send notification to provider about new request
       if (newRequest) {
-        createNotification.mutate({
+        await createNotification.mutateAsync({
           data: {
             user_id: providerId,
             type: "new_request",
@@ -430,6 +410,8 @@ export function RequestForm({
             actor_id: user.id,
           },
         });
+        // Invalidate notifications cache for both users
+        queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
 
       setIsSuccess(true);
@@ -442,11 +424,12 @@ export function RequestForm({
       setTimeout(() => {
         setOpen(false);
         setMessage("");
-        setSelectedAddress(null);
-                setSelectedDate(null);
+        setLocationCoordinates(null);
+        setLocationAddress(null);
+        setClientPhone("");
+        setSelectedDate(null);
         setSelectedTime("");
         setIsSuccess(false);
-        setScheduleData(null);
         // Cleanup image
         if (imagePreview) {
           URL.revokeObjectURL(imagePreview);
@@ -545,58 +528,18 @@ export function RequestForm({
                 </DialogHeader>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-5 space-y-5">
-                {/* Address Selection - только для услуг с выездом */}
+              <form onSubmit={handleSubmit} className="p-5 space-y-5 overflow-hidden">
+                {/* Location Map - только для услуг с выездом */}
                 {serviceType === "on_site" && (
-                  <div className="space-y-3">
+                  <div className="space-y-2 overflow-hidden">
                     <label className="text-sm font-medium flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-primary" />
                       Байршил <span className="text-destructive">*</span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddressModal(true)}
-                      className={cn(
-                        "w-full flex items-center justify-between p-3.5 rounded-xl border-2 border-dashed transition-all text-left group",
-                        selectedAddress
-                          ? "bg-primary/5 border-primary/30 hover:border-primary/50"
-                          : "hover:bg-muted/50 hover:border-muted-foreground/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                          selectedAddress
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                        )}>
-                          <MapPin className="h-5 w-5" />
-                        </div>
-                        <div>
-                          {selectedAddress ? (
-                            <>
-                              <div className="text-sm font-medium">{selectedAddress.city}, {selectedAddress.district}</div>
-                              <div className="text-xs text-muted-foreground">{selectedAddress.khoroo}</div>
-                            </>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Хаяг сонгох</span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedAddress && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedAddress(null);
-                                                      }}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </button>
-
+                    <LocationPickerMap
+                      coordinates={locationCoordinates}
+                      onCoordinatesChange={handleLocationChange}
+                    />
                   </div>
                 )}
 
@@ -636,7 +579,6 @@ export function RequestForm({
                           e.stopPropagation();
                           setSelectedDate(null);
                           setSelectedTime("");
-                          setScheduleData(null);
                         }}
                         className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                       >
@@ -738,14 +680,9 @@ export function RequestForm({
                         )}>
                           <Clock className="h-5 w-5" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className={cn("text-sm", selectedTime ? "font-medium" : "text-muted-foreground")}>
-                            {selectedTime || "Цаг сонгох"}
-                          </span>
-                          {isLoadingSchedule && (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                          )}
-                        </div>
+                        <span className={cn("text-sm", selectedTime ? "font-medium" : "text-muted-foreground")}>
+                          {selectedTime || "Цаг сонгох"}
+                        </span>
                       </div>
                       {selectedTime && (
                         <button
@@ -761,128 +698,37 @@ export function RequestForm({
                       )}
                     </button>
 
-                    {/* Time selector dropdown */}
+                    {/* Simple time selector */}
                     {showTimeSelector && (
-                      <div className="space-y-3">
-                        {/* Loading state */}
-                        {isLoadingSchedule && (
-                          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            <span className="text-sm">Цагийн хуваарь ачаалж байна...</span>
-                          </div>
-                        )}
-
-                        {/* Show schedule only when data is loaded */}
-                        {!isLoadingSchedule && scheduleData && (
-                          <>
-                            {/* Work hours info */}
-                            <div className="flex items-center justify-between gap-2 text-xs bg-indigo-50 dark:bg-indigo-950/30 rounded-lg px-3 py-2 border border-indigo-200 dark:border-indigo-800">
-                              <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
-                                <Clock className="h-3.5 w-3.5" />
-                                <span>Ажлын цаг: <strong>{scheduleData.workHoursStart} - {scheduleData.workHoursEnd}</strong></span>
-                              </div>
-                              {scheduleData.currentListingDuration > 0 && (
-                                <span className="text-muted-foreground">
-                                  ({formatDuration(scheduleData.currentListingDuration)})
-                                </span>
+                      <div className="border rounded-xl p-3 bg-card">
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            "08:00", "08:30", "09:00", "09:30",
+                            "10:00", "10:30", "11:00", "11:30",
+                            "12:00", "12:30", "13:00", "13:30",
+                            "14:00", "14:30", "15:00", "15:30",
+                            "16:00", "16:30", "17:00", "17:30",
+                            "18:00", "18:30", "19:00", "19:30",
+                            "20:00", "20:30", "21:00", "21:30",
+                          ].map((time) => (
+                            <button
+                              key={time}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTime(time);
+                                setShowTimeSelector(false);
+                              }}
+                              className={cn(
+                                "py-2 px-2 text-sm font-medium rounded-lg transition-all",
+                                selectedTime === time
+                                  ? "bg-primary text-primary-foreground shadow-md"
+                                  : "hover:bg-primary/10 hover:text-primary"
                               )}
-                            </div>
-
-                            {/* Time slots table */}
-                            <div className="border rounded-xl overflow-hidden bg-card">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="bg-muted/50">
-                                <th className="text-xs font-semibold text-muted-foreground py-2 px-3 text-left w-16">Цаг</th>
-                                <th className="text-xs font-semibold text-muted-foreground py-2 px-2 text-center">:00</th>
-                                <th className="text-xs font-semibold text-muted-foreground py-2 px-2 text-center">:30</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {scheduleHours.map((hour) => {
-                                const time00 = `${hour.toString().padStart(2, "0")}:00`;
-                                const time30 = `${hour.toString().padStart(2, "0")}:30`;
-                                const isUnavailable00 = isTimeSlotUnavailable(time00);
-                                const isUnavailable30 = isTimeSlotUnavailable(time30);
-                                const isSelected00 = selectedTime === time00;
-                                const isSelected30 = selectedTime === time30;
-
-                                // Показываем :30 только если это не последний час или конец рабочего дня >= :30
-                                const endH = scheduleData ? parseInt(scheduleData.workHoursEnd.split(":")[0]) : 18;
-                                const endM = scheduleData ? parseInt(scheduleData.workHoursEnd.split(":")[1]) : 0;
-                                const showTime30 = hour < endH || (hour === endH && endM >= 30);
-
-                                return (
-                                  <tr key={hour} className="border-t border-muted/50">
-                                    <td className="text-sm font-medium text-muted-foreground py-1.5 px-3 bg-muted/30">
-                                      {hour.toString().padStart(2, "0")}
-                                    </td>
-                                    <td className="py-1 px-1">
-                                      <button
-                                        type="button"
-                                        disabled={isUnavailable00 || isLoadingSchedule}
-                                        onClick={() => {
-                                          if (!isUnavailable00) {
-                                            setSelectedTime(time00);
-                                            setShowTimeSelector(false);
-                                          }
-                                        }}
-                                        className={cn(
-                                          "w-full py-2 px-1 text-sm font-medium rounded-lg transition-all",
-                                          isUnavailable00 && "bg-red-50 dark:bg-red-950/30 text-red-400 dark:text-red-500 cursor-not-allowed line-through",
-                                          !isUnavailable00 && !isSelected00 && "hover:bg-primary/10 hover:text-primary",
-                                          isSelected00 && "bg-primary text-primary-foreground shadow-md"
-                                        )}
-                                      >
-                                        {time00}
-                                      </button>
-                                    </td>
-                                    <td className="py-1 px-1">
-                                      {showTime30 ? (
-                                        <button
-                                          type="button"
-                                          disabled={isUnavailable30 || isLoadingSchedule}
-                                          onClick={() => {
-                                            if (!isUnavailable30) {
-                                              setSelectedTime(time30);
-                                              setShowTimeSelector(false);
-                                            }
-                                          }}
-                                          className={cn(
-                                            "w-full py-2 px-1 text-sm font-medium rounded-lg transition-all",
-                                            isUnavailable30 && "bg-red-50 dark:bg-red-950/30 text-red-400 dark:text-red-500 cursor-not-allowed line-through",
-                                            !isUnavailable30 && !isSelected30 && "hover:bg-primary/10 hover:text-primary",
-                                            isSelected30 && "bg-primary text-primary-foreground shadow-md"
-                                          )}
-                                        >
-                                          {time30}
-                                        </button>
-                                      ) : (
-                                        <div className="w-full py-2 px-1 text-sm text-muted-foreground/30 text-center">—</div>
-                                      )}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                            >
+                              {time}
+                            </button>
+                          ))}
                         </div>
-
-                        {/* Legend */}
-                        {scheduleData && scheduleData.busySlots.length > 0 && (
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-800" />
-                              <span>Завгүй</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-3 h-3 rounded bg-primary" />
-                              <span>Сонгосон</span>
-                            </div>
-                          </div>
-                        )}
-                          </>
-                        )}
                       </div>
                     )}
                   </div>
@@ -958,6 +804,23 @@ export function RequestForm({
                   </p>
                 </div>
 
+                {/* Phone Number */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-primary" />
+                    Утасны дугаар <span className="text-destructive">*</span>
+                  </label>
+                  <Input
+                    type="tel"
+                    placeholder="+976 9911-2233"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(formatMongolianPhone(e.target.value))}
+                    disabled={createRequest.isPending || isUploadingImage}
+                    className="rounded-xl border-2 focus:border-primary/50 transition-colors"
+                    maxLength={15}
+                  />
+                </div>
+
                 {/* Buttons */}
                 <div className="flex gap-3 pt-3 sticky bottom-0 bg-background pb-1">
                   <Button
@@ -972,7 +835,7 @@ export function RequestForm({
                   <Button
                     type="submit"
                     className="flex-1 h-12 rounded-xl"
-                    disabled={createRequest.isPending || isUploadingImage || !message.trim()}
+                    disabled={createRequest.isPending || isUploadingImage || !message.trim() || getPhoneDigits(clientPhone).length !== 8}
                   >
                     {isUploadingImage ? (
                       <>
@@ -997,14 +860,6 @@ export function RequestForm({
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Address Modal */}
-      <AddressSelectModal
-        open={showAddressModal}
-        onOpenChange={setShowAddressModal}
-        onSelect={handleAddressSelect}
-        initialAddress={selectedAddress || undefined}
-      />
 
       <LoginPromptModal
         open={showLoginModal}

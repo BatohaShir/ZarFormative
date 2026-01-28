@@ -231,43 +231,43 @@ async function seedCategories() {
   console.log(`\n📊 Всего категорий: ${totalCategories}`);
 }
 
-// Бүх 21 аймаг + Улаанбаатар (ZAR-16-ийн дагуу)
-const aimagsData: { code: string; name: string; name_en: string; type: AimagType }[] = [
-  { code: "UB", name: "Улаанбаатар", name_en: "Ulaanbaatar", type: "capital" },
-  { code: "AR", name: "Архангай", name_en: "Arkhangai", type: "aimag" },
-  { code: "BO", name: "Баян-Өлгий", name_en: "Bayan-Olgii", type: "aimag" },
-  { code: "BH", name: "Баянхонгор", name_en: "Bayankhongor", type: "aimag" },
-  { code: "BU", name: "Булган", name_en: "Bulgan", type: "aimag" },
-  { code: "GA", name: "Говь-Алтай", name_en: "Govi-Altai", type: "aimag" },
-  { code: "GS", name: "Говьсүмбэр", name_en: "Govisumber", type: "aimag" },
-  { code: "DU", name: "Дархан-Уул", name_en: "Darkhan-Uul", type: "aimag" },
-  { code: "DG", name: "Дорноговь", name_en: "Dornogovi", type: "aimag" },
-  { code: "DO", name: "Дорнод", name_en: "Dornod", type: "aimag" },
-  { code: "DD", name: "Дундговь", name_en: "Dundgovi", type: "aimag" },
-  { code: "ZA", name: "Завхан", name_en: "Zavkhan", type: "aimag" },
-  { code: "OR", name: "Орхон", name_en: "Orkhon", type: "aimag" },
-  { code: "OH", name: "Өвөрхангай", name_en: "Ovorkhangai", type: "aimag" },
-  { code: "OG", name: "Өмнөговь", name_en: "Omnogovi", type: "aimag" },
-  { code: "SB", name: "Сүхбаатар", name_en: "Sukhbaatar", type: "aimag" },
-  { code: "SE", name: "Сэлэнгэ", name_en: "Selenge", type: "aimag" },
-  { code: "TO", name: "Төв", name_en: "Tov", type: "aimag" },
-  { code: "UV", name: "Увс", name_en: "Uvs", type: "aimag" },
-  { code: "HO", name: "Ховд", name_en: "Khovd", type: "aimag" },
-  { code: "HU", name: "Хөвсгөл", name_en: "Khovsgol", type: "aimag" },
-  { code: "HE", name: "Хэнтий", name_en: "Khentii", type: "aimag" },
+// Бүх 21 аймаг + Улаанбаатар (ZAR-16-ийн дагуу) с координатами
+const aimagsData: { code: string; name: string; name_en: string; type: AimagType; latitude: number; longitude: number }[] = [
+  { code: "UB", name: "Улаанбаатар", name_en: "Ulaanbaatar", type: "capital", latitude: 47.9184, longitude: 106.9177 },
+  { code: "AR", name: "Архангай", name_en: "Arkhangai", type: "aimag", latitude: 47.8864, longitude: 101.4500 },
+  { code: "BO", name: "Баян-Өлгий", name_en: "Bayan-Olgii", type: "aimag", latitude: 48.9682, longitude: 89.6629 },
+  { code: "BH", name: "Баянхонгор", name_en: "Bayankhongor", type: "aimag", latitude: 46.1940, longitude: 100.7181 },
+  { code: "BU", name: "Булган", name_en: "Bulgan", type: "aimag", latitude: 48.8125, longitude: 103.5347 },
+  { code: "GA", name: "Говь-Алтай", name_en: "Govi-Altai", type: "aimag", latitude: 46.3722, longitude: 96.2583 },
+  { code: "GS", name: "Говьсүмбэр", name_en: "Govisumber", type: "aimag", latitude: 46.4756, longitude: 108.3572 },
+  { code: "DU", name: "Дархан-Уул", name_en: "Darkhan-Uul", type: "aimag", latitude: 49.4685, longitude: 105.9550 },
+  { code: "DG", name: "Дорноговь", name_en: "Dornogovi", type: "aimag", latitude: 44.8926, longitude: 110.1278 },
+  { code: "DO", name: "Дорнод", name_en: "Dornod", type: "aimag", latitude: 47.7356, longitude: 114.5364 },
+  { code: "DD", name: "Дундговь", name_en: "Dundgovi", type: "aimag", latitude: 45.7626, longitude: 106.2644 },
+  { code: "ZA", name: "Завхан", name_en: "Zavkhan", type: "aimag", latitude: 48.2369, longitude: 96.0703 },
+  { code: "OR", name: "Орхон", name_en: "Orkhon", type: "aimag", latitude: 49.0278, longitude: 104.0436 },
+  { code: "OH", name: "Өвөрхангай", name_en: "Ovorkhangai", type: "aimag", latitude: 46.2639, longitude: 102.7831 },
+  { code: "OG", name: "Өмнөговь", name_en: "Omnogovi", type: "aimag", latitude: 43.5667, longitude: 104.4167 },
+  { code: "SB", name: "Сүхбаатар", name_en: "Sukhbaatar", type: "aimag", latitude: 46.6875, longitude: 113.3819 },
+  { code: "SE", name: "Сэлэнгэ", name_en: "Selenge", type: "aimag", latitude: 49.4347, longitude: 106.1847 },
+  { code: "TO", name: "Төв", name_en: "Tov", type: "aimag", latitude: 47.0681, longitude: 106.3531 },
+  { code: "UV", name: "Увс", name_en: "Uvs", type: "aimag", latitude: 49.9811, longitude: 92.0678 },
+  { code: "HO", name: "Ховд", name_en: "Khovd", type: "aimag", latitude: 48.0056, longitude: 91.6417 },
+  { code: "HU", name: "Хөвсгөл", name_en: "Khovsgol", type: "aimag", latitude: 49.6347, longitude: 100.1631 },
+  { code: "HE", name: "Хэнтий", name_en: "Khentii", type: "aimag", latitude: 47.3167, longitude: 110.6500 },
 ];
 
-// Улаанбаатар хотын 9 дүүрэг
-const ulaanbaatarDistricts: { name: string; name_en: string; type: DistrictType }[] = [
-  { name: "Багануур дүүрэг", name_en: "Baganuur", type: "duureg" },
-  { name: "Багахангай дүүрэг", name_en: "Bagakhangai", type: "duureg" },
-  { name: "Баянгол дүүрэг", name_en: "Bayangol", type: "duureg" },
-  { name: "Баянзүрх дүүрэг", name_en: "Bayanzurkh", type: "duureg" },
-  { name: "Налайх дүүрэг", name_en: "Nalaikh", type: "duureg" },
-  { name: "Сонгинохайрхан дүүрэг", name_en: "Songinokhairkhan", type: "duureg" },
-  { name: "Сүхбаатар дүүрэг", name_en: "Sukhbaatar", type: "duureg" },
-  { name: "Хан-Уул дүүрэг", name_en: "Khan-Uul", type: "duureg" },
-  { name: "Чингэлтэй дүүрэг", name_en: "Chingeltei", type: "duureg" },
+// Улаанбаатар хотын 9 дүүрэг с координатами
+const ulaanbaatarDistricts: { name: string; name_en: string; type: DistrictType; latitude: number; longitude: number }[] = [
+  { name: "Багануур дүүрэг", name_en: "Baganuur", type: "duureg", latitude: 47.8290, longitude: 108.3500 },
+  { name: "Багахангай дүүрэг", name_en: "Bagakhangai", type: "duureg", latitude: 47.5000, longitude: 107.1500 },
+  { name: "Баянгол дүүрэг", name_en: "Bayangol", type: "duureg", latitude: 47.9077, longitude: 106.8694 },
+  { name: "Баянзүрх дүүрэг", name_en: "Bayanzurkh", type: "duureg", latitude: 47.9350, longitude: 107.0450 },
+  { name: "Налайх дүүрэг", name_en: "Nalaikh", type: "duureg", latitude: 47.7470, longitude: 107.2600 },
+  { name: "Сонгинохайрхан дүүрэг", name_en: "Songinokhairkhan", type: "duureg", latitude: 47.9000, longitude: 106.7500 },
+  { name: "Сүхбаатар дүүрэг", name_en: "Sukhbaatar", type: "duureg", latitude: 47.9184, longitude: 106.9200 },
+  { name: "Хан-Уул дүүрэг", name_en: "Khan-Uul", type: "duureg", latitude: 47.8780, longitude: 106.9050 },
+  { name: "Чингэлтэй дүүрэг", name_en: "Chingeltei", type: "duureg", latitude: 47.9270, longitude: 106.9050 },
 ];
 
 async function seedLocations() {
@@ -285,6 +285,8 @@ async function seedLocations() {
         name: aimag.name,
         name_en: aimag.name_en,
         type: aimag.type,
+        latitude: aimag.latitude,
+        longitude: aimag.longitude,
         sort_order: i,
       },
       create: {
@@ -292,6 +294,8 @@ async function seedLocations() {
         name: aimag.name,
         name_en: aimag.name_en,
         type: aimag.type,
+        latitude: aimag.latitude,
+        longitude: aimag.longitude,
         sort_order: i,
         is_active: true,
       },
@@ -313,6 +317,8 @@ async function seedLocations() {
       update: {
         name_en: district.name_en,
         type: district.type,
+        latitude: district.latitude,
+        longitude: district.longitude,
         sort_order: i,
       },
       create: {
@@ -320,6 +326,8 @@ async function seedLocations() {
         name: district.name,
         name_en: district.name_en,
         type: district.type,
+        latitude: district.latitude,
+        longitude: district.longitude,
         sort_order: i,
         is_active: true,
       },

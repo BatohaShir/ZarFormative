@@ -46,10 +46,10 @@ async function getServicesData() {
           take: 1,
         },
         aimag: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, latitude: true, longitude: true },
         },
         district: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, latitude: true, longitude: true },
         },
         khoroo: {
           select: { id: true, name: true },
@@ -70,6 +70,18 @@ async function getServicesData() {
   const serializedListings = listingsData.map((listing) => ({
     ...listing,
     price: listing.price ? Number(listing.price) : null,
+    latitude: listing.latitude ? Number(listing.latitude) : null,
+    longitude: listing.longitude ? Number(listing.longitude) : null,
+    aimag: listing.aimag ? {
+      ...listing.aimag,
+      latitude: listing.aimag.latitude ? Number(listing.aimag.latitude) : null,
+      longitude: listing.aimag.longitude ? Number(listing.aimag.longitude) : null,
+    } : null,
+    district: listing.district ? {
+      ...listing.district,
+      latitude: listing.district.latitude ? Number(listing.district.latitude) : null,
+      longitude: listing.district.longitude ? Number(listing.district.longitude) : null,
+    } : null,
   }));
 
   return {

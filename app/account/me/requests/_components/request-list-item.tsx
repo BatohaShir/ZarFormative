@@ -250,18 +250,20 @@ export const RequestListItem = React.memo(function RequestListItem({
           <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 truncate">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">
-              {request.listing.service_type === "remote" &&
-              request.listing.address
-                ? request.listing.address
-                : request.aimag
-                  ? [
-                      request.aimag.name,
-                      request.district?.name,
-                      request.khoroo?.name,
-                    ]
-                      .filter(Boolean)
-                      .join(", ")
-                  : "—"}
+              {request.listing.service_type === "remote"
+                ? // Для remote услуг - показываем адрес исполнителя из объявления
+                  request.listing.address || "—"
+                : // Для on_site услуг - показываем адрес клиента из заявки
+                  request.address_detail ||
+                  (request.aimag
+                    ? [
+                        request.aimag.name,
+                        request.district?.name,
+                        request.khoroo?.name,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")
+                    : "—")}
             </span>
           </div>
         </div>

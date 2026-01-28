@@ -57,7 +57,7 @@ export function MobileBottomNav() {
     {
       href: "/services/create",
       icon: Plus,
-      label: "Зарлах",
+      label: "Зар оруулах",
       isActive: isActive("/services/create"),
       badge: null,
       isCenter: true,

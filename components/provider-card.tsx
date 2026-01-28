@@ -26,6 +26,7 @@ interface ProviderCardProps {
   memberSince: string;
   isOwnListing: boolean;
   variant: "desktop" | "mobile";
+  serviceType?: "on_site" | "remote";
 }
 
 export const ProviderCard = React.memo(function ProviderCard({
@@ -36,6 +37,7 @@ export const ProviderCard = React.memo(function ProviderCard({
   memberSince,
   isOwnListing,
   variant,
+  serviceType = "on_site",
 }: ProviderCardProps) {
   const isDesktop = variant === "desktop";
   const avatarSize = isDesktop ? 64 : 48;
@@ -78,6 +80,7 @@ export const ProviderCard = React.memo(function ProviderCard({
               listingTitle={listingTitle}
               providerId={user.id}
               providerName={providerName}
+              serviceType={serviceType}
             />
           )}
           {!isOwnListing && (

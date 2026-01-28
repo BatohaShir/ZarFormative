@@ -50,7 +50,7 @@ export function RecommendedListingsSSR({ listings }: RecommendedListingsSSRProps
           </Button>
         </Link>
       </div>
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
         {listings.map((listing, index) => (
           <ListingCard key={listing.id} listing={listing} priority={index < 4} />
         ))}

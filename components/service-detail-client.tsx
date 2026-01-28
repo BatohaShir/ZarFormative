@@ -15,7 +15,7 @@ import { NotificationsButton } from "@/components/notifications-button";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import { RequestForm } from "@/components/request-form";
-import { ChevronLeft, MapPin, Heart, Clock, Eye, CalendarClock } from "lucide-react";
+import { ChevronLeft, MapPin, Heart, Eye, Navigation } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,6 +35,11 @@ const ProviderCard = dynamic(
 
 const ReviewsList = dynamic(
   () => import("@/components/reviews-list").then((mod) => mod.ReviewsList),
+  { ssr: false }
+);
+
+const LocationMapModal = dynamic(
+  () => import("@/components/location-map-modal").then((mod) => mod.LocationMapModal),
   { ssr: false }
 );
 
@@ -75,6 +80,9 @@ export interface ServiceDetailListing {
   aimag: { id: string; name: string } | null;
   district: { id: string; name: string } | null;
   khoroo: { id: string; name: string } | null;
+  address_detail: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface ServiceDetailClientProps {
@@ -90,6 +98,10 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
   const { user } = useAuth();
   const [lightboxOpen, setLightboxOpen] = React.useState(false);
   const [lightboxIndex, setLightboxIndex] = React.useState(0);
+  const [showMapModal, setShowMapModal] = React.useState(false);
+
+  // Проверяем есть ли координаты для показа на карте
+  const hasCoordinates = listing.latitude && listing.longitude;
 
   // Real-time обновление счётчика просмотров
   const { viewsCount } = useRealtimeViews({
@@ -232,41 +244,30 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
             </div>
 
             {/* Location & Views */}
-            <div className="flex items-center gap-4 text-muted-foreground text-sm md:text-base">
+            <div className="flex flex-wrap items-center gap-4 text-muted-foreground text-sm md:text-base">
               <div className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                <span>{locationDisplay}</span>
+                <span>
+                  {listing.service_type === "remote" && listing.address_detail
+                    ? listing.address_detail
+                    : locationDisplay}
+                </span>
+                {hasCoordinates && (
+                  <button
+                    onClick={() => setShowMapModal(true)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
+                    title="Газрын зурагт харах"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span className="text-xs font-medium">Map</span>
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Eye className="h-3.5 w-3.5 md:h-4 md:w-4" />
                 <span>{viewsCount} үзсэн</span>
               </div>
             </div>
-
-            {/* Duration & Work Hours */}
-            {(listing.duration_minutes || listing.work_hours_start) && (
-              <div className="flex flex-wrap gap-3">
-                {listing.duration_minutes && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
-                    <Clock className="h-4 w-4" />
-                    <span className="font-medium">
-                      Үргэлжлэх хугацаа:{" "}
-                      {listing.duration_minutes < 60
-                        ? `${listing.duration_minutes} мин`
-                        : listing.duration_minutes % 60 === 0
-                          ? `${Math.floor(listing.duration_minutes / 60)} цаг`
-                          : `${Math.floor(listing.duration_minutes / 60)} цаг ${listing.duration_minutes % 60} мин`}
-                    </span>
-                  </div>
-                )}
-                {listing.work_hours_start && listing.work_hours_end && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm">
-                    <CalendarClock className="h-4 w-4" />
-                    <span className="font-medium">Ажлын цаг: {listing.work_hours_start} - {listing.work_hours_end}</span>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Mobile Provider Card */}
             <div className="lg:hidden">
@@ -278,6 +279,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
                 memberSince={memberSince}
                 isOwnListing={isOwnListing}
                 variant="mobile"
+                serviceType={listing.service_type as "on_site" | "remote" | undefined}
               />
             </div>
 
@@ -335,6 +337,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
                 memberSince={memberSince}
                 isOwnListing={isOwnListing}
                 variant="desktop"
+                serviceType={listing.service_type as "on_site" | "remote" | undefined}
               />
             </div>
           </div>
@@ -349,6 +352,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
             listingTitle={listing.title}
             providerId={listing.user.id}
             providerName={providerName}
+            serviceType={listing.service_type as "on_site" | "remote" | undefined}
           />
         </div>
       )}
@@ -360,6 +364,18 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
         open={lightboxOpen}
         onOpenChange={setLightboxOpen}
       />
+
+      {/* Location Map Modal */}
+      {showMapModal && hasCoordinates && (
+        <LocationMapModal
+          coordinates={[listing.latitude!, listing.longitude!]}
+          address={listing.service_type === "remote" && listing.address_detail
+            ? listing.address_detail
+            : locationDisplay}
+          title={listing.title}
+          onClose={() => setShowMapModal(false)}
+        />
+      )}
     </div>
   );
 });
