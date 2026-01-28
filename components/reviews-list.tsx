@@ -16,23 +16,30 @@ export const ReviewsList = React.memo(function ReviewsList({
   providerId,
   variant
 }: ReviewsListProps) {
-  const { data: reviews, isLoading } = useFindManyreviews({
-    where: { provider_id: providerId },
-    include: {
-      client: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          is_company: true,
-          company_name: true,
+  // OPTIMIZATION: Добавлен кэш для отзывов - они редко меняются
+  const { data: reviews, isLoading } = useFindManyreviews(
+    {
+      where: { provider_id: providerId },
+      include: {
+        client: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            is_company: true,
+            company_name: true,
+          },
         },
       },
+      orderBy: { created_at: "desc" },
+      take: 10,
     },
-    orderBy: { created_at: "desc" },
-    take: 10,
-  });
+    {
+      staleTime: 5 * 60 * 1000, // 5 минут - отзывы редко меняются
+      gcTime: 10 * 60 * 1000,   // 10 минут в кэше
+    }
+  );
 
   const isDesktop = variant === "desktop";
   const reviewCount = reviews?.length || 0;

@@ -3,73 +3,95 @@
 import * as React from "react";
 import { Navigation2, Loader2, Expand } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
 import type { ListingWithRelations } from "@/components/listing-card";
 import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/ui/base-map";
 
 const DEFAULT_ZOOM = 6;
 const CITY_ZOOM = 12;
 
+// Map bounds controller - вынесен для стабильности
+function MapBoundsController({ coords }: { coords: [number, number][] }) {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (coords.length === 0) return;
+
+    if (coords.length === 1) {
+      map.setView(coords[0], CITY_ZOOM);
+    } else {
+      const bounds = L.latLngBounds(coords);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: CITY_ZOOM });
+    }
+  }, [map, coords]);
+
+  return null;
+}
+
+// Fly to location controller - вынесен для стабильности
+function FlyToController({ position }: { position: [number, number] | null }) {
+  const map = useMap();
+
+  React.useEffect(() => {
+    if (position) {
+      map.flyTo(position, 14, { duration: 1 });
+    }
+  }, [map, position]);
+
+  return null;
+}
+
+// OPTIMIZATION: Тип для листинга с предвычисленными координатами
+export type ListingWithCoords = ListingWithRelations & { lat: number; lng: number };
+
+// OPTIMIZATION: Вынесенная функция для вычисления координат - используется в services-map.tsx
+export function getListingsWithCoords(listings: ListingWithRelations[]): ListingWithCoords[] {
+  return listings.filter((listing) => {
+    if (listing.service_type === "remote") {
+      const lat = listing.latitude ? Number(listing.latitude) : null;
+      const lng = listing.longitude ? Number(listing.longitude) : null;
+      return lat && lng;
+    }
+    const lat = listing.district?.latitude || listing.aimag?.latitude;
+    const lng = listing.district?.longitude || listing.aimag?.longitude;
+    return lat && lng;
+  }).map((listing) => {
+    let lat: number;
+    let lng: number;
+
+    if (listing.service_type === "remote") {
+      lat = listing.latitude ? Number(listing.latitude) : 0;
+      lng = listing.longitude ? Number(listing.longitude) : 0;
+    } else {
+      lat = listing.district?.latitude || listing.aimag?.latitude || 0;
+      lng = listing.district?.longitude || listing.aimag?.longitude || 0;
+    }
+
+    return { ...listing, lat, lng };
+  });
+}
+
 interface ServicesMapLeafletProps {
   listings: ListingWithRelations[];
+  listingsWithCoords?: ListingWithCoords[]; // OPTIMIZATION: Можно передать предвычисленные
   isFullscreen?: boolean;
   onFullscreen?: () => void;
   onLocationSelect?: (districtId: string | null, aimagId: string | null) => void;
 }
 
-// Inner component that uses Leaflet - only rendered on client
-function ServicesMapLeafletInner({ listings, isFullscreen, onFullscreen, onLocationSelect }: ServicesMapLeafletProps) {
+// OPTIMIZATION: Убрана двойная загрузка - leaflet импортируется статически
+// Компонент уже загружается через dynamic() в services-map.tsx
+export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsWithCoords, isFullscreen, onFullscreen, onLocationSelect }: ServicesMapLeafletProps) {
   const [myLocation, setMyLocation] = React.useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = React.useState(false);
   const [flyToPosition, setFlyToPosition] = React.useState<[number, number] | null>(null);
-  const [leafletLoaded, setLeafletLoaded] = React.useState(false);
-  const leafletRef = React.useRef<typeof import("leaflet") | null>(null);
-  const reactLeafletRef = React.useRef<typeof import("react-leaflet") | null>(null);
 
-  // Load leaflet on mount
-  React.useEffect(() => {
-    Promise.all([
-      import("leaflet"),
-      import("react-leaflet"),
-    ]).then(([L, RL]) => {
-      leafletRef.current = L;
-      reactLeafletRef.current = RL;
-      setLeafletLoaded(true);
-    });
-  }, []);
-
-  // Get listings with coordinates
-  // Logic:
-  // - service_type "on_site" (клиент приходит к исполнителю) → точные координаты listing.latitude/longitude
-  // - service_type "remote" (исполнитель приезжает к клиенту) → координаты aimag/district
+  // OPTIMIZATION: Используем переданные координаты или вычисляем локально
   const listingsWithCoords = React.useMemo(() => {
-    return listings.filter((listing) => {
-      // Для on_site услуг - проверяем точные координаты
-      if (listing.service_type === "on_site") {
-        const lat = listing.latitude ? Number(listing.latitude) : null;
-        const lng = listing.longitude ? Number(listing.longitude) : null;
-        return lat && lng;
-      }
-      // Для remote услуг - проверяем координаты района/аймака
-      const lat = listing.district?.latitude || listing.aimag?.latitude;
-      const lng = listing.district?.longitude || listing.aimag?.longitude;
-      return lat && lng;
-    }).map((listing) => {
-      let lat: number;
-      let lng: number;
-
-      if (listing.service_type === "on_site") {
-        // Точные координаты для услуг на месте исполнителя
-        lat = listing.latitude ? Number(listing.latitude) : 0;
-        lng = listing.longitude ? Number(listing.longitude) : 0;
-      } else {
-        // Координаты района/аймака для remote услуг
-        lat = listing.district?.latitude || listing.aimag?.latitude || 0;
-        lng = listing.district?.longitude || listing.aimag?.longitude || 0;
-      }
-
-      return { ...listing, lat, lng };
-    });
-  }, [listings]);
+    if (propListingsWithCoords) return propListingsWithCoords;
+    return getListingsWithCoords(listings);
+  }, [listings, propListingsWithCoords]);
 
   // Group listings by location (for clustering)
   const groupedListings = React.useMemo(() => {
@@ -114,20 +136,8 @@ function ServicesMapLeafletInner({ listings, isFullscreen, onFullscreen, onLocat
     }
   };
 
-  // Show loading while leaflet loads
-  if (!leafletLoaded || !leafletRef.current || !reactLeafletRef.current) {
-    return (
-      <div className="w-full h-full bg-muted/50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  const L = leafletRef.current;
-  const { MapContainer, TileLayer, Marker, Circle, useMap } = reactLeafletRef.current;
-
-  // Create marker icons
-  const createClusterIcon = (count: number) => {
+  // Create marker icons - мемоизируем для предотвращения пересоздания
+  const createClusterIcon = React.useCallback((count: number) => {
     return L.divIcon({
       className: "cluster-marker",
       html: `<div class="w-8 h-8 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"><span class="text-white text-xs font-bold">${count}</span></div>`,
@@ -135,51 +145,21 @@ function ServicesMapLeafletInner({ listings, isFullscreen, onFullscreen, onLocat
       iconAnchor: [16, 16] as [number, number],
       popupAnchor: [0, -16] as [number, number],
     });
-  };
+  }, []);
 
-  const createMyLocationIcon = () => {
+  const createMyLocationIcon = React.useCallback(() => {
     return L.divIcon({
       className: "my-location-marker",
       html: `<div class="relative"><div class="w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div><div class="absolute inset-0 w-4 h-4 bg-red-500/30 rounded-full animate-ping"></div></div>`,
       iconSize: [16, 16] as [number, number],
       iconAnchor: [8, 8] as [number, number],
     });
-  };
+  }, []);
 
-  // Map bounds controller component
-  function MapBoundsController() {
-    const map = useMap();
-
-    React.useEffect(() => {
-      if (listingsWithCoords.length === 0) return;
-
-      const coords: [number, number][] = listingsWithCoords.map((l) => [l.lat, l.lng]);
-
-      if (coords.length > 0) {
-        if (coords.length === 1) {
-          map.setView(coords[0], CITY_ZOOM);
-        } else {
-          const bounds = L.latLngBounds(coords);
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: CITY_ZOOM });
-        }
-      }
-    }, [map, listingsWithCoords]);
-
-    return null;
-  }
-
-  // Fly to location controller
-  function FlyToController() {
-    const map = useMap();
-
-    React.useEffect(() => {
-      if (flyToPosition) {
-        map.flyTo(flyToPosition, 14, { duration: 1 });
-      }
-    }, [map, flyToPosition]);
-
-    return null;
-  }
+  // Мемоизируем координаты для контроллера
+  const boundsCoords = React.useMemo<[number, number][]>(() => {
+    return listingsWithCoords.map((l) => [l.lat, l.lng]);
+  }, [listingsWithCoords]);
 
   return (
     <div className="relative w-full h-full">
@@ -191,8 +171,8 @@ function ServicesMapLeafletInner({ listings, isFullscreen, onFullscreen, onLocat
         style={{ height: "100%", width: "100%" }}
         attributionControl={false}
       >
-        <MapBoundsController />
-        <FlyToController />
+        <MapBoundsController coords={boundsCoords} />
+        <FlyToController position={flyToPosition} />
 
         {/* OSM tile layer - dark theme via CSS */}
         <TileLayer url={TILE_URL} maxZoom={19} />
@@ -268,23 +248,4 @@ function ServicesMapLeafletInner({ listings, isFullscreen, onFullscreen, onLocat
       )}
     </div>
   );
-}
-
-// Export wrapped component that only renders on client
-export function ServicesMapLeaflet(props: ServicesMapLeafletProps) {
-  const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="w-full h-full bg-muted/50 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  return <ServicesMapLeafletInner {...props} />;
 }

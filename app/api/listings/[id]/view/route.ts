@@ -32,17 +32,15 @@ export async function POST(
     } = await supabase.auth.getUser();
     const viewerId = user?.id || null;
 
-    // Находим объявление по slug
-    const listing = await prisma.listings.findFirst({
-      where: {
-        slug: slug,
-        status: "active",
-        is_active: true,
-      },
-      select: { id: true, user_id: true, views_count: true },
+    // OPTIMIZATION: Используем findUnique по slug (уникальный индекс)
+    // Затем проверяем status/is_active - это быстрее чем findFirst с условиями
+    const listing = await prisma.listings.findUnique({
+      where: { slug },
+      select: { id: true, user_id: true, views_count: true, status: true, is_active: true },
     });
 
-    if (!listing) {
+    // Проверяем существование и активность
+    if (!listing || listing.status !== "active" || !listing.is_active) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 

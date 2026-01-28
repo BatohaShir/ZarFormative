@@ -41,10 +41,12 @@ export function CategoryFilterModal({
   const [expandedCategory, setExpandedCategory] = React.useState<CategoryWithChildren | Category | null>(null);
 
   // Загружаем категории из БД (кэш 1 час - относительно редко меняются)
+  // OPTIMIZATION: Добавлен лимит для предотвращения загрузки слишком большого количества
   const { data: fetchedCategories } = useFindManycategories(
     {
       where: { is_active: true },
       orderBy: { sort_order: "asc" },
+      take: 100, // OPTIMIZATION: Лимит на категории
     },
     {
       staleTime: 60 * 60 * 1000, // 1 час

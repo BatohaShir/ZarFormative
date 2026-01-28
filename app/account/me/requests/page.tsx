@@ -55,6 +55,7 @@ import {
   useCreatereviews,
 } from "@/lib/hooks";
 import { CACHE_TIMES } from "@/lib/react-query-config";
+import { useRealtimeRequests } from "@/hooks/use-realtime-requests";
 import {
   RequestListItem,
   type RequestWithRelations,
@@ -68,6 +69,11 @@ import {
 // Lazy load heavy components
 const RequestDetailModal = dynamic(
   () => import("./_components/request-detail-modal").then((mod) => ({ default: mod.RequestDetailModal })),
+  { ssr: false }
+);
+
+const ElapsedTimeCounter = dynamic(
+  () => import("@/components/elapsed-time-counter").then((mod) => ({ default: mod.ElapsedTimeCounter })),
   { ssr: false }
 );
 
@@ -143,11 +149,16 @@ function RequestsPageContent() {
   const highlightRequestId = searchParams.get("highlight");
   const openChatParam = searchParams.get("openChat");
 
-  // Query key для invalidation
+  // Query key для invalidation - используем findMany prefix как ZenStack
   const queryKey = React.useMemo(
-    () => ["listing_requests", { where: { OR: [{ client_id: user?.id }, { provider_id: user?.id }] } }],
-    [user?.id]
+    () => ["listing_requests", "findMany"],
+    []
   );
+
+  // REALTIME: Подписка на изменения статусов заявок
+  useRealtimeRequests({
+    showToasts: true, // Показывать toast уведомления при изменении статуса
+  });
 
   // ОПТИМИЗАЦИЯ: Один запрос вместо двух с OR условием
   const {
@@ -175,6 +186,7 @@ function RequestsPageContent() {
         created_at: true,
         updated_at: true,
         accepted_at: true,
+        started_at: true,
         completed_at: true,
         completion_description: true,
         completion_photos: true,
@@ -193,6 +205,7 @@ function RequestsPageContent() {
             service_type: true,
             address: true,
             price: true,
+            phone: true,
             latitude: true,
             longitude: true,
             images: {
@@ -281,10 +294,25 @@ function RequestsPageContent() {
     }
   }, []);
 
+  // Преобразуем Decimal координаты в числа (Prisma возвращает строки)
+  const normalizedRequests = React.useMemo(() => {
+    const all = (allRequests as RequestWithRelations[] | undefined) || [];
+    return all.map(req => ({
+      ...req,
+      latitude: req.latitude != null ? Number(req.latitude) : null,
+      longitude: req.longitude != null ? Number(req.longitude) : null,
+      listing: {
+        ...req.listing,
+        latitude: req.listing.latitude != null ? Number(req.listing.latitude) : null,
+        longitude: req.listing.longitude != null ? Number(req.listing.longitude) : null,
+      },
+    }));
+  }, [allRequests]);
+
   // Разделяем на клиентские и провайдерские на клиенте (O(n) один раз)
   // Активные заявки (in_progress и т.д.) показываются ТОЛЬКО в "Явагдаж буй", не в "Ирсэн"/"Илгээсэн"
   const { myRequests, incomingRequests, activeJobs } = React.useMemo(() => {
-    const all = (allRequests as RequestWithRelations[] | undefined) || [];
+    const all = normalizedRequests;
     const my: RequestWithRelations[] = [];
     const incoming: RequestWithRelations[] = [];
     const active: RequestWithRelations[] = [];
@@ -323,7 +351,7 @@ function RequestsPageContent() {
     }
 
     return { myRequests: my, incomingRequests: incoming, activeJobs: active };
-  }, [allRequests, user?.id, isNearStartTime]);
+  }, [normalizedRequests, user?.id, isNearStartTime]);
 
   // Мемоизированная фильтрация
   const filteredMyRequests = React.useMemo(() => {
@@ -438,18 +466,21 @@ function RequestsPageContent() {
     }
   }, [user?.id, expiredRequestIds, existingNotifications, myRequests, createNotification]);
 
-  // Optimistic update helper
+  // Optimistic update helper - используем setQueriesData для partial key match
   const optimisticUpdate = React.useCallback(
     (requestId: string, newStatus: RequestWithRelations["status"], additionalData?: Partial<RequestWithRelations>) => {
-      // Update cache optimistically
-      queryClient.setQueryData(queryKey, (old: RequestWithRelations[] | undefined) => {
-        if (!old) return old;
-        return old.map((req) =>
-          req.id === requestId
-            ? { ...req, status: newStatus, ...additionalData }
-            : req
-        );
-      });
+      // Update cache optimistically - используем setQueriesData для partial key match
+      queryClient.setQueriesData<RequestWithRelations[]>(
+        { queryKey },
+        (old) => {
+          if (!old) return old;
+          return old.map((req) =>
+            req.id === requestId
+              ? { ...req, status: newStatus, ...additionalData }
+              : req
+          );
+        }
+      );
 
       // Also update selectedRequest if open
       if (selectedRequest?.id === requestId) {
@@ -464,12 +495,15 @@ function RequestsPageContent() {
   // Revert optimistic update
   const revertOptimisticUpdate = React.useCallback(
     (requestId: string, oldStatus: RequestWithRelations["status"]) => {
-      queryClient.setQueryData(queryKey, (old: RequestWithRelations[] | undefined) => {
-        if (!old) return old;
-        return old.map((req) =>
-          req.id === requestId ? { ...req, status: oldStatus } : req
-        );
-      });
+      queryClient.setQueriesData<RequestWithRelations[]>(
+        { queryKey },
+        (old) => {
+          if (!old) return old;
+          return old.map((req) =>
+            req.id === requestId ? { ...req, status: oldStatus } : req
+          );
+        }
+      );
       if (selectedRequest?.id === requestId) {
         setSelectedRequest((prev) => (prev ? { ...prev, status: oldStatus } : null));
       }
@@ -695,7 +729,10 @@ function RequestsPageContent() {
       try {
         await updateRequest.mutateAsync({
           where: { id: requestId },
-          data: { status: "in_progress" },
+          data: {
+            status: "in_progress",
+            started_at: new Date().toISOString(),
+          },
         });
 
         // Create notification for client
@@ -895,11 +932,14 @@ function RequestsPageContent() {
       await deleteRequest.mutateAsync({
         where: { id: requestToDelete },
       });
-      // Remove from cache
-      queryClient.setQueryData(queryKey, (old: RequestWithRelations[] | undefined) => {
-        if (!old) return old;
-        return old.filter((req) => req.id !== requestToDelete);
-      });
+      // Remove from cache - используем setQueriesData для partial key match
+      queryClient.setQueriesData<RequestWithRelations[]>(
+        { queryKey },
+        (old) => {
+          if (!old) return old;
+          return old.filter((req) => req.id !== requestToDelete);
+        }
+      );
       toast.success("Хүсэлт устгагдлаа");
       setDeleteDialogOpen(false);
       setRequestToDelete(null);
@@ -1270,6 +1310,10 @@ function RequestsPageContent() {
                                       ? "Ажил эхлэх ёстой"
                                       : "Хүлээгдэж байна"}
                               </div>
+                              {/* Счётчик времени для in_progress */}
+                              {request.status === "in_progress" && request.started_at && (
+                                <ElapsedTimeCounter startedAt={request.started_at} size="sm" />
+                              )}
                             </div>
 
                             {/* Person info */}
@@ -1325,11 +1369,14 @@ function RequestsPageContent() {
                           <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 truncate">
                             <MapPin className="h-3.5 w-3.5 shrink-0" />
                             <span className="truncate">
-                              {request.listing.service_type === "remote" && request.listing.address
-                                ? request.listing.address
-                                : request.aimag
-                                  ? [request.aimag.name, request.district?.name, request.khoroo?.name].filter(Boolean).join(", ")
-                                  : "—"}
+                              {request.listing.service_type === "remote"
+                                ? // remote = клиент приходит к исполнителю, показываем адрес исполнителя
+                                  request.listing.address || "—"
+                                : // on_site = исполнитель едет к клиенту, показываем адрес клиента из заявки
+                                  request.address_detail ||
+                                  (request.aimag
+                                    ? [request.aimag.name, request.district?.name, request.khoroo?.name].filter(Boolean).join(", ")
+                                    : "—")}
                             </span>
                           </div>
                         </div>

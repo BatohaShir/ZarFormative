@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
-export default function FavoritesLoading() {
+export default function MyServicesLoading() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
@@ -12,7 +12,7 @@ export default function FavoritesLoading() {
           </div>
           <div className="flex items-center gap-2">
             <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-8 w-8 rounded-full md:hidden" />
+            <Skeleton className="h-8 w-8 rounded-md md:hidden" />
           </div>
         </div>
       </header>
@@ -22,9 +22,14 @@ export default function FavoritesLoading() {
         <div className="flex items-center gap-4 mb-6 md:mb-8">
           <Skeleton className="h-12 w-12 md:h-14 md:w-14 rounded-2xl" />
           <div className="flex-1 space-y-2">
-            <Skeleton className="h-6 md:h-8 w-32" />
-            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-6 md:h-8 w-36" />
+            <Skeleton className="h-4 w-24" />
           </div>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="mb-6">
+          <Skeleton className="h-9 md:h-10 w-full rounded-full" />
         </div>
 
         {/* Grid */}
@@ -38,9 +43,23 @@ export default function FavoritesLoading() {
               <div className="p-3 md:p-4 space-y-2">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3 w-full" />
-                <div className="flex items-center gap-2 mt-2">
-                  <Skeleton className="h-4 w-4 md:h-5 md:w-5 rounded-full" />
-                  <Skeleton className="h-3 w-20" />
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-3 w-8" />
+                    <Skeleton className="h-3 w-8" />
+                  </div>
+                  <Skeleton className="h-3 w-16" />
+                </div>
+                {/* Actions */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                  <div className="flex items-center gap-1">
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                    <Skeleton className="h-7 w-7 rounded-lg" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-3 w-12" />
+                    <Skeleton className="h-5 w-9 rounded-full" />
+                  </div>
                 </div>
               </div>
             </div>

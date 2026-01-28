@@ -23,6 +23,7 @@ import {
   AlertCircle,
   Briefcase,
   Building2,
+  Phone,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
   const lastSavedDataRef = useRef<string>("");
 
   // Fetch user's draft listings
+  // OPTIMIZATION: Добавлен staleTime - черновики не меняются часто извне
   const { data: drafts, refetch: refetchDrafts } = useFindManylistings(
     user?.id ? {
       where: {
@@ -116,8 +118,13 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
         images: true,
       },
       orderBy: { updated_at: "desc" },
+      take: 10, // OPTIMIZATION: Лимит на черновики
     } : undefined,
-    { enabled: !!user?.id }
+    {
+      enabled: !!user?.id,
+      staleTime: 2 * 60 * 1000, // 2 минуты - черновики редко меняются извне
+      gcTime: 10 * 60 * 1000,   // 10 минут в кэше
+    }
   );
 
   const createListing = useCreatelistings();
@@ -154,6 +161,42 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     setDisplayPrice(formatPriceDisplay(rawValue));
     setValue("price", rawValue);
   }, [formatPriceDisplay, setValue]);
+
+  // Phone formatting: +976 XXXX-XXXX
+  const [displayPhone, setDisplayPhone] = useState("");
+
+  const formatPhoneDisplay = useCallback((value: string) => {
+    // Убираем всё кроме цифр
+    let digits = value.replace(/\D/g, "");
+
+    // Если начинается с 976, убираем код страны
+    if (digits.startsWith("976")) {
+      digits = digits.slice(3);
+    }
+
+    // Ограничиваем до 8 цифр
+    const limited = digits.slice(0, 8);
+
+    // Пустое поле - возвращаем пустую строку
+    if (limited.length === 0) {
+      return "";
+    }
+
+    // Форматируем: +976 XXXX-XXXX
+    if (limited.length <= 4) {
+      return `+976 ${limited}`;
+    }
+    return `+976 ${limited.slice(0, 4)}-${limited.slice(4)}`;
+  }, []);
+
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneDisplay(e.target.value);
+    setDisplayPhone(formatted);
+    // Сохраняем только 8 цифр без кода страны
+    const digits = e.target.value.replace(/\D/g, "");
+    const rawValue = digits.startsWith("976") ? digits.slice(3).slice(0, 8) : digits.slice(0, 8);
+    setValue("phone", rawValue);
+  }, [formatPhoneDisplay, setValue]);
 
   // Show login modal if not authenticated
   useEffect(() => {
@@ -195,6 +238,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     setShowDraftBanner(false);
 
     const priceValue = draft.price ? String(draft.price) : "";
+    const phoneValue = draft.phone || "";
     reset({
       title: draft.title || "",
       description: draft.description || "",
@@ -202,11 +246,13 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       price: priceValue,
       duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
       service_type: (draft.service_type as "on_site" | "remote") || "on_site",
+      phone: phoneValue,
       address_detail: draft.address || "",
       work_hours_start: draft.work_hours_start || "09:00",
       work_hours_end: draft.work_hours_end || "18:00",
     });
     setDisplayPrice(formatPriceDisplay(priceValue));
+    setDisplayPhone(formatPhoneDisplay(phoneValue));
 
     if (draft.category) {
       const cat = draft.category as Category;
@@ -234,7 +280,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     } else {
       setLocationCoordinates(null);
     }
-  }, [categories, formatPriceDisplay, reset]);
+  }, [categories, formatPriceDisplay, formatPhoneDisplay, reset]);
 
   // Delete draft
   const handleDeleteDraft = useCallback(async (draftId: string) => {
@@ -289,7 +335,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           slug,
           description: data.description || "",
           ...(data.category_id && { category_id: data.category_id }),
-          // Для "Миний газар" сохраняем детальный адрес
+          // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя
           address: data.service_type === "remote" ? data.address_detail : addressStr,
           aimag_id: selectedAddress?.cityId || null,
           district_id: selectedAddress?.districtId || null,
@@ -298,6 +344,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           is_negotiable: false,
           duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
           service_type: data.service_type,
+          phone: data.phone || null,
           latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
           longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
           work_hours_start: data.work_hours_start || "09:00",
@@ -363,7 +410,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             slug,
             description: data.description || "",
             ...(data.category_id && { category_id: data.category_id }),
-            // Для "Миний газар" сохраняем детальный адрес
+            // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя
             address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
@@ -372,6 +419,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            phone: data.phone || null,
             latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
             longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
@@ -405,7 +453,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             description: data.description || "",
             ...(data.category_id && { category_id: data.category_id }),
             user_id: user.id,
-            // Для "Миний газар" сохраняем детальный адрес
+            // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя
             address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
@@ -414,6 +462,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            phone: data.phone || null,
             latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
             longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
@@ -486,7 +535,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             slug,
             description: data.description,
             category_id: data.category_id,
-            // Для "Миний газар" сохраняем детальный адрес, для "Зочны газар" - адрес из модалки
+            // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя, для "Зочны газар" - адрес из модалки
             address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
@@ -495,6 +544,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            phone: data.phone || null,
             latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
             longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
@@ -536,7 +586,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             description: data.description,
             category_id: data.category_id,
             user_id: user.id,
-            // Для "Миний газар" сохраняем детальный адрес, для "Зочны газар" - адрес из модалки
+            // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя, для "Зочны газар" - адрес из модалки
             address: data.service_type === "remote" ? data.address_detail : addressStr,
             aimag_id: selectedAddress?.cityId || null,
             district_id: selectedAddress?.districtId || null,
@@ -545,6 +595,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             is_negotiable: false,
             duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
             service_type: data.service_type,
+            phone: data.phone || null,
             latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
             longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
             work_hours_start: data.work_hours_start || "09:00",
@@ -846,8 +897,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             </div>
           </div>
 
-          {/* Ангилал, Байршил, Үнэ - Row 1 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+          {/* Ангилал, Байршил, Үнэ, Утас - Row 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
             {/* Category */}
             <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
               <div className="flex items-start gap-3 mb-3">
@@ -958,6 +1009,35 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                 <p className="text-xs text-destructive mt-2">{errors.price.message}</p>
               )}
             </div>
+
+            {/* Phone */}
+            <div className="bg-card rounded-2xl border shadow-sm p-5 flex flex-col hover:border-primary/30 transition-colors">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                  <Phone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="min-h-10 flex flex-col justify-center">
+                  <h3 className="font-semibold text-sm leading-tight">Утас</h3>
+                  <p className="text-xs text-muted-foreground leading-tight">Холбоо барих</p>
+                </div>
+              </div>
+              <div className="flex-1 flex flex-col justify-end">
+                <Input
+                  type="tel"
+                  value={displayPhone}
+                  onChange={handlePhoneChange}
+                  placeholder="+976 9911-2233"
+                  className="h-11 text-center font-medium"
+                  maxLength={15}
+                />
+                <p className="text-xs text-muted-foreground text-center py-1.5 h-8 flex items-center justify-center">
+                  Захиалагч холбогдоно
+                </p>
+              </div>
+              {errors.phone && (
+                <p className="text-xs text-destructive mt-2">{errors.phone.message}</p>
+              )}
+            </div>
           </div>
 
           {/* Service Type */}
@@ -1019,6 +1099,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             </div>
 
             {/* Detailed address and map - only shown when "Миний газар" (remote) is selected */}
+            {/* remote = клиент приходит к исполнителю, поэтому нужен адрес исполнителя */}
             {watchServiceType === "remote" && (
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">

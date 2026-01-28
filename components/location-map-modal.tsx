@@ -5,6 +5,7 @@ import { X, Maximize2, Minimize2, Navigation2, LocateFixed } from "lucide-react"
 import { MapContainer, TileLayer, Marker, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { TILE_URL } from "@/components/ui/base-map";
 
 // Custom marker icon
 const createMarkerIcon = () => {
@@ -196,10 +197,8 @@ export function LocationMapModal({
             style={{ height: "100%", width: "100%" }}
             attributionControl={false}
           >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution=""
-            />
+            {/* OPTIMIZATION: Используем общую константу TILE_URL */}
+            <TileLayer url={TILE_URL} maxZoom={19} />
             <Marker position={coordinates} icon={markerIcon} />
 
             {/* User location marker */}

@@ -1,8 +1,10 @@
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { CreateListingClient } from "@/components/create-listing-client";
 
-// SSR on every request
-export const dynamic = "force-dynamic";
+// OPTIMIZATION: Revalidate каждые 30 минут вместо force-dynamic
+// Категории редко меняются, не нужно запрашивать каждый раз
+export const revalidate = 1800; // 30 минут
 
 interface Category {
   id: string;
@@ -14,24 +16,25 @@ interface Category {
   children?: Category[];
 }
 
-// Prefetch active categories on server and build tree structure
-async function getActiveCategories(): Promise<Category[]> {
-  const categories = await prisma.categories.findMany({
-    where: {
-      is_active: true,
-    },
-    orderBy: {
-      sort_order: "asc",
-    },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      parent_id: true,
-      is_active: true,
-      sort_order: true,
-    },
-  });
+// OPTIMIZATION: Кэшируем категории на 30 минут - они редко меняются
+const getActiveCategories = unstable_cache(
+  async (): Promise<Category[]> => {
+    const categories = await prisma.categories.findMany({
+      where: {
+        is_active: true,
+      },
+      orderBy: {
+        sort_order: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        parent_id: true,
+        is_active: true,
+        sort_order: true,
+      },
+    });
 
   // Build tree structure: add children to parent categories
   const categoryMap = new Map<string, Category>();
@@ -56,8 +59,11 @@ async function getActiveCategories(): Promise<Category[]> {
     }
   }
 
-  return rootCategories;
-}
+    return rootCategories;
+  },
+  ["active-categories-tree"],
+  { revalidate: 1800, tags: ["categories"] } // 30 минут кэш
+);
 
 export default async function CreateListingPage() {
   const categories = await getActiveCategories();

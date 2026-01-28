@@ -22,7 +22,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { useFavorites, type FavoriteWithListing } from "@/contexts/favorites-context";
+import { useFavoriteIds, useFavoriteActions, useFavoritesFullData, type FavoriteWithListing } from "@/contexts/favorites-context";
 import { formatListingPrice } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -197,7 +197,11 @@ function EmptyState() {
 export default function FavoritesPage() {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
-  const { favorites, isLoading, toggleFavorite, count, isToggling } = useFavorites();
+  // OPTIMIZATION: Используем разделённые хуки для лучшей производительности
+  const { count } = useFavoriteIds();
+  const { toggleFavorite, isToggling } = useFavoriteActions();
+  // Полные данные загружаются ТОЛЬКО на этой странице (не на главной)
+  const { favorites, isLoading } = useFavoritesFullData();
   const [showLoginModal, setShowLoginModal] = React.useState(false);
 
   // Track removed items for Undo functionality

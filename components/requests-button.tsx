@@ -14,37 +14,33 @@ interface RequestsButtonProps {
 export function RequestsButton({ className }: RequestsButtonProps) {
   const { user, isAuthenticated } = useAuth();
 
-  // Считаем входящие pending заявки (где я provider)
-  const { data: incomingPending } = useFindManylisting_requests(
+  // OPTIMIZATION: Один запрос вместо двух с OR условием
+  // Считаем: входящие pending (provider) + отправленные активные (client)
+  const { data: activeRequests } = useFindManylisting_requests(
     {
       where: {
-        provider_id: user?.id || "",
-        status: "pending",
+        OR: [
+          // Входящие pending заявки (где я provider)
+          {
+            provider_id: user?.id || "",
+            status: "pending",
+          },
+          // Отправленные активные заявки (где я client)
+          {
+            client_id: user?.id || "",
+            status: { in: ["pending", "accepted"] },
+          },
+        ],
       },
       select: { id: true },
     },
     {
       enabled: !!user?.id,
-      staleTime: 30 * 1000,
+      staleTime: 60 * 1000, // OPTIMIZATION: Увеличили до 60 сек (было 30)
     }
   );
 
-  // Считаем отправленные активные заявки (где я client) - pending или accepted
-  const { data: sentActive } = useFindManylisting_requests(
-    {
-      where: {
-        client_id: user?.id || "",
-        status: { in: ["pending", "accepted"] },
-      },
-      select: { id: true },
-    },
-    {
-      enabled: !!user?.id,
-      staleTime: 30 * 1000,
-    }
-  );
-
-  const totalCount = (incomingPending?.length || 0) + (sentActive?.length || 0);
+  const totalCount = activeRequests?.length || 0;
 
   // Only show if authenticated
   if (!isAuthenticated) {

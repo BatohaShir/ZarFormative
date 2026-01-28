@@ -291,6 +291,7 @@ model listings {
   work_hours_start String?                  @default("09:00")
   work_hours_end   String?                  @default("18:00")
   service_type     ServiceType              @default(on_site)
+  phone            String?
   aimag_id         String?                  @db.Uuid()
   district_id      String?                  @db.Uuid()
   khoroo_id        String?                  @db.Uuid()
@@ -329,8 +330,13 @@ model listings {
   @@index([status, is_active, price])
   @@index([status, is_active, category_id, price])
   @@index([user_id, status, updated_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
   @@index([status, is_active, published_at(sort: Desc)])
   @@index([status, is_active, favorites_count(sort: Desc)])
+  @@index([status, is_active, created_at(sort: Desc)])
+  @@index([status, is_active, aimag_id, created_at(sort: Desc)])
+  @@index([status, is_active, district_id, created_at(sort: Desc)])
+  @@index([status, is_active, category_id, created_at(sort: Desc)])
   @@map("listings")
 }
 
@@ -403,6 +409,7 @@ model listing_requests {
   created_at             DateTime            @default(now())
   updated_at             DateTime            @updatedAt()
   accepted_at            DateTime?
+  started_at             DateTime?
   completed_at           DateTime?
   listing                listings            @relation(fields: [listing_id], references: [id], onDelete: Cascade)
   client                 profiles            @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)

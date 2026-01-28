@@ -103,10 +103,10 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated]);
 
-  // Загрузка избранных из БД (только для авторизованных)
-  // ОПТИМИЗИРОВАНО: select только нужных полей для уменьшения payload (~40% меньше данных)
+  // OPTIMIZATION: Сначала загружаем ТОЛЬКО IDs для быстрой проверки isFavorite
+  // Полные данные загружаются отдельно только на странице /favorites
   const {
-    data: dbFavorites = [],
+    data: dbFavoritesRaw = [],
     isLoading,
   } = useFindManyuser_favorites(
     {
@@ -116,40 +116,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       select: {
         id: true,
         listing_id: true,
-        user_id: true,
-        created_at: true,
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            description: true,
-            price: true,
-            currency: true,
-            is_negotiable: true,
-            views_count: true,
-            favorites_count: true,
-            category: {
-              select: { id: true, name: true, slug: true },
-            },
-            aimag: {
-              select: { id: true, name: true },
-            },
-            images: {
-              where: { is_cover: true },
-              take: 1,
-              select: { id: true, url: true },
-            },
-            user: {
-              select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                avatar_url: true,
-              },
-            },
-          },
-        },
       },
       orderBy: {
         created_at: "desc",
@@ -161,18 +127,22 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     }
   );
 
+  // Полные данные загружаются через отдельный хук useFavoritesFullData
+  // который вызывается только на странице /favorites
+  const dbFavorites = dbFavoritesRaw as { id: string; listing_id: string }[];
+
   // Синхронизируем optimisticIds с данными из БД
   // Используем строковый ключ для стабильных зависимостей
-  const dbFavoriteIds = React.useMemo(() => {
+  const dbFavoriteIdsString = React.useMemo(() => {
     if (!dbFavorites || !isAuthenticated) return "";
-    return (dbFavorites as FavoriteWithListing[]).map((f) => f.listing_id).sort().join(",");
+    return dbFavorites.map((f) => f.listing_id).sort().join(",");
   }, [dbFavorites, isAuthenticated]);
 
   React.useEffect(() => {
-    if (dbFavoriteIds && isAuthenticated) {
-      setOptimisticIds(new Set(dbFavoriteIds.split(",")));
+    if (dbFavoriteIdsString && isAuthenticated) {
+      setOptimisticIds(new Set(dbFavoriteIdsString.split(",")));
     }
-  }, [dbFavoriteIds, isAuthenticated]);
+  }, [dbFavoriteIdsString, isAuthenticated]);
 
   // Мутации - фоновая синхронизация
   const createFavorite = useCreateuser_favorites({
@@ -244,8 +214,8 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
       // Фоновая синхронизация с сервером (без await)
       if (isCurrentlyFavorite) {
-        // Удаляем - ищем в dbFavorites
-        const existingFavorite = (dbFavoritesRef.current as FavoriteWithListing[]).find(
+        // Удаляем - ищем в dbFavorites (теперь только id и listing_id)
+        const existingFavorite = dbFavoritesRef.current.find(
           (f) => f.listing_id === listingId
         );
         if (existingFavorite) {
@@ -269,12 +239,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   // Количество избранных
   const count = favoriteListingIds.size;
 
-  // Optimistic список избранных - фильтруем по optimisticIds для мгновенного удаления
-  const optimisticFavorites = React.useMemo(() => {
+  // OPTIMIZATION: Список IDs избранных (без полных данных)
+  // Полные данные загружаются отдельно через useFavoritesFullData хук
+  const optimisticFavoriteIds = React.useMemo(() => {
     if (!isAuthenticated) return [];
-    return (dbFavorites as FavoriteWithListing[]).filter(
-      (f) => optimisticIds.has(f.listing_id)
-    );
+    return dbFavorites.filter((f) => optimisticIds.has(f.listing_id));
   }, [dbFavorites, optimisticIds, isAuthenticated]);
 
   // ========== МЕМОИЗИРОВАННЫЕ ЗНАЧЕНИЯ ДЛЯ КАЖДОГО КОНТЕКСТА ==========
@@ -298,13 +267,14 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     [toggleFavorite, createFavorite.isPending, deleteFavorite.isPending]
   );
 
-  // Контекст Data - обновляется только при изменении списка
+  // Контекст Data - OPTIMIZATION: теперь пустой массив, данные загружаются через useFavoritesFullData
+  // Это уменьшает payload на главной странице с ~5KB до ~200 байт
   const dataValue = React.useMemo<FavoritesDataContextType>(
     () => ({
-      favorites: optimisticFavorites,
+      favorites: [], // Полные данные загружаются отдельно через useFavoritesFullData
       isLoading: isAuthenticated ? isLoading : false,
     }),
-    [optimisticFavorites, isLoading, isAuthenticated]
+    [isLoading, isAuthenticated]
   );
 
   return (
@@ -369,5 +339,84 @@ export function useFavorites() {
     ...ids,
     ...actions,
     ...data,
+  };
+}
+
+/**
+ * OPTIMIZATION: Хук для загрузки ПОЛНЫХ данных избранных
+ * Используется ТОЛЬКО на странице /account/me/favorites
+ * На главной и других страницах используется только useFavoriteIds для минимального payload
+ */
+export function useFavoritesFullData() {
+  const { user, isAuthenticated } = useAuth();
+  const { favoriteListingIds } = useFavoriteIds();
+
+  const {
+    data: fullFavorites = [],
+    isLoading,
+  } = useFindManyuser_favorites(
+    {
+      where: {
+        user_id: user?.id,
+      },
+      select: {
+        id: true,
+        listing_id: true,
+        user_id: true,
+        created_at: true,
+        listing: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            description: true,
+            price: true,
+            currency: true,
+            is_negotiable: true,
+            views_count: true,
+            favorites_count: true,
+            category: {
+              select: { id: true, name: true, slug: true },
+            },
+            aimag: {
+              select: { id: true, name: true },
+            },
+            images: {
+              where: { is_cover: true },
+              take: 1,
+              select: { id: true, url: true },
+            },
+            user: {
+              select: {
+                id: true,
+                first_name: true,
+                last_name: true,
+                avatar_url: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+    },
+    {
+      enabled: isAuthenticated && !!user?.id,
+      ...CACHE_TIMES.FAVORITES,
+    }
+  );
+
+  // Применяем optimistic filtering
+  const optimisticFavorites = React.useMemo(() => {
+    if (!isAuthenticated) return [];
+    return (fullFavorites as FavoriteWithListing[]).filter(
+      (f) => favoriteListingIds.has(f.listing_id)
+    );
+  }, [fullFavorites, favoriteListingIds, isAuthenticated]);
+
+  return {
+    favorites: optimisticFavorites,
+    isLoading,
   };
 }

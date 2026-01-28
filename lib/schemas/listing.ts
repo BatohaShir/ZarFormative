@@ -53,6 +53,13 @@ export const listingSchema = z.object({
       "Хугацаа 15-1440 минутын хооронд байх ёстой"
     ),
   service_type: z.enum(["on_site", "remote"]),
+  phone: z
+    .string()
+    .transform(val => val?.replace(/\D/g, "") || "")
+    .refine(
+      val => !val || val.length === 8,
+      "Утасны дугаар 8 оронтой байх ёстой"
+    ),
   address_detail: z
     .string()
     .transform(val => val?.trim() || ""),
@@ -97,6 +104,7 @@ export const listingFormDefaults: ListingFormData = {
   price: "",
   duration_minutes: "",
   service_type: "on_site",
+  phone: "",
   address_detail: "",
   latitude: null,
   longitude: null,

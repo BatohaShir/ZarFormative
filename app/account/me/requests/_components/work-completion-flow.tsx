@@ -45,9 +45,12 @@ export function ClientReviewForm({
   const [rating, setRating] = React.useState(5);
   const [hoverRating, setHoverRating] = React.useState(0);
   const [comment, setComment] = React.useState("");
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitted || isSubmitting) return; // Предотвращаем повторную отправку
+    setIsSubmitted(true);
     await onSubmit(rating, comment);
   };
 
@@ -125,14 +128,14 @@ export function ClientReviewForm({
               variant="outline"
               className="flex-1"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSubmitted}
             >
               Болих
             </Button>
             <Button
               type="submit"
               className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSubmitted}
             >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -215,11 +218,8 @@ export function ProviderCompletionForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim()) {
-      toast.error("Хийсэн ажлын тайлбар бичнэ үү");
-      return;
-    }
-    await onSubmit(description, photos);
+    // Тайлбар заавал биш болсон
+    await onSubmit(description.trim(), photos);
   };
 
   return (
@@ -247,7 +247,7 @@ export function ProviderCompletionForm({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Description */}
           <div className="space-y-2">
-            <Label htmlFor="work-description">Хийсэн ажлын тайлбар *</Label>
+            <Label htmlFor="work-description">Хийсэн ажлын тайлбар (заавал биш)</Label>
             <Textarea
               id="work-description"
               placeholder="Хийсэн ажлын талаар дэлгэрэнгүй бичнэ үү..."
@@ -255,7 +255,6 @@ export function ProviderCompletionForm({
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
               maxLength={1000}
-              required
             />
             <p className="text-xs text-muted-foreground text-right">
               {description.length} / 1000
@@ -335,7 +334,7 @@ export function ProviderCompletionForm({
             type="button"
             onClick={handleSubmit}
             className="flex-1 bg-blue-600 hover:bg-blue-700"
-            disabled={isSubmitting || uploading || !description.trim()}
+            disabled={isSubmitting || uploading}
           >
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -269,10 +269,10 @@ export default function MyServicesPage() {
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
   const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("all");
 
-  // Query key для cache updates
+  // Query key для cache updates - используем findMany prefix как ZenStack
   const queryKey = React.useMemo(
-    () => ["listings", { where: { user_id: user?.id } }],
-    [user?.id]
+    () => ["listings", "findMany"],
+    []
   );
 
   // Show login modal if not authenticated
@@ -321,7 +321,7 @@ export default function MyServicesPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Optimistic update для toggle
+  // Optimistic update для toggle - используем setQueriesData для partial key match
   const handleToggleActive = React.useCallback(async (id: string, currentStatus: ListingStatus) => {
     const newStatus = currentStatus === "active" ? "paused" : "active";
     const oldStatus = currentStatus;
@@ -329,13 +329,16 @@ export default function MyServicesPage() {
     // Set updating ID for this specific card
     setUpdatingId(id);
 
-    // Optimistic update - мгновенно обновляем cache
-    queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
-      if (!old) return old;
-      return old.map((listing) =>
-        listing.id === id ? { ...listing, status: newStatus } : listing
-      );
-    });
+    // Optimistic update - используем setQueriesData с predicate для partial match
+    queryClient.setQueriesData<ListingWithRelations[]>(
+      { queryKey },
+      (old) => {
+        if (!old) return old;
+        return old.map((listing) =>
+          listing.id === id ? { ...listing, status: newStatus } : listing
+        );
+      }
+    );
 
     try {
       await updateListing({
@@ -347,12 +350,15 @@ export default function MyServicesPage() {
           label: "Буцаах",
           onClick: () => {
             // Revert optimistically
-            queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
-              if (!old) return old;
-              return old.map((listing) =>
-                listing.id === id ? { ...listing, status: oldStatus } : listing
-              );
-            });
+            queryClient.setQueriesData<ListingWithRelations[]>(
+              { queryKey },
+              (old) => {
+                if (!old) return old;
+                return old.map((listing) =>
+                  listing.id === id ? { ...listing, status: oldStatus } : listing
+                );
+              }
+            );
             // Then sync with server
             updateListing({
               where: { id },
@@ -363,12 +369,15 @@ export default function MyServicesPage() {
       });
     } catch {
       // Revert on error
-      queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
-        if (!old) return old;
-        return old.map((listing) =>
-          listing.id === id ? { ...listing, status: oldStatus } : listing
-        );
-      });
+      queryClient.setQueriesData<ListingWithRelations[]>(
+        { queryKey },
+        (old) => {
+          if (!old) return old;
+          return old.map((listing) =>
+            listing.id === id ? { ...listing, status: oldStatus } : listing
+          );
+        }
+      );
       toast.error("Алдаа гарлаа");
     } finally {
       setUpdatingId(null);
@@ -397,11 +406,14 @@ export default function MyServicesPage() {
         where: { id: listingToDelete },
       });
 
-      // 3. Удаляем из cache
-      queryClient.setQueryData(queryKey, (old: ListingWithRelations[] | undefined) => {
-        if (!old) return old;
-        return old.filter((listing) => listing.id !== listingToDelete);
-      });
+      // 3. Удаляем из cache - используем setQueriesData для partial key match
+      queryClient.setQueriesData<ListingWithRelations[]>(
+        { queryKey },
+        (old) => {
+          if (!old) return old;
+          return old.filter((listing) => listing.id !== listingToDelete);
+        }
+      );
 
       toast.success("Зар болон зургууд устгагдлаа");
       setDeleteDialogOpen(false);

@@ -125,7 +125,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     {
       enabled: isAuthenticated && !!user?.id,
       ...CACHE_TIMES.NOTIFICATIONS,
-      refetchInterval: 10000, // Fallback polling каждые 10 секунд (если realtime не работает)
+      // OPTIMIZATION: Убран polling - используем только Supabase Realtime
+      // refetchInterval убран для уменьшения нагрузки на БД
     }
   );
 

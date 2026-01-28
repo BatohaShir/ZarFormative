@@ -25,6 +25,9 @@ interface RequestLocationMapProps {
   // Текст адреса для отображения
   addressText?: string;
   className?: string;
+  // Клиент всегда видит точную локацию (это его адрес)
+  // Исполнитель видит радиус 500м пока pending, после accepted - точный адрес
+  isClient?: boolean;
 }
 
 export function RequestLocationMap({
@@ -32,6 +35,7 @@ export function RequestLocationMap({
   status,
   addressText,
   className,
+  isClient = false,
 }: RequestLocationMapProps) {
   // Проверка валидности координат
   if (!coordinates || coordinates[0] == null || coordinates[1] == null) {
@@ -43,10 +47,11 @@ export function RequestLocationMap({
   }
 
   // Определяем показывать ли точную точку
-  // Точная точка только для accepted, in_progress и дальше
-  const showExactLocation = ["accepted", "in_progress", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment", "completed"].includes(status);
+  // Клиент ВСЕГДА видит точную локацию (это его адрес)
+  // Исполнитель видит точную точку только после accepted
+  const showExactLocation = isClient || ["accepted", "in_progress", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment", "completed"].includes(status);
 
-  // Радиус - 500м для pending, 0 для точной локации
+  // Радиус - 500м для pending (только для исполнителя), 0 для точной локации
   const radius = showExactLocation ? 0 : 500;
 
   return (

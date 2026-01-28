@@ -81,31 +81,27 @@ export const CitySelect = React.memo(function CitySelect({ trigger, onSelect, va
     }
   );
 
-  // Pre-fetch всех районов при открытии диалога (устраняет waterfall)
-  // Загружаем все районы сразу и фильтруем на клиенте
-  const { data: allDistrictsData, isLoading: isLoadingDistricts } = useFindManydistricts(
+  // OPTIMIZATION: Загружаем районы ТОЛЬКО для выбранного аймага (ленивая загрузка)
+  // Раньше загружались ВСЕ ~330 районов, теперь только нужные ~10-15
+  const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
     {
       where: {
         is_active: true,
+        aimag_id: selectedAimag?.id || "", // Загружаем только для выбранного аймага
       },
       orderBy: {
         sort_order: "asc",
       },
     },
     {
+      enabled: !!selectedAimag?.id, // Запрос только когда выбран аймаг
       staleTime: 24 * 60 * 60 * 1000, // 24 часа
       gcTime: 48 * 60 * 60 * 1000, // 48 часов
     }
   );
 
   const aimags = aimagsData || [];
-  const allDistricts = allDistrictsData || [];
-
-  // Фильтруем районы на клиенте по выбранному аймагу
-  const districts = React.useMemo(() => {
-    if (!selectedAimag) return [];
-    return allDistricts.filter((d) => d.aimag_id === selectedAimag.id);
-  }, [selectedAimag, allDistricts]);
+  const districts = districtsData || [];
 
   // Извлекаем значения для стабильных зависимостей
   const valueAimagId = value?.aimagId;

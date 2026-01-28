@@ -15,6 +15,7 @@ export interface RequestWithRelations {
   created_at: Date;
   updated_at: Date;
   accepted_at: Date | null;
+  started_at: Date | null;  // Когда исполнитель начал работу (in_progress)
   completed_at: Date | null;
   // Данные о завершении работы
   completion_description: string | null;
@@ -38,6 +39,8 @@ export interface RequestWithRelations {
     service_type: "on_site" | "remote";
     address: string | null;
     price?: string | number | null;
+    // Телефон исполнителя
+    phone?: string | null;
     // Координаты исполнителя (для remote услуг)
     latitude?: number | null;
     longitude?: number | null;

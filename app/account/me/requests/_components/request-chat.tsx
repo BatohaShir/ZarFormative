@@ -19,6 +19,8 @@ import {
   ImageIcon,
   MapPin,
   XCircle,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -174,7 +176,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   // Track which messages we've already marked as read to prevent duplicate calls
   const markedAsReadRef = React.useRef<Set<string>>(new Set());
 
-  // Supabase Realtime subscription
+  // Supabase Realtime subscription for new messages AND read status updates
   React.useEffect(() => {
     const supabase = createClient();
 
@@ -190,6 +192,19 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
         },
         () => {
           // Refetch messages when new message arrives
+          refetch();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "chat_messages",
+          filter: `request_id=eq.${request.id}`,
+        },
+        () => {
+          // Refetch messages when read status changes (for "read" indicator)
           refetch();
         }
       )
@@ -472,6 +487,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                 location_lat?: number | null;
                 location_lng?: number | null;
                 location_name?: string | null;
+                is_read?: boolean;
               }[]).map((msg) => {
                 const isMe = msg.sender_id === user?.id;
                 return (
@@ -545,14 +561,22 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                         </p>
                       )}
 
-                      <p
+                      <div
                         className={cn(
-                          "text-[10px] mt-1 text-right",
+                          "flex items-center justify-end gap-1 mt-1",
                           isMe ? "text-primary-foreground/70" : "text-muted-foreground"
                         )}
                       >
-                        {formatCreatedAt(msg.created_at)}
-                      </p>
+                        <span className="text-[10px]">{formatCreatedAt(msg.created_at)}</span>
+                        {/* Read indicator - only for my messages */}
+                        {isMe && (
+                          msg.is_read ? (
+                            <CheckCheck className="h-3 w-3 text-blue-400" />
+                          ) : (
+                            <Check className="h-3 w-3" />
+                          )
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

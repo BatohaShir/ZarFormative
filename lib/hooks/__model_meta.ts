@@ -792,6 +792,10 @@ const metadata: ModelMeta = {
                     name: "service_type",
                     type: "ServiceType",
                     attributes: [{ "name": "@default", "args": [{ "name": "value" }] }],
+                }, phone: {
+                    name: "phone",
+                    type: "String",
+                    isOptional: true,
                 }, aimag_id: {
                     name: "aimag_id",
                     type: "String",
@@ -1177,6 +1181,10 @@ const metadata: ModelMeta = {
                     attributes: [{ "name": "@updatedAt", "args": [] }],
                 }, accepted_at: {
                     name: "accepted_at",
+                    type: "DateTime",
+                    isOptional: true,
+                }, started_at: {
+                    name: "started_at",
                     type: "DateTime",
                     isOptional: true,
                 }, completed_at: {

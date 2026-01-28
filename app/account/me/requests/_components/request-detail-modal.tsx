@@ -48,6 +48,25 @@ const RequestLocationMap = dynamic(
   }
 );
 
+// Lazy load LiveTrackingMap - карта с live отслеживанием
+const LiveTrackingMap = dynamic(
+  () => import("@/components/live-tracking-map").then((mod) => ({ default: mod.LiveTrackingMap })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-75 bg-muted animate-pulse rounded-lg flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    ),
+  }
+);
+
+// Lazy load ElapsedTimeCounter
+const ElapsedTimeCounter = dynamic(
+  () => import("@/components/elapsed-time-counter").then((mod) => ({ default: mod.ElapsedTimeCounter })),
+  { ssr: false }
+);
+
 
 interface RequestDetailModalProps {
   request: RequestWithRelations;
@@ -80,6 +99,7 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   const [showChat, setShowChat] = React.useState(false);
   const [showCompletionPhoto, setShowCompletionPhoto] = React.useState<string | null>(null);
   const [showClientPhone, setShowClientPhone] = React.useState(false);
+  const [showProviderPhone, setShowProviderPhone] = React.useState(false);
 
   // Completion flow states
   const [showClientReview, setShowClientReview] = React.useState(false);
@@ -208,30 +228,56 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             </div>
           )}
 
-          {/* Client Image - показываем для всех */}
-          {request.image_url && (
-            <div className="border rounded-lg overflow-hidden">
-              <p className="text-sm font-medium p-3 border-b bg-muted/30 flex items-center gap-2">
-                <ImageIcon className="h-4 w-4" />
-                Зураг
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowImagePreview(true)}
-                className="relative w-full aspect-video group cursor-zoom-in"
-              >
-                <Image
-                  src={request.image_url}
-                  alt="Хүсэлтийн зураг"
-                  fill
-                  className="object-cover"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded-full p-3">
-                    <ZoomIn className="h-6 w-6 text-white" />
+          {/* Client Request Details - фото и сообщение */}
+          {(request.image_url || request.message) && (
+            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+              {/* Заголовок секции */}
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  Захиалагчийн хүсэлт
+                </p>
+              </div>
+
+              {/* Фото клиента */}
+              {request.image_url && (
+                <button
+                  type="button"
+                  onClick={() => setShowImagePreview(true)}
+                  className="relative w-full aspect-video group cursor-zoom-in"
+                >
+                  <Image
+                    src={request.image_url}
+                    alt="Хүсэлтийн зураг"
+                    fill
+                    className="object-cover"
+                  />
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all duration-200" />
+                  {/* Zoom button */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-full p-3 shadow-xl transform scale-90 group-hover:scale-100 transition-transform duration-200">
+                      <ZoomIn className="h-5 w-5 text-slate-700 dark:text-slate-200" />
+                    </div>
                   </div>
+                  {/* Image indicator */}
+                  <div className="absolute bottom-3 left-3">
+                    <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-sm rounded-full px-2.5 py-1">
+                      <ImageIcon className="h-3 w-3 text-white" />
+                      <span className="text-xs text-white font-medium">Зураг</span>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              {/* Сообщение клиента */}
+              {request.message && (
+                <div className={`p-4 ${request.image_url ? "border-t border-slate-100 dark:border-slate-800" : ""}`}>
+                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                    {request.message}
+                  </p>
                 </div>
-              </button>
+              )}
             </div>
           )}
 
@@ -346,17 +392,6 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             </div>
           )}
 
-          {/* Message - moved below completion report and review */}
-          <div className="bg-muted/50 rounded-lg p-3">
-            <p className="text-sm font-medium mb-1 flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              Мессеж
-            </p>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-              {request.message}
-            </p>
-          </div>
-
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-muted/50 rounded-lg p-3">
@@ -437,11 +472,44 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                     </button>
                   </div>
                 )}
+                {/* Provider Phone - только для клиента */}
+                {isMyRequest && request.listing.phone && (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowProviderPhone(!showProviderPhone)}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <Phone className="h-3.5 w-3.5" />
+                      {showProviderPhone ? (
+                        <>
+                          <span>+976 {request.listing.phone.slice(0, 4)}-{request.listing.phone.slice(4)}</span>
+                          <EyeOff className="h-3.5 w-3.5 ml-1" />
+                        </>
+                      ) : (
+                        <>
+                          <span>+976 </span>
+                          <span className="blur-sm select-none">{request.listing.phone.slice(0, 4)}-{request.listing.phone.slice(4)}</span>
+                          <Eye className="h-3.5 w-3.5 ml-1" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                {/* Call Button - только когда номер раскрыт */}
+                {/* Call Button for Provider - только когда номер раскрыт */}
                 {isProvider && request.client_phone && showClientPhone && (
                   <a href={`tel:+976${request.client_phone}`}>
+                    <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700">
+                      <Phone className="h-4 w-4 mr-1.5" />
+                      Залгах
+                    </Button>
+                  </a>
+                )}
+                {/* Call Button for Client - только когда номер раскрыт */}
+                {isMyRequest && request.listing.phone && showProviderPhone && (
+                  <a href={`tel:+976${request.listing.phone}`}>
                     <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700">
                       <Phone className="h-4 w-4 mr-1.5" />
                       Залгах
@@ -466,7 +534,7 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             // Для on_site - координаты из request (клиента)
             const lat = isRemote ? request.listing.latitude : request.latitude;
             const lng = isRemote ? request.listing.longitude : request.longitude;
-            const hasCoordinates = lat && lng;
+            const hasCoordinates = lat != null && lng != null;
 
             // Определяем текст адреса
             const addressText = isRemote
@@ -476,6 +544,9 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                   .filter(Boolean)
                   .join(", ") ||
                 "Захиалагчийн байршил";
+
+            // Показываем LiveTrackingMap для активных on_site заявок
+            const isActiveOnSite = !isRemote && ["in_progress", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment"].includes(request.status);
 
             if (!hasCoordinates) {
               // Нет координат - показываем только текст
@@ -490,6 +561,44 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
               );
             }
 
+            // Live tracking карта для активных on_site заявок
+            if (isActiveOnSite) {
+              return (
+                <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden">
+                  {/* Header с информацией */}
+                  <div className="px-4 py-3 border-b border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                          Байршлыг бодит цагаар хянах
+                        </span>
+                      </div>
+                      {/* Счётчик времени */}
+                      {request.started_at && (
+                        <ElapsedTimeCounter startedAt={request.started_at} size="sm" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{addressText}</p>
+                  </div>
+                  {/* LiveTrackingMap */}
+                  <LiveTrackingMap
+                    requestId={request.id}
+                    clientId={request.client_id}
+                    providerId={request.provider_id}
+                    clientName={getPersonName(request.client)}
+                    providerName={getPersonName(request.provider)}
+                    serviceLocation={{
+                      latitude: lat as number,
+                      longitude: lng as number,
+                    }}
+                    isActiveJob={request.status === "in_progress"}
+                  />
+                </div>
+              );
+            }
+
+            // Обычная статичная карта для других случаев
             return (
               <div className="border rounded-lg p-4 space-y-3">
                 <div>
@@ -501,9 +610,10 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                 </div>
                 {/* Карта с координатами */}
                 <RequestLocationMap
-                  coordinates={[lat, lng]}
+                  coordinates={[lat as number, lng as number]}
                   status={request.status}
                   addressText={addressText}
+                  isClient={isMyRequest}
                 />
               </div>
             );

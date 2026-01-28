@@ -43,18 +43,18 @@ export function getProviderName(user: UserForName): string {
 
 /**
  * Форматировать локацию листинга
- * - Для "remote" (Миний газар) - показываем address (детальный адрес)
- * - Для "on_site" (Зочны газар) - показываем aimag/district/khoroo
+ * - Для "remote" (Миний газар - клиент приходит к исполнителю) - показываем address (детальный адрес исполнителя)
+ * - Для "on_site" (Зочны газар - исполнитель едет к клиенту) - показываем aimag/district/khoroo
  */
 export function formatLocation(listing: ListingWithLocation): string {
-  // Если услуга типа "Миний газар" и есть детальный адрес - показываем его
+  // Если услуга типа "remote" (Миний газар - клиент приходит к исполнителю) и есть детальный адрес - показываем его
   // Сначала проверяем address_detail (для клиентских компонентов), потом address (из БД)
   const detailAddress = listing.address_detail || listing.address;
   if (listing.service_type === "remote" && detailAddress) {
     return detailAddress;
   }
 
-  // Для "Зочны газар" или если нет address - показываем aimag/district
+  // Для "on_site" (Зочны газар - исполнитель едет к клиенту) или если нет address - показываем aimag/district
   const parts: string[] = [];
 
   if (listing.aimag?.name) {

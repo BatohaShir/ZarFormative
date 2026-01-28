@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   ArrowLeft,
   Bell,
@@ -29,7 +30,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
-import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { NotificationsButton } from "@/components/notifications-button";
 import { useTheme } from "next-themes";
 import { usePushSubscription } from "@/hooks/use-push-subscription";
@@ -39,8 +39,21 @@ import {
 } from "@/hooks/use-notification-settings";
 import { cn } from "@/lib/utils";
 
-// Setting Item Component
-function SettingItem({
+// Lazy load LoginPromptModal
+const LoginPromptModal = dynamic(
+  () => import("@/components/login-prompt-modal").then((mod) => ({ default: mod.LoginPromptModal })),
+  { ssr: false }
+);
+
+// Theme options - defined outside component to prevent recreation
+const THEME_OPTIONS = [
+  { value: "light", label: "Цайвар", icon: Sun, color: "bg-amber-500" },
+  { value: "dark", label: "Бараан", icon: Moon, color: "bg-slate-700" },
+  { value: "system", label: "Систем", icon: Monitor, color: "bg-blue-500" },
+] as const;
+
+// Setting Item Component - memoized to prevent unnecessary re-renders
+const SettingItem = React.memo(function SettingItem({
   icon: Icon,
   iconColor,
   title,
@@ -81,10 +94,10 @@ function SettingItem({
       <div className="shrink-0 ml-3">{children}</div>
     </div>
   );
-}
+});
 
-// Sub-setting Item
-function SubSettingItem({
+// Sub-setting Item - memoized to prevent unnecessary re-renders
+const SubSettingItem = React.memo(function SubSettingItem({
   icon: Icon,
   title,
   checked,
@@ -104,25 +117,19 @@ function SubSettingItem({
       <Switch checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
-}
+});
 
-// Theme Selector Component
-function ThemeSelector({
+// Theme Selector Component - memoized, uses THEME_OPTIONS from outside
+const ThemeSelector = React.memo(function ThemeSelector({
   value,
   onChange,
 }: {
   value: string | undefined;
   onChange: (v: string) => void;
 }) {
-  const themes = [
-    { value: "light", label: "Цайвар", icon: Sun, color: "bg-amber-500" },
-    { value: "dark", label: "Бараан", icon: Moon, color: "bg-slate-700" },
-    { value: "system", label: "Систем", icon: Monitor, color: "bg-blue-500" },
-  ];
-
   return (
     <div className="grid grid-cols-3 gap-2">
-      {themes.map((t) => (
+      {THEME_OPTIONS.map((t) => (
         <button
           key={t.value}
           onClick={() => onChange(t.value)}
@@ -146,7 +153,7 @@ function ThemeSelector({
       ))}
     </div>
   );
-}
+});
 
 export default function AppSettingsPage() {
   const router = useRouter();

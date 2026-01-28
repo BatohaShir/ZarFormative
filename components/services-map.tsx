@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, X, Loader2, MapPin } from "lucide-react";
 import type { ListingWithRelations } from "@/components/listing-card";
+// OPTIMIZATION: Импортируем функцию для вычисления координат
+import { getListingsWithCoords, type ListingWithCoords } from "./services-map-leaflet";
 
 interface ServicesMapProps {
   listings: ListingWithRelations[];
@@ -25,6 +27,9 @@ const ServicesMapLeaflet = dynamic(
   }
 );
 
+// Re-export для использования в других компонентах
+export { getListingsWithCoords, type ListingWithCoords };
+
 export function ServicesMap({ listings, className, onLocationSelect }: ServicesMapProps) {
   const [isMapActive, setIsMapActive] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -37,21 +42,10 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
     onLocationSelect?.(districtId, aimagId);
   }, [onLocationSelect]);
 
-  // Подсчет объявлений с координатами
-  // on_site услуги - точные координаты, remote - координаты района/аймака
+  // OPTIMIZATION: Используем общую функцию для вычисления координат
+  // Результат передаётся в Leaflet компонент, избегая дублирования вычислений
   const listingsWithCoords = React.useMemo(() => {
-    return listings.filter((l) => {
-      // Для on_site услуг - проверяем точные координаты
-      if (l.service_type === "on_site") {
-        const lat = l.latitude ? Number(l.latitude) : null;
-        const lng = l.longitude ? Number(l.longitude) : null;
-        return lat && lng;
-      }
-      // Для remote услуг - проверяем координаты района/аймака
-      const hasAimagCoords = l.aimag?.latitude && l.aimag?.longitude;
-      const hasDistrictCoords = l.district?.latitude && l.district?.longitude;
-      return hasAimagCoords || hasDistrictCoords;
-    });
+    return getListingsWithCoords(listings);
   }, [listings]);
 
   return (
@@ -59,19 +53,12 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
       {/* Blurred preview / Active map */}
       <div className={`relative overflow-hidden rounded-xl border bg-muted ${className}`}>
         {!isMapActive ? (
-          // Frosted glass preview state with real map underneath
+          // Frosted glass preview state with static map background
           <div className="relative w-full h-full min-h-50 md:min-h-75">
-            {/* Real map background - Mongolia centered */}
-            <div className="absolute inset-0 rounded-xl overflow-hidden">
-              <iframe
-                src="https://www.openstreetmap.org/export/embed.html?bbox=87.0%2C41.0%2C120.0%2C52.0&layer=mapnik"
-                className="w-full h-full border-0 pointer-events-none"
-                style={{ filter: 'saturate(0.7)' }}
-                loading="lazy"
-              />
-            </div>
+            {/* Static map background - Mongolia centered (no external request) */}
+            <div className="absolute inset-0 rounded-xl overflow-hidden bg-linear-to-br from-blue-100 via-green-50 to-yellow-50 dark:from-slate-800 dark:via-slate-700 dark:to-slate-600" />
             {/* Frosted glass overlay */}
-            <div className="absolute inset-0 backdrop-blur-md bg-white/30 dark:bg-black/40" />
+            <div className="absolute inset-0 backdrop-blur-sm bg-white/20 dark:bg-black/30" />
 
             {/* Center content */}
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
@@ -93,6 +80,7 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
           <div className="relative w-full h-full min-h-50 md:min-h-75">
             <ServicesMapLeaflet
               listings={listings}
+              listingsWithCoords={listingsWithCoords}
               onFullscreen={() => setIsFullscreen(true)}
               onLocationSelect={handleLocationSelect}
             />
@@ -137,6 +125,7 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
             <div className="absolute inset-0">
               <ServicesMapLeaflet
                 listings={listings}
+                listingsWithCoords={listingsWithCoords}
                 isFullscreen
                 onLocationSelect={handleLocationSelect}
               />

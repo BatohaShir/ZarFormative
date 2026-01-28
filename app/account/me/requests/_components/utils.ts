@@ -367,39 +367,9 @@ export function isChatAvailable(
     return { available: true, message: null };
   }
 
-  // For accepted - check if within 2 hours of start
-  if (status === "accepted" && preferredDate) {
-    const now = new Date();
-    const prefDate = new Date(preferredDate);
-
-    if (preferredTime) {
-      const [hours, minutes] = preferredTime.split(":").map(Number);
-      prefDate.setHours(hours, minutes, 0, 0);
-    } else {
-      prefDate.setHours(9, 0, 0, 0);
-    }
-
-    // Chat opens 2 hours before start
-    const chatOpenTime = new Date(prefDate.getTime() - 2 * 60 * 60 * 1000);
-
-    if (now >= chatOpenTime) {
-      return { available: true, message: null };
-    }
-
-    // Calculate time until chat opens
-    const hoursUntilChat = Math.floor((chatOpenTime.getTime() - now.getTime()) / (60 * 60 * 1000));
-    const minutesUntilChat = Math.floor((chatOpenTime.getTime() - now.getTime()) / (60 * 1000)) % 60;
-
-    if (hoursUntilChat > 0) {
-      return {
-        available: false,
-        message: `Чат ${hoursUntilChat} цаг ${minutesUntilChat} минутын дараа нээгдэнэ`,
-      };
-    }
-    return {
-      available: false,
-      message: `Чат ${minutesUntilChat} минутын дараа нээгдэнэ`,
-    };
+  // Чат доступен сразу после принятия заявки
+  if (status === "accepted") {
+    return { available: true, message: null };
   }
 
   return { available: false, message: null };

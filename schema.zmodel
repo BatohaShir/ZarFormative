@@ -514,6 +514,9 @@ model listings {
   // Тип оказания услуги
   service_type      ServiceType @default(on_site) // На месте или удалённо
 
+  // Контактный телефон для этого объявления
+  phone             String?     // Телефон исполнителя (8 цифр без кода страны)
+
   // Локация (связь с справочниками)
   aimag_id      String?       @db.Uuid    // Аймаг/Столица
   district_id   String?       @db.Uuid    // Дүүрэг/Сум
@@ -567,10 +570,19 @@ model listings {
   @@index([status, is_active, category_id, price])  // Фильтр категория + цена
   // NEW: Оптимизация черновиков (страница создания объявления)
   @@index([user_id, status, updated_at(sort: Desc)])  // Черновики с сортировкой
+  // OPTIMIZATION: Страница "Мои услуги" - сортировка по дате создания
+  @@index([user_id, created_at(sort: Desc)])          // Мои объявления с сортировкой
   // NEW: Публичные объявления с датой публикации
   @@index([status, is_active, published_at(sort: Desc)])  // Новые объявления
   // NEW: Сортировка по избранным
   @@index([status, is_active, favorites_count(sort: Desc)])  // Популярные по лайкам
+  // OPTIMIZATION: Главная страница - сортировка по дате создания
+  @@index([status, is_active, created_at(sort: Desc)])       // Новые объявления на главной
+  // OPTIMIZATION: /services страница - фильтры по локации с сортировкой
+  @@index([status, is_active, aimag_id, created_at(sort: Desc)])     // Фильтр по аймагу + новые
+  @@index([status, is_active, district_id, created_at(sort: Desc)])  // Фильтр по дүүрэг + новые
+  // OPTIMIZATION: Фильтр категория + новые (без цены)
+  @@index([status, is_active, category_id, created_at(sort: Desc)])  // Фильтр категория + новые
 
   @@map("listings")
 
@@ -747,6 +759,7 @@ model listing_requests {
   created_at   DateTime  @default(now())
   updated_at   DateTime  @updatedAt
   accepted_at  DateTime?
+  started_at   DateTime?  // Когда исполнитель начал работу (in_progress)
   completed_at DateTime?
 
   // Relations

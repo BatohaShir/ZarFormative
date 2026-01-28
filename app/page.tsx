@@ -25,6 +25,7 @@ async function getHomePageData() {
     prisma.categories.findMany({
       where: { is_active: true },
       orderBy: { sort_order: "asc" },
+      take: 50, // OPTIMIZATION: Лимит на категории для быстрой загрузки
     }),
     prisma.listings.findMany({
       where: {
@@ -173,11 +174,7 @@ export default async function Home() {
             <Plus className="h-4 w-4 md:h-5 md:w-5" />
             <span className="font-medium text-sm md:text-base">Зар оруулах</span>
           </Button>
-          {/* Pulse animation */}
-          <span className="absolute -top-1 -right-1 flex h-3 w-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
-          </span>
+          {/* OPTIMIZATION: Убрана постоянная pulse animation для экономии GPU */}
         </div>
       </Link>
     </div>
