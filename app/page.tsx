@@ -24,8 +24,10 @@ async function getHomePageData() {
   const [categoriesData, listingsData] = await Promise.all([
     prisma.categories.findMany({
       where: { is_active: true },
-      orderBy: { sort_order: "asc" },
-      take: 50, // OPTIMIZATION: Лимит на категории для быстрой загрузки
+      orderBy: [
+        { parent_id: "asc" }, // Родительские категории (null) идут первыми
+        { sort_order: "asc" },
+      ],
     }),
     prisma.listings.findMany({
       where: {
