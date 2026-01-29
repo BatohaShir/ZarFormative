@@ -95,12 +95,18 @@ export const RequestListItem = React.memo(function RequestListItem({
   );
   const isExpired = request.status === "pending" && overdueInfo.isOverdue;
 
-  // Format preferred date
+  // Format preferred date - full date
   const preferredDateStr = request.preferred_date
     ? new Date(request.preferred_date).toLocaleDateString("mn-MN", {
+        year: "numeric",
         month: "short",
         day: "numeric",
       })
+    : null;
+
+  // Format time nicely
+  const formattedTime = request.preferred_time
+    ? request.preferred_time.replace(":", "᠄") // Mongolian colon for style
     : null;
 
   const handleClick = React.useCallback(() => {
@@ -167,6 +173,16 @@ export const RequestListItem = React.memo(function RequestListItem({
   const showChatButton =
     request.status === "accepted" || request.status === "in_progress";
 
+  // Build address string
+  const addressStr = request.listing.service_type === "remote"
+    ? request.listing.address || "—"
+    : request.address_detail ||
+      (request.aimag
+        ? [request.aimag.name, request.district?.name, request.khoroo?.name]
+            .filter(Boolean)
+            .join(", ")
+        : "—");
+
   return (
     <>
     <button
@@ -181,34 +197,50 @@ export const RequestListItem = React.memo(function RequestListItem({
         className={`absolute top-0 left-0 right-0 h-1 ${getStatusColor(request.status, isExpired)}`}
       />
 
-      <div className="p-3 pt-4">
+      <div className="px-3 py-2">
         {/* Overdue warning banner */}
         {isExpired && (
-          <div className="mb-2 -mx-3 -mt-4 px-3 py-2 bg-red-50 dark:bg-red-950/50 border-b border-red-200 dark:border-red-800">
-            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span className="text-xs font-medium">
-                Хугацаа дууссан - хүлээн авагдаагүй
-              </span>
+          <div className="mb-1.5 -mx-3 -mt-2 px-3 py-1 bg-red-50 dark:bg-red-950/50 border-b border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span className="text-[11px] font-medium">Хугацаа дууссан</span>
             </div>
           </div>
         )}
 
         {/* Near deadline warning */}
         {!isExpired && overdueInfo.message && request.status === "pending" && (
-          <div className="mb-2 -mx-3 -mt-4 px-3 py-2 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-              <Clock className="h-4 w-4 shrink-0" />
-              <span className="text-xs font-medium">{overdueInfo.message}</span>
+          <div className="mb-1.5 -mx-3 -mt-2 px-3 py-1 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800">
+            <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="text-[11px] font-medium">{overdueInfo.message}</span>
             </div>
           </div>
         )}
 
-        {/* Top row: service info */}
-        <div className="flex items-start gap-3">
+        {/* Row 1: Status + Price */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          {getStatusBadge(request.status, type)}
+          <div>
+            {request.proposed_price ? (
+              <span className="text-[13px] font-semibold text-purple-600 dark:text-purple-400">
+                {Number(request.proposed_price).toLocaleString()}₮
+              </span>
+            ) : isNegotiable ? (
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Тохиролцоно</span>
+            ) : request.listing.price ? (
+              <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">
+                {Number(request.listing.price).toLocaleString()}₮
+              </span>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Row 2: Image + Title + Person */}
+        <div className="flex items-center gap-2">
           {/* Service image */}
           <div
-            className={`relative w-14 h-14 rounded-lg overflow-hidden shrink-0 ${
+            className={`relative w-10 h-10 rounded-md overflow-hidden shrink-0 ${
               isExpired ? "opacity-60 grayscale" : ""
             }`}
           >
@@ -220,98 +252,46 @@ export const RequestListItem = React.memo(function RequestListItem({
             />
           </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3
-                className={`font-semibold text-sm line-clamp-1 ${isExpired ? "text-muted-foreground" : ""}`}
-              >
-                {request.listing.title}
-              </h3>
-              {getStatusBadge(request.status, type)}
-            </div>
-
-            {/* Price display */}
-            <div className="mt-0.5 text-xs font-medium">
-              {request.proposed_price ? (
-                <span className="text-purple-600 dark:text-purple-400">
-                  {Number(request.proposed_price).toLocaleString()}₮
-                </span>
-              ) : isNegotiable ? (
-                <span className="text-amber-600 dark:text-amber-400">Тохиролцоно</span>
-              ) : request.listing.price ? (
-                <span className="text-emerald-600 dark:text-emerald-400">
-                  {Number(request.listing.price).toLocaleString()}₮
-                </span>
-              ) : null}
-            </div>
-
-            {/* Person info */}
-            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
-              <div className="relative w-5 h-5 rounded-full overflow-hidden bg-muted shrink-0">
-                {otherPerson.avatar_url ? (
-                  <Image
-                    src={otherPerson.avatar_url}
-                    alt=""
-                    fill
-                    unoptimized={otherPerson.avatar_url.includes("dicebear")}
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <User className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              <span>{isMyRequest ? "Гүйцэтгэгч" : "Захиалагч"}:</span>
-              <span className="font-medium text-foreground truncate">
-                {getPersonName(otherPerson)}
-              </span>
+          {/* Title + Person */}
+          <div className="min-w-0 flex-1">
+            <h3 className={`font-medium text-[13px] truncate ${isExpired ? "text-muted-foreground" : ""}`}>
+              {request.listing.title}
+            </h3>
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <User className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{getPersonName(otherPerson)}</span>
             </div>
           </div>
         </div>
 
-        {/* Message - compact */}
+        {/* Message */}
         {request.message && (
-          <div className="mt-2 px-2 py-1.5 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <MessageSquare className="h-3 w-3 shrink-0" />
-              <span className="truncate">{request.message}</span>
-            </p>
-          </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground truncate pl-12">
+            {request.message}
+          </p>
         )}
 
-        {/* Details row - inline */}
-        <div className="flex items-center gap-3 mt-2 text-xs">
-          {preferredDateStr && (
-            <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-              <Calendar className="h-3.5 w-3.5" />
-              <span>{preferredDateStr}</span>
+        {/* Footer: Date/Time + Address - responsive */}
+        <div className="mt-1.5 pl-12 text-[10px] text-muted-foreground">
+          {/* Mobile: stack vertically, Desktop: single row */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+            <div className="flex items-center gap-2">
+              {preferredDateStr && (
+                <span className="flex items-center gap-0.5">
+                  <Calendar className="h-2.5 w-2.5 text-orange-500" />
+                  {preferredDateStr}
+                </span>
+              )}
+              {formattedTime && (
+                <span className="flex items-center gap-0.5 bg-purple-100 dark:bg-purple-900/30 px-1 rounded text-purple-700 dark:text-purple-300">
+                  <Clock className="h-2.5 w-2.5" />
+                  {formattedTime}
+                </span>
+              )}
             </div>
-          )}
-          {request.preferred_time && (
-            <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
-              <Clock className="h-3.5 w-3.5" />
-              <span>{request.preferred_time}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 truncate">
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">
-              {request.listing.service_type === "remote"
-                ? // Для remote услуг - показываем адрес исполнителя из объявления
-                  request.listing.address || "—"
-                : // Для on_site услуг - показываем адрес клиента из заявки
-                  request.address_detail ||
-                  (request.aimag
-                    ? [
-                        request.aimag.name,
-                        request.district?.name,
-                        request.khoroo?.name,
-                      ]
-                        .filter(Boolean)
-                        .join(", ")
-                    : "—")}
+            <span className="flex items-center gap-0.5 truncate">
+              <MapPin className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
+              <span className="truncate">{addressStr}</span>
             </span>
           </div>
         </div>

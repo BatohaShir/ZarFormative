@@ -373,46 +373,61 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
 
           {/* Client Review - shown after client confirms completion */}
           {request.review && (
-            <div className="border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/30 rounded-lg overflow-hidden">
-              <div className="p-3 border-b border-amber-200 dark:border-amber-800 bg-amber-100/50 dark:bg-amber-900/30">
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
-                  <span className="text-lg">⭐</span>
+            <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle className="h-3.5 w-3.5" />
                   Үйлчлүүлэгчийн үнэлгээ
                 </p>
               </div>
-              <div className="p-3">
-                {/* Rating Stars */}
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <span
-                        key={star}
-                        className={`text-xl ${
-                          star <= request.review!.rating
-                            ? "text-amber-500"
-                            : "text-gray-300 dark:text-gray-600"
-                        }`}
-                      >
-                        ★
-                      </span>
-                    ))}
+              <div className="p-4">
+                {/* Rating display - modern style */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {/* Large rating number */}
+                    <div className="flex items-baseline gap-0.5">
+                      <span className="text-3xl font-bold text-foreground">{request.review.rating}</span>
+                      <span className="text-lg text-muted-foreground">/5</span>
+                    </div>
+                    {/* Stars */}
+                    <div className="flex items-center gap-0.5">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <svg
+                          key={star}
+                          className={`w-5 h-5 ${
+                            star <= request.review!.rating
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-slate-200 dark:text-slate-700 fill-slate-200 dark:fill-slate-700"
+                          }`}
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                      ))}
+                    </div>
                   </div>
-                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
-                    {request.review.rating} / 5
+                  {/* Rating label */}
+                  <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                    request.review.rating >= 4
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                      : request.review.rating >= 3
+                      ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                      : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                  }`}>
+                    {request.review.rating >= 5 ? "Маш сайн" :
+                     request.review.rating >= 4 ? "Сайн" :
+                     request.review.rating >= 3 ? "Дунд" :
+                     request.review.rating >= 2 ? "Муу" : "Маш муу"}
                   </span>
                 </div>
                 {/* Comment */}
                 {request.review.comment && (
-                  <>
-                    <div className="border-t border-amber-200 dark:border-amber-800 my-2" />
-                    <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Сэтгэгдэл
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                      "{request.review.comment}"
                     </p>
-                    <p className="text-sm text-foreground whitespace-pre-wrap">
-                      {request.review.comment}
-                    </p>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -452,82 +467,83 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
           </div>
 
           {/* Person Info */}
-          <div className="border rounded-lg p-4">
+          <div className="border rounded-lg p-3 md:p-4">
             <p className="text-xs text-muted-foreground mb-2">
               {isMyRequest ? "Үйлчилгээ үзүүлэгч" : "Захиалагч"}
             </p>
-            <div className="flex items-center gap-3">
-              <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted shrink-0">
-                {otherPerson.avatar_url ? (
-                  <Image
-                    src={otherPerson.avatar_url}
-                    alt=""
-                    fill
-                    unoptimized={otherPerson.avatar_url.includes("dicebear")}
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <User className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold">{getPersonName(otherPerson)}</p>
-                {/* Client Phone - только для провайдера */}
-                {isProvider && request.client_phone && (
-                  <div className="flex items-center gap-2 mt-0.5">
+            {/* Desktop: single row with buttons right, Mobile: stacked */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              {/* Avatar + Name + Phone */}
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="relative w-10 h-10 md:w-12 md:h-12 rounded-full overflow-hidden bg-muted shrink-0">
+                  {otherPerson.avatar_url ? (
+                    <Image
+                      src={otherPerson.avatar_url}
+                      alt=""
+                      fill
+                      unoptimized={otherPerson.avatar_url.includes("dicebear")}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm md:text-base">{getPersonName(otherPerson)}</p>
+                  {/* Client Phone - только для провайдера */}
+                  {isProvider && request.client_phone && (
                     <button
                       type="button"
                       onClick={() => setShowClientPhone(!showClientPhone)}
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground hover:text-foreground transition-colors mt-0.5"
                     >
-                      <Phone className="h-3.5 w-3.5" />
+                      <Phone className="h-3 w-3 md:h-3.5 md:w-3.5" />
                       {showClientPhone ? (
                         <>
                           <span>+976 {request.client_phone.slice(0, 4)}-{request.client_phone.slice(4)}</span>
-                          <EyeOff className="h-3.5 w-3.5 ml-1" />
+                          <EyeOff className="h-3 w-3 md:h-3.5 md:w-3.5" />
                         </>
                       ) : (
                         <>
                           <span>+976 </span>
                           <span className="blur-sm select-none">{request.client_phone.slice(0, 4)}-{request.client_phone.slice(4)}</span>
-                          <Eye className="h-3.5 w-3.5 ml-1" />
+                          <Eye className="h-3 w-3 md:h-3.5 md:w-3.5" />
                         </>
                       )}
                     </button>
-                  </div>
-                )}
-                {/* Provider Phone - только для клиента */}
-                {isMyRequest && request.listing.phone && (
-                  <div className="flex items-center gap-2 mt-0.5">
+                  )}
+                  {/* Provider Phone - только для клиента */}
+                  {isMyRequest && request.listing.phone && (
                     <button
                       type="button"
                       onClick={() => setShowProviderPhone(!showProviderPhone)}
-                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      className="flex items-center gap-1.5 text-xs md:text-sm text-muted-foreground hover:text-foreground transition-colors mt-0.5"
                     >
-                      <Phone className="h-3.5 w-3.5" />
+                      <Phone className="h-3 w-3 md:h-3.5 md:w-3.5" />
                       {showProviderPhone ? (
                         <>
                           <span>+976 {request.listing.phone.slice(0, 4)}-{request.listing.phone.slice(4)}</span>
-                          <EyeOff className="h-3.5 w-3.5 ml-1" />
+                          <EyeOff className="h-3 w-3 md:h-3.5 md:w-3.5" />
                         </>
                       ) : (
                         <>
                           <span>+976 </span>
                           <span className="blur-sm select-none">{request.listing.phone.slice(0, 4)}-{request.listing.phone.slice(4)}</span>
-                          <Eye className="h-3.5 w-3.5 ml-1" />
+                          <Eye className="h-3 w-3 md:h-3.5 md:w-3.5" />
                         </>
                       )}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              {/* Buttons - full width on mobile, inline on desktop */}
+              <div className="flex items-center gap-2 shrink-0">
                 {/* Call Button for Provider - только когда номер раскрыт */}
                 {isProvider && request.client_phone && showClientPhone && (
-                  <a href={`tel:+976${request.client_phone}`}>
-                    <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700">
+                  <a href={`tel:+976${request.client_phone}`} className="flex-1 md:flex-initial">
+                    <Button variant="default" size="sm" className="w-full md:w-auto bg-green-600 hover:bg-green-700 h-9">
                       <Phone className="h-4 w-4 mr-1.5" />
                       Залгах
                     </Button>
@@ -535,15 +551,15 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                 )}
                 {/* Call Button for Client - только когда номер раскрыт */}
                 {isMyRequest && request.listing.phone && showProviderPhone && (
-                  <a href={`tel:+976${request.listing.phone}`}>
-                    <Button variant="default" size="sm" className="bg-green-600 hover:bg-green-700">
+                  <a href={`tel:+976${request.listing.phone}`} className="flex-1 md:flex-initial">
+                    <Button variant="default" size="sm" className="w-full md:w-auto bg-green-600 hover:bg-green-700 h-9">
                       <Phone className="h-4 w-4 mr-1.5" />
                       Залгах
                     </Button>
                   </a>
                 )}
-                <Link href={`/account/${otherPerson.id}`}>
-                  <Button variant="outline" size="sm">
+                <Link href={`/account/${otherPerson.id}`} className="flex-1 md:flex-initial">
+                  <Button variant="outline" size="sm" className="w-full md:w-auto h-9">
                     Профайл
                   </Button>
                 </Link>
