@@ -13,7 +13,6 @@ import {
   User,
   Play,
   CheckCircle,
-  Trash2,
   MessageSquare,
   Loader2,
   ImageIcon,
@@ -73,7 +72,6 @@ interface RequestDetailModalProps {
   userId: string;
   actions: RequestActions;
   onClose: () => void;
-  onDeleteRequest: () => void;
   autoOpenChat?: boolean;
   onChatOpened?: () => void;
   autoOpenCompletionForm?: boolean;
@@ -87,7 +85,6 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   userId,
   actions,
   onClose,
-  onDeleteRequest,
   autoOpenChat = false,
   onChatOpened,
   autoOpenCompletionForm = false,
@@ -811,13 +808,6 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
               <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
                 Хаах
               </Button>
-              {isMyRequest &&
-                ["rejected", "cancelled_by_client", "cancelled_by_provider"].includes(request.status) && (
-                  <Button variant="destructive" size="sm" className="h-9 md:h-10 text-sm" onClick={onDeleteRequest}>
-                    <Trash2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
-                    Устгах
-                  </Button>
-                )}
             </div>
           )}
         </div>

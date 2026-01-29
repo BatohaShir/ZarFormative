@@ -200,8 +200,7 @@ export function formatPreferredDateTime(date: Date | null, time: string | null):
  * Проверяет, просрочена ли заявка
  *
  * Правила:
- * - pending: истекает за 5 часов до назначенного времени начала
- *   (если нет preferred_date/time - не истекает автоматически)
+ * - pending: не истекает автоматически, исполнитель может принять в любое время
  * - accepted: просрочена если прошло 2 часа после назначенного времени
  */
 export interface OverdueInfo {
@@ -219,42 +218,7 @@ export function checkRequestOverdue(
 ): OverdueInfo {
   const now = new Date();
 
-  // Pending: истекает за 5 часов до начала работы
-  if (status === "pending" && preferredDate) {
-    const prefDate = new Date(preferredDate);
-
-    if (preferredTime) {
-      const [hours, minutes] = preferredTime.split(":").map(Number);
-      prefDate.setHours(hours, minutes, 0, 0);
-    } else {
-      prefDate.setHours(9, 0, 0, 0); // Default to 9:00 AM
-    }
-
-    // Дедлайн для принятия: за 5 часов до начала
-    const deadline = new Date(prefDate.getTime() - 5 * 60 * 60 * 1000);
-    const hoursOverdue = Math.floor((now.getTime() - deadline.getTime()) / (60 * 60 * 1000));
-
-    if (now > deadline) {
-      return {
-        isOverdue: true,
-        hoursOverdue: Math.max(0, hoursOverdue),
-        deadlineType: "response",
-        message: "Хугацаа дууссан",
-      };
-    }
-
-    // Check if close to deadline (less than 2 hours left to accept)
-    const hoursLeft = Math.floor((deadline.getTime() - now.getTime()) / (60 * 60 * 1000));
-    if (hoursLeft < 2) {
-      const minutesLeft = Math.floor((deadline.getTime() - now.getTime()) / (60 * 1000));
-      return {
-        isOverdue: false,
-        hoursOverdue: 0,
-        deadlineType: "response",
-        message: minutesLeft > 60 ? `${hoursLeft} цаг үлдлээ` : `${minutesLeft} мин үлдлээ`,
-      };
-    }
-  }
+  // Pending заявки не истекают автоматически - исполнитель может принять в любое время
 
   // Accepted: 2 часа после назначенного времени
   if (status === "accepted" && preferredDate) {

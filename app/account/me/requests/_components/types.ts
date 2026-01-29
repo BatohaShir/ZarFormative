@@ -77,7 +77,6 @@ export interface RequestActions {
   onCancelByProvider: (requestId: string) => void;
   onStartWork: (requestId: string) => void;
   onComplete: (requestId: string) => void;
-  onDelete: (requestId: string) => void;
   // Completion flow actions
   // Step 1: Provider submits report (in_progress -> awaiting_client_confirmation)
   onProviderSubmitDetails: (requestId: string, description: string, photoUrls: string[]) => Promise<void>;

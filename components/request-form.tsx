@@ -465,21 +465,9 @@ export function RequestForm({
       refetchExisting();
 
       // Close dialog after 1.5 seconds (faster since we already showed success)
+      // Note: form state (including isSuccess) is reset in handleOpenChange when dialog closes
       setTimeout(() => {
         setOpen(false);
-        setMessage("");
-        setLocationCoordinates(null);
-        setLocationAddress(null);
-        setClientPhone("");
-        setSelectedDate(null);
-        setSelectedTime("");
-        setIsSuccess(false);
-        // Cleanup image
-        if (imagePreview) {
-          URL.revokeObjectURL(imagePreview);
-        }
-        setSelectedImage(null);
-        setImagePreview(null);
       }, 1500);
     } catch (error) {
       // ROLLBACK: Revert optimistic update on error

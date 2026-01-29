@@ -963,13 +963,6 @@ function RequestsPageContent() {
     setSelectedRequest(null);
   }, []);
 
-  const handleDeleteRequest = React.useCallback(() => {
-    if (selectedRequest) {
-      setRequestToDelete(selectedRequest.id);
-      setDeleteDialogOpen(true);
-    }
-  }, [selectedRequest]);
-
   // Actions object for modal
   const actions: RequestActions = React.useMemo(
     () => ({
@@ -979,7 +972,6 @@ function RequestsPageContent() {
       onCancelByProvider: handleCancelByProvider,
       onStartWork: handleStartWork,
       onComplete: handleComplete,
-      onDelete: handleDeleteRequest,
       // Completion flow actions
       onProviderSubmitDetails: handleProviderSubmitDetails,
       onClientConfirmCompletion: handleClientConfirmCompletion,
@@ -994,7 +986,6 @@ function RequestsPageContent() {
       handleCancelByProvider,
       handleStartWork,
       handleComplete,
-      handleDeleteRequest,
       handleProviderSubmitDetails,
       handleClientConfirmCompletion,
       handlePaymentComplete,
@@ -1502,7 +1493,6 @@ function RequestsPageContent() {
           userId={user.id}
           actions={actions}
           onClose={handleCloseModal}
-          onDeleteRequest={handleDeleteRequest}
           autoOpenChat={shouldOpenChat}
           onChatOpened={() => setShouldOpenChat(false)}
           autoOpenCompletionForm={shouldOpenCompletionForm}

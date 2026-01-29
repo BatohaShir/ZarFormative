@@ -65,7 +65,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
             ? "bg-linear-to-b from-slate-900 to-slate-950"
             : "bg-white border border-gray-200"
         }`}
-        sideOffset={16}
+        sideOffset={20}
       >
         {/* Header */}
         <div className={`flex items-center justify-between px-5 py-4 border-b ${
