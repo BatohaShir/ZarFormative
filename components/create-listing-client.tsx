@@ -707,8 +707,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
               </h1>
             </Link>
           </div>
-          {/* Mobile Nav - notifications bell */}
+          {/* Mobile Nav */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
           </div>
           {/* Desktop Nav */}

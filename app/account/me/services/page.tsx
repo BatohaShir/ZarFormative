@@ -500,6 +500,7 @@ export default function MyServicesPage() {
           </div>
           {/* Mobile Nav */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
             <Button size="sm" asChild>
               <Link href="/services/create">

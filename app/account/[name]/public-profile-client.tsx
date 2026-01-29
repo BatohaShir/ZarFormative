@@ -104,8 +104,9 @@ export function PublicProfileClient({
               </h1>
             </Link>
           </div>
-          {/* Mobile Nav - only notifications bell */}
+          {/* Mobile Nav */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
           </div>
           {/* Desktop Nav */}

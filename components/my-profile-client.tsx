@@ -374,6 +374,7 @@ export function MyProfileClient() {
           </div>
           {/* Mobile Nav */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
             <Button
               variant="ghost"

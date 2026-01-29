@@ -131,7 +131,13 @@ export default function RootLayout({
                     <MobileBottomNav />
                     <NotificationBanner />
                     <RealtimeConnectionBanner />
-                    <Toaster position="top-center" richColors closeButton />
+                    <Toaster
+                      position="top-center"
+                      closeButton
+                      toastOptions={{
+                        duration: 4000,
+                      }}
+                    />
                   </LazyMessagesProvider>
                 </LazyNotificationsProvider>
               </FavoritesProvider>
