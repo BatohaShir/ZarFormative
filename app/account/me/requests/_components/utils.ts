@@ -11,6 +11,7 @@ import {
   FileText,
   CreditCard,
   HourglassIcon,
+  Banknote,
 } from "lucide-react";
 import type { RequestStatus } from "@prisma/client";
 import type { RequestWithRelations, PersonInfo } from "./types";
@@ -50,6 +51,16 @@ export function getStatusBadge(status: RequestStatus, type: "sent" | "received" 
         },
         React.createElement(Clock, { className: "h-3 w-3 mr-1" }),
         "Хүлээгдэж буй"
+      );
+    case "price_proposed":
+      return React.createElement(
+        Badge,
+        {
+          variant: "outline",
+          className: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-400 dark:border-purple-800",
+        },
+        React.createElement(Banknote, { className: "h-3 w-3 mr-1" }),
+        type === "sent" ? "Үнэ санал ирсэн" : "Үнэ санал болгосон"
       );
     case "accepted":
       return React.createElement(

@@ -225,7 +225,7 @@ html:not(.dark) {
 /* Desktop: top-right, below navbar */
 @media (min-width: 768px) {
   [data-sonner-toaster] {
-    top: 70px !important;
+    top: 71px !important;
     right: 180px !important;
     left: auto !important;
   }

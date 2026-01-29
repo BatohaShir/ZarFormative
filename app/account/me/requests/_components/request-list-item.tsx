@@ -13,6 +13,7 @@ import {
   Clock,
   MapPin,
   MessageSquare,
+  Banknote,
 } from "lucide-react";
 import type { RequestWithRelations } from "./types";
 import {
@@ -21,6 +22,7 @@ import {
   getListingImage,
   checkRequestOverdue,
 } from "./utils";
+import { PriceProposalModal } from "./price-proposal-modal";
 
 interface RequestListItemProps {
   request: RequestWithRelations;
@@ -31,6 +33,9 @@ interface RequestListItemProps {
   onReject?: (requestId: string) => void;
   onCancelByClient?: (requestId: string) => void;
   onCancelByProvider?: (requestId: string) => void;
+  onProposePrice?: (requestId: string, price: number) => void;
+  onConfirmPrice?: (requestId: string) => void;
+  onRejectPrice?: (requestId: string) => void;
   isUpdating?: boolean;
 }
 
@@ -40,6 +45,8 @@ function getStatusColor(status: string, isExpired: boolean): string {
   switch (status) {
     case "pending":
       return "bg-gradient-to-r from-amber-500 to-orange-400";
+    case "price_proposed":
+      return "bg-gradient-to-r from-purple-500 to-violet-400";
     case "accepted":
       return "bg-gradient-to-r from-green-500 to-emerald-500";
     case "in_progress":
@@ -65,10 +72,19 @@ export const RequestListItem = React.memo(function RequestListItem({
   onReject,
   onCancelByClient,
   onCancelByProvider,
+  onProposePrice,
+  onConfirmPrice,
+  onRejectPrice,
   isUpdating = false,
 }: RequestListItemProps) {
   const isMyRequest = type === "sent";
   const otherPerson = isMyRequest ? request.provider : request.client;
+
+  // State for price proposal modal
+  const [showPriceModal, setShowPriceModal] = React.useState(false);
+
+  // Check if listing is negotiable
+  const isNegotiable = request.listing.is_negotiable === true;
 
   // Check if request is expired (for pending requests)
   const overdueInfo = checkRequestOverdue(
@@ -131,11 +147,28 @@ export const RequestListItem = React.memo(function RequestListItem({
     [onOpenChat, request]
   );
 
+  const handleConfirmPrice = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onConfirmPrice?.(request.id);
+    },
+    [onConfirmPrice, request.id]
+  );
+
+  const handleRejectPrice = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onRejectPrice?.(request.id);
+    },
+    [onRejectPrice, request.id]
+  );
+
   // Show chat button for accepted or in_progress
   const showChatButton =
     request.status === "accepted" || request.status === "in_progress";
 
   return (
+    <>
     <button
       type="button"
       onClick={handleClick}
@@ -196,6 +229,21 @@ export const RequestListItem = React.memo(function RequestListItem({
                 {request.listing.title}
               </h3>
               {getStatusBadge(request.status, type)}
+            </div>
+
+            {/* Price display */}
+            <div className="mt-0.5 text-xs font-medium">
+              {request.proposed_price ? (
+                <span className="text-purple-600 dark:text-purple-400">
+                  {Number(request.proposed_price).toLocaleString()}₮
+                </span>
+              ) : isNegotiable ? (
+                <span className="text-amber-600 dark:text-amber-400">Тохиролцоно</span>
+              ) : request.listing.price ? (
+                <span className="text-emerald-600 dark:text-emerald-400">
+                  {Number(request.listing.price).toLocaleString()}₮
+                </span>
+              ) : null}
             </div>
 
             {/* Person info */}
@@ -281,15 +329,31 @@ export const RequestListItem = React.memo(function RequestListItem({
               <X className="h-3.5 w-3.5 mr-1" />
               Татгалзах
             </Button>
-            <Button
-              size="sm"
-              className="flex-1 h-9 text-xs bg-green-600 hover:bg-green-700"
-              onClick={handleAccept}
-              disabled={isUpdating}
-            >
-              <Check className="h-3.5 w-3.5 mr-1" />
-              Хүлээн авах
-            </Button>
+            {/* For negotiable listings - show price proposal button */}
+            {isNegotiable ? (
+              <Button
+                size="sm"
+                className="flex-1 h-9 text-xs bg-purple-600 hover:bg-purple-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowPriceModal(true);
+                }}
+                disabled={isUpdating}
+              >
+                <Banknote className="h-3.5 w-3.5 mr-1" />
+                Үнэ санал болгох
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="flex-1 h-9 text-xs bg-green-600 hover:bg-green-700"
+                onClick={handleAccept}
+                disabled={isUpdating}
+              >
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Хүлээн авах
+              </Button>
+            )}
           </div>
         )}
 
@@ -306,6 +370,51 @@ export const RequestListItem = React.memo(function RequestListItem({
               <X className="h-3.5 w-3.5 mr-1" />
               Цуцлах
             </Button>
+          </div>
+        )}
+
+        {/* Client: Price proposed - show confirm/reject buttons */}
+        {isMyRequest && request.status === "price_proposed" && request.proposed_price && (
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+              <Banknote className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                Санал болгосон үнэ: {Number(request.proposed_price).toLocaleString()}₮
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 h-9 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+                onClick={handleRejectPrice}
+                disabled={isUpdating}
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Татгалзах
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 h-9 text-xs bg-green-600 hover:bg-green-700"
+                onClick={handleConfirmPrice}
+                disabled={isUpdating}
+              >
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Зөвшөөрөх
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Provider: Price proposed - waiting for client */}
+        {!isMyRequest && request.status === "price_proposed" && request.proposed_price && (
+          <div className="mt-3">
+            <div className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+              <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-sm text-purple-700 dark:text-purple-300">
+                Санал болгосон үнэ: <span className="font-medium">{Number(request.proposed_price).toLocaleString()}₮</span> — Хүлээгдэж байна
+              </span>
+            </div>
           </div>
         )}
 
@@ -362,5 +471,19 @@ export const RequestListItem = React.memo(function RequestListItem({
         )}
       </div>
     </button>
+
+    {/* Price Proposal Modal - rendered outside button */}
+    {showPriceModal && (
+      <PriceProposalModal
+        listingTitle={request.listing.title}
+        onSubmit={(price) => {
+          onProposePrice?.(request.id, price);
+          setShowPriceModal(false);
+        }}
+        onClose={() => setShowPriceModal(false)}
+        isSubmitting={isUpdating}
+      />
+    )}
+  </>
   );
 });

@@ -31,9 +31,9 @@ import {
   MapPin,
   Calendar,
   MessageSquare,
-  AlertTriangle,
   MessageCircle,
   CreditCard,
+  X,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -120,30 +120,112 @@ function LoadingState() {
   );
 }
 
+// OPTIMIZATION: useReducer for complex state management instead of multiple useState
+type RequestsPageState = {
+  searchInput: string;
+  searchQuery: string;
+  selectedRequest: RequestWithRelations | null;
+  deleteDialogOpen: boolean;
+  requestToDelete: string | null;
+  startWorkDialogOpen: boolean;
+  requestToStart: string | null;
+  shouldOpenChat: boolean;
+  shouldOpenCompletionForm: boolean;
+  shouldOpenQRPayment: boolean;
+};
+
+type RequestsPageAction =
+  | { type: "SET_SEARCH_INPUT"; payload: string }
+  | { type: "SET_SEARCH_QUERY"; payload: string }
+  | { type: "SET_SELECTED_REQUEST"; payload: RequestWithRelations | null }
+  | { type: "OPEN_DELETE_DIALOG"; payload: string }
+  | { type: "CLOSE_DELETE_DIALOG" }
+  | { type: "OPEN_START_WORK_DIALOG"; payload: string }
+  | { type: "CLOSE_START_WORK_DIALOG" }
+  | { type: "SET_SHOULD_OPEN_CHAT"; payload: boolean }
+  | { type: "SET_SHOULD_OPEN_COMPLETION_FORM"; payload: boolean }
+  | { type: "SET_SHOULD_OPEN_QR_PAYMENT"; payload: boolean }
+  | { type: "OPEN_CHAT_FOR_REQUEST"; payload: RequestWithRelations }
+  | { type: "OPEN_COMPLETION_FOR_REQUEST"; payload: RequestWithRelations }
+  | { type: "OPEN_QR_FOR_REQUEST"; payload: RequestWithRelations }
+  | { type: "CLOSE_MODAL" };
+
+const initialState: RequestsPageState = {
+  searchInput: "",
+  searchQuery: "",
+  selectedRequest: null,
+  deleteDialogOpen: false,
+  requestToDelete: null,
+  startWorkDialogOpen: false,
+  requestToStart: null,
+  shouldOpenChat: false,
+  shouldOpenCompletionForm: false,
+  shouldOpenQRPayment: false,
+};
+
+function requestsReducer(state: RequestsPageState, action: RequestsPageAction): RequestsPageState {
+  switch (action.type) {
+    case "SET_SEARCH_INPUT":
+      return { ...state, searchInput: action.payload };
+    case "SET_SEARCH_QUERY":
+      return { ...state, searchQuery: action.payload };
+    case "SET_SELECTED_REQUEST":
+      return { ...state, selectedRequest: action.payload };
+    case "OPEN_DELETE_DIALOG":
+      return { ...state, deleteDialogOpen: true, requestToDelete: action.payload };
+    case "CLOSE_DELETE_DIALOG":
+      return { ...state, deleteDialogOpen: false, requestToDelete: null };
+    case "OPEN_START_WORK_DIALOG":
+      return { ...state, startWorkDialogOpen: true, requestToStart: action.payload };
+    case "CLOSE_START_WORK_DIALOG":
+      return { ...state, startWorkDialogOpen: false, requestToStart: null };
+    case "SET_SHOULD_OPEN_CHAT":
+      return { ...state, shouldOpenChat: action.payload };
+    case "SET_SHOULD_OPEN_COMPLETION_FORM":
+      return { ...state, shouldOpenCompletionForm: action.payload };
+    case "SET_SHOULD_OPEN_QR_PAYMENT":
+      return { ...state, shouldOpenQRPayment: action.payload };
+    case "OPEN_CHAT_FOR_REQUEST":
+      return { ...state, selectedRequest: action.payload, shouldOpenChat: true };
+    case "OPEN_COMPLETION_FOR_REQUEST":
+      return { ...state, selectedRequest: action.payload, shouldOpenCompletionForm: true };
+    case "OPEN_QR_FOR_REQUEST":
+      return { ...state, selectedRequest: action.payload, shouldOpenQRPayment: true };
+    case "CLOSE_MODAL":
+      return { ...state, selectedRequest: null };
+    default:
+      return state;
+  }
+}
+
 function RequestsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // OPTIMIZED: Debounced search to prevent excessive re-renders
-  const [searchInput, setSearchInput] = React.useState("");
-  const [searchQuery, setSearchQuery] = React.useState("");
+  // OPTIMIZATION: Single reducer instead of 10+ useState calls
+  const [state, dispatch] = React.useReducer(requestsReducer, initialState);
+  const {
+    searchInput,
+    searchQuery,
+    selectedRequest,
+    deleteDialogOpen,
+    requestToDelete,
+    startWorkDialogOpen,
+    requestToStart,
+    shouldOpenChat,
+    shouldOpenCompletionForm,
+    shouldOpenQRPayment,
+  } = state;
 
+  // OPTIMIZED: Debounced search to prevent excessive re-renders
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      setSearchQuery(searchInput);
+      dispatch({ type: "SET_SEARCH_QUERY", payload: searchInput });
     }, 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
-  const [selectedRequest, setSelectedRequest] = React.useState<RequestWithRelations | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [requestToDelete, setRequestToDelete] = React.useState<string | null>(null);
-  const [startWorkDialogOpen, setStartWorkDialogOpen] = React.useState(false);
-  const [requestToStart, setRequestToStart] = React.useState<string | null>(null);
-  const [shouldOpenChat, setShouldOpenChat] = React.useState(false);
-  const [shouldOpenCompletionForm, setShouldOpenCompletionForm] = React.useState(false);
-  const [shouldOpenQRPayment, setShouldOpenQRPayment] = React.useState(false);
 
   // Check for highlight and openChat params from notifications
   const highlightRequestId = searchParams.get("highlight");
@@ -156,8 +238,23 @@ function RequestsPageContent() {
   );
 
   // REALTIME: Подписка на изменения статусов заявок
+  // When status changes via realtime, update selectedRequest if modal is open
+  const handleRealtimeStatusChange = React.useCallback(
+    (requestId: string, newStatus: string) => {
+      if (selectedRequest?.id === requestId) {
+        // Update the selected request with new status
+        dispatch({
+          type: "SET_SELECTED_REQUEST",
+          payload: { ...selectedRequest, status: newStatus as RequestWithRelations["status"] },
+        });
+      }
+    },
+    [selectedRequest]
+  );
+
   useRealtimeRequests({
     showToasts: true, // Показывать toast уведомления при изменении статуса
+    onStatusChange: handleRealtimeStatusChange,
   });
 
   // ОПТИМИЗАЦИЯ: Один запрос вместо двух с OR условием
@@ -190,6 +287,7 @@ function RequestsPageContent() {
         completed_at: true,
         completion_description: true,
         completion_photos: true,
+        proposed_price: true,
         aimag_id: true,
         district_id: true,
         khoroo_id: true,
@@ -205,9 +303,9 @@ function RequestsPageContent() {
             service_type: true,
             address: true,
             price: true,
+            is_negotiable: true,
             phone: true,
-            latitude: true,
-            longitude: true,
+            // OPTIMIZATION: latitude/longitude removed from list view - only needed in detail modal
             images: {
               select: { url: true, is_cover: true },
               take: 1,
@@ -235,9 +333,10 @@ function RequestsPageContent() {
             avatar_url: true,
           },
         },
-        aimag: { select: { id: true, name: true, latitude: true, longitude: true } },
-        district: { select: { id: true, name: true, latitude: true, longitude: true } },
-        khoroo: { select: { id: true, name: true, latitude: true, longitude: true } },
+        // OPTIMIZATION: Only fetch names for location display in list view
+        aimag: { select: { id: true, name: true } },
+        district: { select: { id: true, name: true } },
+        khoroo: { select: { id: true, name: true } },
         review: {
           select: {
             id: true,
@@ -294,13 +393,14 @@ function RequestsPageContent() {
     }
   }, []);
 
-  // Преобразуем Decimal координаты в числа (Prisma возвращает строки)
+  // Преобразуем Decimal координаты и proposed_price в числа (Prisma возвращает строки)
   const normalizedRequests = React.useMemo(() => {
     const all = (allRequests as RequestWithRelations[] | undefined) || [];
     return all.map(req => ({
       ...req,
       latitude: req.latitude != null ? Number(req.latitude) : null,
       longitude: req.longitude != null ? Number(req.longitude) : null,
+      proposed_price: req.proposed_price != null ? Number(req.proposed_price) : null,
       listing: {
         ...req.listing,
         latitude: req.listing.latitude != null ? Number(req.listing.latitude) : null,
@@ -353,41 +453,56 @@ function RequestsPageContent() {
     return { myRequests: my, incomingRequests: incoming, activeJobs: active };
   }, [normalizedRequests, user?.id, isNearStartTime]);
 
-  // Мемоизированная фильтрация
-  const filteredMyRequests = React.useMemo(() => {
-    if (!searchQuery) return myRequests;
-    const query = searchQuery.toLowerCase();
-    return myRequests.filter(
-      (req) =>
-        req.listing.title.toLowerCase().includes(query) ||
-        req.message.toLowerCase().includes(query) ||
-        getPersonName(req.client).toLowerCase().includes(query) ||
-        getPersonName(req.provider).toLowerCase().includes(query)
-    );
-  }, [myRequests, searchQuery]);
+  // OPTIMIZATION: Pre-compute lowercase values for efficient filtering
+  // This avoids calling toLowerCase() repeatedly during filter iterations
+  const searchableCache = React.useMemo(() => {
+    const all = normalizedRequests;
+    const cache = new Map<string, { title: string; message: string; clientName: string; providerName: string }>();
+    for (const req of all) {
+      cache.set(req.id, {
+        title: req.listing.title.toLowerCase(),
+        message: req.message.toLowerCase(),
+        clientName: getPersonName(req.client).toLowerCase(),
+        providerName: getPersonName(req.provider).toLowerCase(),
+      });
+    }
+    return cache;
+  }, [normalizedRequests]);
 
-  const filteredIncomingRequests = React.useMemo(() => {
-    if (!searchQuery) return incomingRequests;
-    const query = searchQuery.toLowerCase();
-    return incomingRequests.filter(
-      (req) =>
-        req.listing.title.toLowerCase().includes(query) ||
-        req.message.toLowerCase().includes(query) ||
-        getPersonName(req.client).toLowerCase().includes(query) ||
-        getPersonName(req.provider).toLowerCase().includes(query)
-    );
-  }, [incomingRequests, searchQuery]);
+  // Optimized filter function using cached values
+  const filterByQuery = React.useCallback(
+    (requests: RequestWithRelations[], query: string, includeProvider = true) => {
+      if (!query) return requests;
+      const lowerQuery = query.toLowerCase();
+      return requests.filter((req) => {
+        const cached = searchableCache.get(req.id);
+        if (!cached) return false;
+        return (
+          cached.title.includes(lowerQuery) ||
+          cached.message.includes(lowerQuery) ||
+          cached.clientName.includes(lowerQuery) ||
+          (includeProvider && cached.providerName.includes(lowerQuery))
+        );
+      });
+    },
+    [searchableCache]
+  );
 
-  const filteredActiveJobs = React.useMemo(() => {
-    if (!searchQuery) return activeJobs;
-    const query = searchQuery.toLowerCase();
-    return activeJobs.filter(
-      (req) =>
-        req.listing.title.toLowerCase().includes(query) ||
-        req.message.toLowerCase().includes(query) ||
-        getPersonName(req.client).toLowerCase().includes(query)
-    );
-  }, [activeJobs, searchQuery]);
+  // Мемоизированная фильтрация с использованием кэша
+  const filteredMyRequests = React.useMemo(
+    () => filterByQuery(myRequests, searchQuery),
+    [myRequests, searchQuery, filterByQuery]
+  );
+
+  const filteredIncomingRequests = React.useMemo(
+    () => filterByQuery(incomingRequests, searchQuery),
+    [incomingRequests, searchQuery, filterByQuery]
+  );
+
+  const filteredActiveJobs = React.useMemo(
+    () => filterByQuery(activeJobs, searchQuery, false),
+    [activeJobs, searchQuery, filterByQuery]
+  );
 
   // activeRequestsCount removed - no longer needed after removing sidebar
 
@@ -484,9 +599,10 @@ function RequestsPageContent() {
 
       // Also update selectedRequest if open
       if (selectedRequest?.id === requestId) {
-        setSelectedRequest((prev) =>
-          prev ? { ...prev, status: newStatus, ...additionalData } : null
-        );
+        dispatch({
+          type: "SET_SELECTED_REQUEST",
+          payload: selectedRequest ? { ...selectedRequest, status: newStatus, ...additionalData } : null,
+        });
       }
     },
     [queryClient, queryKey, selectedRequest?.id]
@@ -505,7 +621,10 @@ function RequestsPageContent() {
         }
       );
       if (selectedRequest?.id === requestId) {
-        setSelectedRequest((prev) => (prev ? { ...prev, status: oldStatus } : null));
+        dispatch({
+          type: "SET_SELECTED_REQUEST",
+          payload: selectedRequest ? { ...selectedRequest, status: oldStatus } : null,
+        });
       }
     },
     [queryClient, queryKey, selectedRequest?.id]
@@ -542,13 +661,124 @@ function RequestsPageContent() {
         await queryClient.invalidateQueries({ queryKey });
 
         toast.success("Хүсэлт зөвшөөрөгдлөө!");
-        setSelectedRequest(null);
+        dispatch({ type: "CLOSE_MODAL" });
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
       }
     },
     [allRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
+  );
+
+  // Price proposal handler (provider proposes price for negotiable listings)
+  const handleProposePrice = React.useCallback(
+    async (requestId: string, price: number) => {
+      const request = normalizedRequests.find((r) => r.id === requestId);
+      const oldStatus = request?.status;
+      optimisticUpdate(requestId, "price_proposed", { proposed_price: price });
+
+      try {
+        await updateRequest.mutateAsync({
+          where: { id: requestId },
+          data: { status: "price_proposed", proposed_price: price },
+        });
+
+        // Create notification for client
+        if (request && user?.id) {
+          createNotification.mutate({
+            data: {
+              user_id: request.client_id,
+              type: "new_message",
+              title: "Үнийн санал ирлээ",
+              message: `"${request.listing.title}" үйлчилгээнд ${price.toLocaleString()}₮ үнэ санал болголоо`,
+              request_id: requestId,
+              actor_id: user.id,
+            },
+          });
+        }
+
+        await queryClient.invalidateQueries({ queryKey });
+        toast.success("Үнийн санал илгээгдлээ!");
+      } catch {
+        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
+        toast.error("Алдаа гарлаа");
+      }
+    },
+    [normalizedRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
+  );
+
+  // Client confirms the proposed price
+  const handleConfirmPrice = React.useCallback(
+    async (requestId: string) => {
+      const request = normalizedRequests.find((r) => r.id === requestId);
+      const oldStatus = request?.status;
+      optimisticUpdate(requestId, "accepted", { accepted_at: new Date() });
+
+      try {
+        await updateRequest.mutateAsync({
+          where: { id: requestId },
+          data: { status: "accepted", accepted_at: new Date() },
+        });
+
+        // Create notification for provider
+        if (request && user?.id) {
+          createNotification.mutate({
+            data: {
+              user_id: request.provider_id,
+              type: "request_accepted",
+              title: "Үнэ зөвшөөрөгдлөө",
+              message: `"${request.listing.title}" үнийн санал зөвшөөрөгдлөө`,
+              request_id: requestId,
+              actor_id: user.id,
+            },
+          });
+        }
+
+        await queryClient.invalidateQueries({ queryKey });
+        toast.success("Үнэ зөвшөөрөгдлөө!");
+      } catch {
+        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
+        toast.error("Алдаа гарлаа");
+      }
+    },
+    [normalizedRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
+  );
+
+  // Client rejects the proposed price
+  const handleRejectPrice = React.useCallback(
+    async (requestId: string) => {
+      const request = normalizedRequests.find((r) => r.id === requestId);
+      const oldStatus = request?.status;
+      optimisticUpdate(requestId, "rejected");
+
+      try {
+        await updateRequest.mutateAsync({
+          where: { id: requestId },
+          data: { status: "rejected", proposed_price: null },
+        });
+
+        // Create notification for provider
+        if (request && user?.id) {
+          createNotification.mutate({
+            data: {
+              user_id: request.provider_id,
+              type: "request_rejected",
+              title: "Үнэ татгалзагдлаа",
+              message: `"${request.listing.title}" үнийн санал татгалзагдлаа`,
+              request_id: requestId,
+              actor_id: user.id,
+            },
+          });
+        }
+
+        await queryClient.invalidateQueries({ queryKey });
+        toast.success("Үнэ татгалзагдлаа");
+      } catch {
+        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
+        toast.error("Алдаа гарлаа");
+      }
+    },
+    [normalizedRequests, optimisticUpdate, revertOptimisticUpdate, updateRequest, createNotification, user?.id, queryClient, queryKey]
   );
 
   const handleReject = React.useCallback(
@@ -581,7 +811,7 @@ function RequestsPageContent() {
         await queryClient.invalidateQueries({ queryKey });
 
         toast.success("Хүсэлт татгалзагдлаа");
-        setSelectedRequest(null);
+        dispatch({ type: "CLOSE_MODAL" });
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
@@ -620,7 +850,7 @@ function RequestsPageContent() {
         await queryClient.invalidateQueries({ queryKey });
 
         toast.success("Хүсэлт цуцлагдлаа");
-        setSelectedRequest(null);
+        dispatch({ type: "CLOSE_MODAL" });
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
@@ -659,7 +889,7 @@ function RequestsPageContent() {
         await queryClient.invalidateQueries({ queryKey });
 
         toast.success("Хүсэлт цуцлагдлаа");
-        setSelectedRequest(null);
+        dispatch({ type: "CLOSE_MODAL" });
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
@@ -701,7 +931,7 @@ function RequestsPageContent() {
         await queryClient.invalidateQueries({ queryKey });
 
         toast.success("Ажил эхэллээ!");
-        setSelectedRequest(null);
+        dispatch({ type: "CLOSE_MODAL" });
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
@@ -863,8 +1093,6 @@ function RequestsPageContent() {
 
         // OPTIMIZED: Invalidate cache to ensure consistency
         await queryClient.invalidateQueries({ queryKey });
-
-        toast.success("Төлбөр амжилттай!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
@@ -889,27 +1117,39 @@ function RequestsPageContent() {
         }
       );
       toast.success("Хүсэлт устгагдлаа");
-      setDeleteDialogOpen(false);
-      setRequestToDelete(null);
-      setSelectedRequest(null);
+      dispatch({ type: "CLOSE_DELETE_DIALOG" });
+      dispatch({ type: "CLOSE_MODAL" });
     } catch {
       toast.error("Алдаа гарлаа");
     }
   }, [requestToDelete, deleteRequest, queryClient, queryKey]);
 
   const handleSelectRequest = React.useCallback((request: RequestWithRelations) => {
-    setSelectedRequest(request);
+    dispatch({ type: "SET_SELECTED_REQUEST", payload: request });
   }, []);
 
   // Open chat directly from list item
   const handleOpenChat = React.useCallback((request: RequestWithRelations) => {
-    setSelectedRequest(request);
-    setShouldOpenChat(true);
+    dispatch({ type: "OPEN_CHAT_FOR_REQUEST", payload: request });
   }, []);
 
   const handleCloseModal = React.useCallback(() => {
-    setSelectedRequest(null);
+    dispatch({ type: "CLOSE_MODAL" });
   }, []);
+
+  // REALTIME SYNC: Update selectedRequest when allRequests changes (e.g., via realtime refetch)
+  // This ensures the modal always shows the latest data
+  React.useEffect(() => {
+    if (!selectedRequest || !allRequests) return;
+
+    const updatedRequest = (allRequests as RequestWithRelations[])?.find(
+      (r) => r.id === selectedRequest.id
+    );
+
+    if (updatedRequest && updatedRequest.status !== selectedRequest.status) {
+      dispatch({ type: "SET_SELECTED_REQUEST", payload: updatedRequest });
+    }
+  }, [allRequests, selectedRequest]);
 
   // Actions object for modal
   const actions: RequestActions = React.useMemo(
@@ -958,10 +1198,11 @@ function RequestsPageContent() {
     );
 
     if (requestToHighlight && !selectedRequest) {
-      setSelectedRequest(requestToHighlight);
-      // If openChat param is present, set flag to open chat
+      // If openChat param is present, open chat directly
       if (openChatParam === "true") {
-        setShouldOpenChat(true);
+        dispatch({ type: "OPEN_CHAT_FOR_REQUEST", payload: requestToHighlight });
+      } else {
+        dispatch({ type: "SET_SELECTED_REQUEST", payload: requestToHighlight });
       }
       // Clear URL params after handling
       router.replace("/account/me/requests", { scroll: false });
@@ -1027,7 +1268,7 @@ function RequestsPageContent() {
           <Input
             placeholder="Хайх..."
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={(e) => dispatch({ type: "SET_SEARCH_INPUT", payload: e.target.value })}
             className="pl-10"
           />
         </div>
@@ -1095,6 +1336,8 @@ function RequestsPageContent() {
                     onSelect={handleSelectRequest}
                     onOpenChat={handleOpenChat}
                     onCancelByClient={handleCancelByClient}
+                    onConfirmPrice={handleConfirmPrice}
+                    onRejectPrice={handleRejectPrice}
                     isUpdating={updateRequest.isPending}
                   />
                 ))}
@@ -1124,6 +1367,7 @@ function RequestsPageContent() {
                     onAccept={handleAccept}
                     onReject={handleReject}
                     onCancelByProvider={handleCancelByProvider}
+                    onProposePrice={handleProposePrice}
                     isUpdating={updateRequest.isPending}
                   />
                 ))}
@@ -1157,55 +1401,23 @@ function RequestsPageContent() {
                   // Check if this is a virtual "near start" status
                   const isVirtualActive = request.status === "accepted" && isNearStartTime(request);
 
-                  // Check if request is overdue
-                  const overdueInfo = checkRequestOverdue(
-                    request.status,
-                    request.created_at,
-                    request.preferred_date,
-                    request.preferred_time
-                  );
-
                   return (
                     <button
                       type="button"
                       key={request.id}
                       onClick={() => handleSelectRequest(request)}
-                      className={`relative w-full text-left bg-card border rounded-xl overflow-hidden hover:border-primary/30 hover:shadow-md transition-all ${
-                        overdueInfo.isOverdue ? "border-red-300 dark:border-red-800" : ""
-                      }`}
+                      className="relative w-full text-left bg-card border rounded-xl overflow-hidden hover:border-primary/30 hover:shadow-md transition-all"
                     >
                       {/* Status indicator bar */}
                       <div className={`absolute top-0 left-0 right-0 h-1 ${
-                        overdueInfo.isOverdue
-                          ? "bg-gradient-to-r from-red-500 to-red-400"
-                          : request.status === "in_progress"
-                            ? "bg-gradient-to-r from-blue-500 to-blue-400"
-                            : isVirtualActive
-                              ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                              : "bg-gradient-to-r from-green-500 to-emerald-500"
+                        request.status === "in_progress"
+                          ? "bg-gradient-to-r from-blue-500 to-blue-400"
+                          : isVirtualActive
+                            ? "bg-gradient-to-r from-amber-500 to-orange-400"
+                            : "bg-gradient-to-r from-green-500 to-emerald-500"
                       }`} />
 
                       <div className="p-3 pt-4">
-                        {/* Overdue warning banner */}
-                        {overdueInfo.isOverdue && (
-                          <div className="mb-2 -mx-3 -mt-4 px-3 py-2 bg-red-50 dark:bg-red-950/50 border-b border-red-200 dark:border-red-800">
-                            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                              <AlertTriangle className="h-4 w-4 shrink-0" />
-                              <span className="text-xs font-medium">{overdueInfo.message}</span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Near deadline warning */}
-                        {!overdueInfo.isOverdue && overdueInfo.message && (
-                          <div className="mb-2 -mx-3 -mt-4 px-3 py-2 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800">
-                            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                              <Clock className="h-4 w-4 shrink-0" />
-                              <span className="text-xs font-medium">{overdueInfo.message}</span>
-                            </div>
-                          </div>
-                        )}
-
                         {/* Top row: status badge + service info */}
                         <div className="flex items-start gap-3">
                           {/* Service image */}
@@ -1224,31 +1436,39 @@ function RequestsPageContent() {
                               <h3 className="font-semibold text-sm line-clamp-1">
                                 {request.listing.title}
                               </h3>
+                              {/* Price display */}
+                              {request.proposed_price ? (
+                                <span className="text-xs font-medium text-purple-600 dark:text-purple-400">
+                                  {Number(request.proposed_price).toLocaleString()}₮
+                                </span>
+                              ) : request.listing.is_negotiable ? (
+                                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                                  Тохиролцоно
+                                </span>
+                              ) : request.listing.price ? (
+                                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  {Number(request.listing.price).toLocaleString()}₮
+                                </span>
+                              ) : null}
                               <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                overdueInfo.isOverdue
-                                  ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                                  : request.status === "in_progress"
-                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                                    : isVirtualActive
-                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                                      : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                                request.status === "in_progress"
+                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                  : isVirtualActive
+                                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                                    : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
                               }`}>
                                 <span className={`w-1.5 h-1.5 rounded-full ${
-                                  overdueInfo.isOverdue
-                                    ? "bg-red-500 animate-pulse"
-                                    : request.status === "in_progress"
-                                      ? "bg-blue-500 animate-pulse"
-                                      : isVirtualActive
-                                        ? "bg-amber-500 animate-pulse"
-                                        : "bg-green-500"
-                                }`} />
-                                {overdueInfo.isOverdue
-                                  ? "Хугацаа хэтэрсэн"
-                                  : request.status === "in_progress"
-                                    ? "Ажиллаж байна"
+                                  request.status === "in_progress"
+                                    ? "bg-blue-500 animate-pulse"
                                     : isVirtualActive
-                                      ? "Ажил эхлэх ёстой"
-                                      : "Хүлээгдэж байна"}
+                                      ? "bg-amber-500 animate-pulse"
+                                      : "bg-green-500"
+                                }`} />
+                                {request.status === "in_progress"
+                                  ? "Ажиллаж байна"
+                                  : isVirtualActive
+                                    ? "Ажил эхлэх ёстой"
+                                    : "Хүлээгдэж байна"}
                               </div>
                               {/* Счётчик времени для in_progress */}
                               {request.status === "in_progress" && request.started_at && (
@@ -1323,44 +1543,65 @@ function RequestsPageContent() {
 
                         {/* Actions */}
                         <div className="mt-3 flex gap-2">
-                          {/* Chat button - for both client and provider */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenChat(request);
-                            }}
-                            className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors flex items-center justify-center gap-1.5"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            Чат
-                          </button>
-
-                          {/* Client action - Confirm completion */}
-                          {request.client_id === user?.id && request.status === "awaiting_client_confirmation" && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectRequest(request);
-                              }}
-                              className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5"
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                              Баталгаажуулах
-                            </button>
-                          )}
-
-                          {/* Provider actions */}
-                          {request.provider_id === user?.id && (
+                          {/* Client actions */}
+                          {request.client_id === user?.id && (
                             <>
+                              {/* Cancel button - client can cancel only accepted (NOT in_progress!) */}
                               {request.status === "accepted" && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setRequestToStart(request.id);
-                                    setStartWorkDialogOpen(true);
+                                    handleCancelByClient(request.id);
+                                  }}
+                                  disabled={updateRequest.isPending}
+                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  Цуцлах
+                                </button>
+                              )}
+                              {/* Confirm completion */}
+                              {request.status === "awaiting_client_confirmation" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectRequest(request);
+                                  }}
+                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5"
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5" />
+                                  Баталгаажуулах
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                          {/* Provider actions */}
+                          {request.provider_id === user?.id && (
+                            <>
+                              {/* Cancel button for provider - accepted or in_progress */}
+                              {(request.status === "accepted" || request.status === "in_progress") && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCancelByProvider(request.id);
+                                  }}
+                                  disabled={updateRequest.isPending}
+                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  Цуцлах
+                                </button>
+                              )}
+                              {request.status === "accepted" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    dispatch({ type: "OPEN_START_WORK_DIALOG", payload: request.id });
                                   }}
                                   disabled={updateRequest.isPending}
                                   className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -1379,8 +1620,7 @@ function RequestsPageContent() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     // Open detail modal with completion form auto-opened
-                                    setSelectedRequest(request);
-                                    setShouldOpenCompletionForm(true);
+                                    dispatch({ type: "OPEN_COMPLETION_FOR_REQUEST", payload: request });
                                   }}
                                   disabled={updateRequest.isPending}
                                   className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -1409,8 +1649,7 @@ function RequestsPageContent() {
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     // Open detail modal with QR payment auto-opened
-                                    setSelectedRequest(request);
-                                    setShouldOpenQRPayment(true);
+                                    dispatch({ type: "OPEN_QR_FOR_REQUEST", payload: request });
                                   }}
                                   disabled={updateRequest.isPending}
                                   className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
@@ -1442,16 +1681,19 @@ function RequestsPageContent() {
           actions={actions}
           onClose={handleCloseModal}
           autoOpenChat={shouldOpenChat}
-          onChatOpened={() => setShouldOpenChat(false)}
+          onChatOpened={() => dispatch({ type: "SET_SHOULD_OPEN_CHAT", payload: false })}
           autoOpenCompletionForm={shouldOpenCompletionForm}
-          onCompletionFormOpened={() => setShouldOpenCompletionForm(false)}
+          onCompletionFormOpened={() => dispatch({ type: "SET_SHOULD_OPEN_COMPLETION_FORM", payload: false })}
           autoOpenQRPayment={shouldOpenQRPayment}
-          onQRPaymentOpened={() => setShouldOpenQRPayment(false)}
+          onQRPaymentOpened={() => dispatch({ type: "SET_SHOULD_OPEN_QR_PAYMENT", payload: false })}
+          onProposePrice={handleProposePrice}
+          onConfirmPrice={handleConfirmPrice}
+          onRejectPrice={handleRejectPrice}
         />
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => !open && dispatch({ type: "CLOSE_DELETE_DIALOG" })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Хүсэлт устгах уу?</AlertDialogTitle>
@@ -1475,7 +1717,7 @@ function RequestsPageContent() {
       </AlertDialog>
 
       {/* Start Work Confirmation Dialog */}
-      <AlertDialog open={startWorkDialogOpen} onOpenChange={setStartWorkDialogOpen}>
+      <AlertDialog open={startWorkDialogOpen} onOpenChange={(open) => !open && dispatch({ type: "CLOSE_START_WORK_DIALOG" })}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Ажил эхлүүлэх үү?</AlertDialogTitle>
@@ -1490,8 +1732,7 @@ function RequestsPageContent() {
                 if (requestToStart) {
                   handleStartWork(requestToStart);
                 }
-                setStartWorkDialogOpen(false);
-                setRequestToStart(null);
+                dispatch({ type: "CLOSE_START_WORK_DIALOG" });
               }}
               className="bg-blue-600 hover:bg-blue-700"
             >

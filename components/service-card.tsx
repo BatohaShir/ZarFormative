@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Star, ThumbsUp, ThumbsDown, Heart, MapPin } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ServiceCardProps {
   service: {
@@ -16,6 +17,7 @@ interface ServiceCardProps {
     city: string;
     provider: string;
     providerAvatar: string;
+    providerId?: string;
     rating: number;
     likes: number;
     successful: number;
@@ -28,6 +30,8 @@ export const ServiceCard = React.memo(function ServiceCard({
   service,
 }: ServiceCardProps) {
   const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+  const { user } = useAuth();
+  const isOwnListing = service.providerId ? user?.id === service.providerId : false;
   // Преобразуем id в строку для совместимости с новым API
   const serviceId = String(service.id);
   const isLiked = isFavorite(serviceId);
@@ -66,19 +70,21 @@ export const ServiceCard = React.memo(function ServiceCard({
         <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
           {service.category}
         </span>
-        {/* Like button on image */}
-        <button
-          onClick={handleLike}
-          className="absolute top-2 right-2 md:top-3 md:right-3 p-1.5 md:p-2 rounded-full bg-white/90 dark:bg-black/70 hover:bg-white dark:hover:bg-black transition-colors shadow-sm"
-        >
-          <Heart
-            className={`w-4 h-4 md:w-5 md:h-5 transition-colors ${
-              isLiked
-                ? "fill-pink-500 text-pink-500"
-                : "text-gray-600 dark:text-gray-300"
-            }`}
-          />
-        </button>
+        {/* Like button on image - hidden for own listings */}
+        {!isOwnListing && (
+          <button
+            onClick={handleLike}
+            className="absolute top-2 right-2 md:top-3 md:right-3 p-1.5 md:p-2 rounded-full bg-white/90 dark:bg-black/70 hover:bg-white dark:hover:bg-black transition-colors shadow-sm"
+          >
+            <Heart
+              className={`w-4 h-4 md:w-5 md:h-5 transition-colors ${
+                isLiked
+                  ? "fill-pink-500 text-pink-500"
+                  : "text-gray-600 dark:text-gray-300"
+              }`}
+            />
+          </button>
+        )}
         <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3">
           <p className="text-white font-bold text-base md:text-lg drop-shadow-lg">
             {service.price}

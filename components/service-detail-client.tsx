@@ -15,7 +15,7 @@ import { NotificationsButton } from "@/components/notifications-button";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import { RequestForm } from "@/components/request-form";
-import { ChevronLeft, MapPin, Heart, Eye, Navigation } from "lucide-react";
+import { ChevronLeft, MapPin, Heart, Eye, Navigation, FileText } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
@@ -242,17 +242,18 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
 
             {/* Title & Price Card */}
             <div className="bg-card border rounded-2xl p-4 md:p-5 space-y-3">
-              <h1 className="text-xl md:text-2xl font-bold leading-tight">{listing.title}</h1>
+              <h1 className="text-xl md:text-2xl font-bold leading-tight wrap-anywhere">{listing.title}</h1>
+
+              {/* Divider */}
+              <div className="border-t border-border/50" />
 
               {/* Price */}
               <div className="flex items-baseline gap-2">
+                <span className="text-sm text-muted-foreground">Үнэ:</span>
                 <span className="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-primary/80 bg-clip-text text-transparent">
                   {priceDisplay}
                 </span>
               </div>
-
-              {/* Divider */}
-              <div className="border-t border-border/50" />
 
               {/* Location & Views */}
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -305,11 +306,23 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
             </div>
 
             {/* Description */}
-            <div className="space-y-2 md:space-y-3">
-              <h2 className="text-base md:text-lg font-semibold">Дэлгэрэнгүй</h2>
-              <p className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {listing.description}
-              </p>
+            <div className="bg-card border rounded-2xl overflow-hidden">
+              <div className="bg-muted/30 px-4 md:px-5 py-3 md:py-4 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-base md:text-lg">Дэлгэрэнгүй</h2>
+                    <p className="text-xs text-muted-foreground">Үйлчилгээний тайлбар</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 md:p-5">
+                <p className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap wrap-anywhere">
+                  {listing.description}
+                </p>
+              </div>
             </div>
 
             {/* Gallery - lazy load images */}
@@ -343,7 +356,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
 
             {/* Mobile Reviews */}
             <div className="lg:hidden">
-              <ReviewsList providerId={listing.user.id} variant="mobile" />
+              <ReviewsList listingId={listing.id} variant="mobile" />
             </div>
           </div>
 

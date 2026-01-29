@@ -104,7 +104,7 @@ export const ProviderCard = React.memo(function ProviderCard({
       )}
 
       {isDesktop && (
-        <ReviewsList providerId={user.id} variant="desktop" />
+        <ReviewsList listingId={listingId} variant="desktop" />
       )}
     </div>
   );

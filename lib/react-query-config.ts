@@ -50,10 +50,10 @@ export const CACHE_TIMES = {
     gcTime: 30 * MINUTE,
   },
 
-  // Профили пользователей - умеренный кэш
+  // Профили пользователей - OPTIMIZED: увеличен кэш (профили редко меняются)
   PROFILES: {
-    staleTime: 5 * MINUTE,
-    gcTime: 15 * MINUTE,
+    staleTime: 15 * MINUTE,  // 15 минут
+    gcTime: 30 * MINUTE,     // 30 минут
   },
 
   // Заявки на услуги - короткий stale для актуальности статуса
@@ -72,6 +72,12 @@ export const CACHE_TIMES = {
   NOTIFICATIONS: {
     staleTime: 30 * 1000, // 30 секунд
     gcTime: 5 * MINUTE,
+  },
+
+  // OPTIMIZED: Отзывы - редко меняются, длинный кэш
+  REVIEWS: {
+    staleTime: 30 * MINUTE,  // 30 минут
+    gcTime: 1 * HOUR,        // 1 час
   },
 } as const;
 

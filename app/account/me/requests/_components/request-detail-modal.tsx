@@ -23,6 +23,7 @@ import {
   Phone,
   Eye,
   EyeOff,
+  Banknote,
 } from "lucide-react";
 import type { RequestWithRelations, RequestActions } from "./types";
 import { getStatusBadge, getPersonName, getListingImage, formatCreatedAt, isChatAvailable } from "./utils";
@@ -33,6 +34,7 @@ import {
   QRPaymentModal,
   CompletionSuccessModal,
 } from "./work-completion-flow";
+import { PriceProposalModal } from "./price-proposal-modal";
 
 // Lazy load RequestLocationMap - карта локации заявки
 const RequestLocationMap = dynamic(
@@ -78,6 +80,10 @@ interface RequestDetailModalProps {
   onCompletionFormOpened?: () => void;
   autoOpenQRPayment?: boolean;
   onQRPaymentOpened?: () => void;
+  // Price negotiation handlers
+  onProposePrice?: (requestId: string, price: number) => void;
+  onConfirmPrice?: (requestId: string) => void;
+  onRejectPrice?: (requestId: string) => void;
 }
 
 export const RequestDetailModal = React.memo(function RequestDetailModal({
@@ -91,6 +97,9 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   onCompletionFormOpened,
   autoOpenQRPayment = false,
   onQRPaymentOpened,
+  onProposePrice,
+  onConfirmPrice,
+  onRejectPrice,
 }: RequestDetailModalProps) {
   const [showImagePreview, setShowImagePreview] = React.useState(false);
   const [showChat, setShowChat] = React.useState(false);
@@ -103,6 +112,12 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   const [showProviderForm, setShowProviderForm] = React.useState(autoOpenCompletionForm);
   const [showQRPayment, setShowQRPayment] = React.useState(autoOpenQRPayment);
   const [showCompletionSuccess, setShowCompletionSuccess] = React.useState(false);
+
+  // Price negotiation state
+  const [showPriceModal, setShowPriceModal] = React.useState(false);
+
+  // Check if listing is negotiable
+  const isNegotiable = request.listing.is_negotiable === true;
 
   // Auto-open completion form if requested
   React.useEffect(() => {
@@ -176,6 +191,20 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                 >
                   {request.listing.title}
                 </Link>
+              </div>
+              {/* Price display */}
+              <div className="mt-1 text-sm font-medium">
+                {request.proposed_price ? (
+                  <span className="text-purple-600 dark:text-purple-400">
+                    {Number(request.proposed_price).toLocaleString()}₮
+                  </span>
+                ) : isNegotiable ? (
+                  <span className="text-amber-600 dark:text-amber-400">Тохиролцоно</span>
+                ) : request.listing.price ? (
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    {Number(request.listing.price).toLocaleString()}₮
+                  </span>
+                ) : null}
               </div>
               <div className="mt-1.5 md:mt-2">
                 {getStatusBadge(request.status, isMyRequest ? "sent" : "received")}
@@ -626,7 +655,7 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 text-red-600 border-red-200 hover:bg-red-50 h-9 md:h-10 text-sm"
+                className="flex-1 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20 h-9 md:h-10 text-sm"
                 onClick={() => actions.onReject(request.id)}
                 disabled={actions.isUpdating}
               >
@@ -637,18 +666,46 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                 )}
                 Татгалзах
               </Button>
-              <Button
-                size="sm"
-                className="flex-1 bg-green-600 hover:bg-green-700 h-9 md:h-10 text-sm"
-                onClick={() => actions.onAccept(request.id)}
-                disabled={actions.isUpdating}
-              >
-                {actions.isUpdating ? (
-                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
-                )}
-                Хүлээн авах
+              {/* For negotiable listings - show price proposal button */}
+              {isNegotiable ? (
+                <Button
+                  size="sm"
+                  className="flex-1 bg-purple-600 hover:bg-purple-700 h-9 md:h-10 text-sm"
+                  onClick={() => setShowPriceModal(true)}
+                  disabled={actions.isUpdating}
+                >
+                  <Banknote className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                  Үнэ санал болгох
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  className="flex-1 bg-green-600 hover:bg-green-700 h-9 md:h-10 text-sm"
+                  onClick={() => actions.onAccept(request.id)}
+                  disabled={actions.isUpdating}
+                >
+                  {actions.isUpdating ? (
+                    <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                  )}
+                  Хүлээн авах
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Provider: price_proposed - waiting for client */}
+          {isProvider && request.status === "price_proposed" && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-sm text-purple-700 dark:text-purple-300">
+                  Санал болгосон үнэ: <span className="font-semibold">{Number(request.proposed_price).toLocaleString()}₮</span> — Хүлээгдэж байна
+                </span>
+              </div>
+              <Button variant="outline" size="sm" className="h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
               </Button>
             </div>
           )}
@@ -798,8 +855,72 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             </div>
           )}
 
+          {/* Client: price_proposed - confirm or reject price */}
+          {isMyRequest && request.status === "price_proposed" && request.proposed_price && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-center gap-2 px-3 py-2.5 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                <Banknote className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                  Санал болгосон үнэ: {Number(request.proposed_price).toLocaleString()}₮
+                </span>
+              </div>
+              <div className="flex gap-2 md:gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20 h-9 md:h-10 text-sm"
+                  onClick={() => onRejectPrice?.(request.id)}
+                  disabled={actions.isUpdating}
+                >
+                  {actions.isUpdating ? (
+                    <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
+                  ) : (
+                    <X className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                  )}
+                  Татгалзах
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 bg-green-600 hover:bg-green-700 h-9 md:h-10 text-sm"
+                  onClick={() => onConfirmPrice?.(request.id)}
+                  disabled={actions.isUpdating}
+                >
+                  {actions.isUpdating ? (
+                    <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                  )}
+                  Зөвшөөрөх
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Client: accepted - can cancel (NOT in_progress!) */}
+          {isMyRequest && request.status === "accepted" && (
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20 h-9 md:h-10 text-sm"
+                onClick={() => actions.onCancelByClient(request.id)}
+                disabled={actions.isUpdating}
+              >
+                {actions.isUpdating ? (
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
+                ) : (
+                  <X className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                )}
+                Цуцлах
+              </Button>
+            </div>
+          )}
+
           {/* Default close button for other states */}
-          {((isMyRequest && !["pending", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment"].includes(request.status)) ||
+          {((isMyRequest && !["pending", "price_proposed", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment", "accepted", "in_progress"].includes(request.status)) ||
             (isProvider &&
               ["rejected", "completed", "cancelled_by_client", "cancelled_by_provider", "disputed"].includes(
                 request.status
@@ -818,6 +939,19 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
         <RequestChat
           request={request}
           onClose={() => setShowChat(false)}
+        />
+      )}
+
+      {/* Price Proposal Modal */}
+      {showPriceModal && (
+        <PriceProposalModal
+          listingTitle={request.listing.title}
+          onSubmit={(price) => {
+            onProposePrice?.(request.id, price);
+            setShowPriceModal(false);
+          }}
+          onClose={() => setShowPriceModal(false)}
+          isSubmitting={actions.isUpdating}
         />
       )}
 

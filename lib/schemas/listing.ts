@@ -39,12 +39,12 @@ export const listingSchema = z.object({
     ),
   price: z
     .string()
-    .min(1, "Үнэ оруулна уу")
     .transform(val => val?.trim() || "")
     .refine(
-      val => /^\d+(\.\d{1,2})?$/.test(val) && Number(val) > 0 && Number(val) <= 999999999,
+      val => !val || (/^\d+(\.\d{1,2})?$/.test(val) && Number(val) > 0 && Number(val) <= 999999999),
       "Үнэ 1-999,999,999 хооронд байх ёстой"
     ),
+  is_negotiable: z.boolean(),
   duration_minutes: z
     .string()
     .transform(val => val?.trim() || "")
@@ -90,6 +90,9 @@ export const listingSchema = z.object({
     return (startH * 60 + startM) < (endH * 60 + endM);
   },
   { message: "Дуусах цаг эхлэх цагаас хойш байх ёстой", path: ["work_hours_end"] }
+).refine(
+  data => data.is_negotiable || (data.price && data.price.length > 0),
+  { message: "Үнэ оруулна уу эсвэл 'Тохиролцоно' сонгоно уу", path: ["price"] }
 );
 
 export type ListingFormData = z.infer<typeof listingSchema>;
@@ -102,6 +105,7 @@ export const listingFormDefaults: ListingFormData = {
   category_id: "",
   description: "",
   price: "",
+  is_negotiable: false,
   duration_minutes: "",
   service_type: "on_site",
   phone: "",

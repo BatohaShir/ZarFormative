@@ -1,26 +1,54 @@
 "use client";
 
 import * as React from "react";
-import { MessageSquare, Star } from "lucide-react";
+import { MessageSquare, Star, ChevronDown, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StarRating } from "@/components/ui/star-rating";
 import { ReviewItem, type ReviewWithClient } from "@/components/ui/review-item";
-import { useFindManyreviews } from "@/lib/hooks/reviews";
+import { useFindManyreviews, useCountreviews } from "@/lib/hooks/reviews";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+
+// OPTIMIZATION: Increased cache times for reviews - they rarely change
+const REVIEWS_CACHE = {
+  staleTime: 30 * 60 * 1000, // 30 минут - отзывы редко меняются
+  gcTime: 60 * 60 * 1000,    // 1 час в кэше
+};
+
+const PAGE_SIZE = 10;
 
 interface ReviewsListProps {
-  providerId: string;
+  listingId: string;
   variant: "desktop" | "mobile";
 }
 
 export const ReviewsList = React.memo(function ReviewsList({
-  providerId,
+  listingId,
   variant
 }: ReviewsListProps) {
-  // OPTIMIZATION: Добавлен кэш для отзывов - они редко меняются
-  const { data: reviews, isLoading } = useFindManyreviews(
+  // OPTIMIZATION: Pagination state for "Load More" functionality
+  const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
+
+  // Get total count for "Load More" button
+  const { data: totalCount } = useCountreviews(
     {
-      where: { provider_id: providerId },
+      where: {
+        request: {
+          listing_id: listingId
+        }
+      },
+    },
+    REVIEWS_CACHE
+  );
+
+  // Fetch reviews with pagination
+  const { data: reviews, isLoading, isFetching } = useFindManyreviews(
+    {
+      where: {
+        request: {
+          listing_id: listingId
+        }
+      },
       include: {
         client: {
           select: {
@@ -34,13 +62,17 @@ export const ReviewsList = React.memo(function ReviewsList({
         },
       },
       orderBy: { created_at: "desc" },
-      take: 10,
+      take: visibleCount,
     },
-    {
-      staleTime: 5 * 60 * 1000, // 5 минут - отзывы редко меняются
-      gcTime: 10 * 60 * 1000,   // 10 минут в кэше
-    }
+    REVIEWS_CACHE
   );
+
+  // Check if there are more reviews to load
+  const hasMore = totalCount !== undefined && reviews && reviews.length < totalCount;
+
+  const handleLoadMore = React.useCallback(() => {
+    setVisibleCount((prev) => prev + PAGE_SIZE);
+  }, []);
 
   const isDesktop = variant === "desktop";
   const reviewCount = reviews?.length || 0;
@@ -73,7 +105,7 @@ export const ReviewsList = React.memo(function ReviewsList({
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
           <h3 className={cn("font-semibold", isDesktop ? "text-sm" : "text-base")}>
-            Сэтгэгдэл
+            Үнэлгээ
           </h3>
           {reviewCount > 0 && (
             <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
@@ -96,19 +128,43 @@ export const ReviewsList = React.memo(function ReviewsList({
         <div className={`text-center ${isDesktop ? "py-6" : "py-8"} border border-dashed rounded-xl`}>
           <MessageSquare className={`${isDesktop ? "h-10 w-10" : "h-12 w-12"} mx-auto mb-2 text-muted-foreground/40`} />
           <p className={`${isDesktop ? "text-xs" : "text-sm"} text-muted-foreground`}>
-            Одоогоор сэтгэгдэл байхгүй байна
+            Одоогоор үнэлгээ байхгүй байна
           </p>
         </div>
       ) : (
-        <div className="border rounded-xl overflow-hidden">
-          {(reviews as ReviewWithClient[]).map((review, index) => (
-            <ReviewItem
-              key={review.id}
-              review={review}
-              compact={isDesktop}
-              className={index !== (reviews?.length || 0) - 1 ? "border-b" : ""}
-            />
-          ))}
+        <div className="space-y-3">
+          <div className="border rounded-xl overflow-hidden">
+            {(reviews as ReviewWithClient[]).map((review, index) => (
+              <ReviewItem
+                key={review.id}
+                review={review}
+                compact={isDesktop}
+                className={index !== (reviews?.length || 0) - 1 ? "border-b" : ""}
+              />
+            ))}
+          </div>
+          {/* OPTIMIZATION: Load More button for pagination */}
+          {hasMore && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={isFetching}
+              className="w-full"
+            >
+              {isFetching ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Ачаалж байна...
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4 mr-2" />
+                  Илүүг үзэх ({totalCount ? totalCount - reviews.length : 0})
+                </>
+              )}
+            </Button>
+          )}
         </div>
       )}
     </div>

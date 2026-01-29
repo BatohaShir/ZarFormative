@@ -29,6 +29,7 @@ enum ListingStatus {
 
 enum RequestStatus {
   pending
+  price_proposed
   accepted
   rejected
   in_progress
@@ -317,26 +318,15 @@ model listings {
   requests         listing_requests[]
 
   @@index([user_id])
-  @@index([category_id])
-  @@index([status, is_active])
-  @@index([aimag_id])
-  @@index([aimag_id, district_id])
-  @@index([aimag_id, district_id, khoroo_id])
-  @@index([created_at(sort: Desc)])
-  @@index([status, aimag_id, category_id])
   @@index([slug])
-  @@index([user_id, status, is_active])
-  @@index([status, is_active, views_count(sort: Desc)])
-  @@index([status, is_active, price])
-  @@index([status, is_active, category_id, price])
-  @@index([user_id, status, updated_at(sort: Desc)])
-  @@index([user_id, created_at(sort: Desc)])
-  @@index([status, is_active, published_at(sort: Desc)])
-  @@index([status, is_active, favorites_count(sort: Desc)])
   @@index([status, is_active, created_at(sort: Desc)])
-  @@index([status, is_active, aimag_id, created_at(sort: Desc)])
-  @@index([status, is_active, district_id, created_at(sort: Desc)])
   @@index([status, is_active, category_id, created_at(sort: Desc)])
+  @@index([status, is_active, aimag_id, created_at(sort: Desc)])
+  @@index([status, is_active, views_count(sort: Desc)])
+  @@index([status, is_active, favorites_count(sort: Desc)])
+  @@index([user_id, status, is_active])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([user_id, status, updated_at(sort: Desc)])
   @@map("listings")
 }
 
@@ -404,6 +394,7 @@ model listing_requests {
   note                   String?             @db.Text()
   image_url              String?
   provider_response      String?             @db.Text()
+  proposed_price         Decimal?            @db.Decimal(12, 2)
   completion_description String?             @db.Text()
   completion_photos      String[]            @default([])
   created_at             DateTime            @default(now())
@@ -474,6 +465,7 @@ model chat_messages {
   @@index([sender_id])
   @@index([request_id, is_read])
   @@index([request_id, sender_id, is_read])
+  @@index([sender_id, is_read])
   @@map("chat_messages")
 }
 
@@ -491,6 +483,7 @@ model reviews {
 
   @@index([provider_id, created_at(sort: Desc)])
   @@index([client_id])
+  @@index([provider_id, rating])
   @@map("reviews")
 }
 
@@ -512,5 +505,6 @@ model request_locations {
   @@index([request_id, is_active])
   @@index([user_id, is_active])
   @@index([updated_at])
+  @@index([request_id, updated_at(sort: Desc)])
   @@map("request_locations")
 }

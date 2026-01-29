@@ -1162,6 +1162,10 @@ const metadata: ModelMeta = {
                     name: "provider_response",
                     type: "String",
                     isOptional: true,
+                }, proposed_price: {
+                    name: "proposed_price",
+                    type: "Decimal",
+                    isOptional: true,
                 }, completion_description: {
                     name: "completion_description",
                     type: "String",

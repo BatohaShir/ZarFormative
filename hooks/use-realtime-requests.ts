@@ -56,9 +56,14 @@ export function useRealtimeRequests(options?: {
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
 
-  const invalidateRequests = useCallback(() => {
-    // Инвалидируем все запросы заявок
-    queryClient.invalidateQueries({ queryKey: ["listing_requests", "findMany"] });
+  const refetchRequests = useCallback(() => {
+    // OPTIMIZATION: Use refetchQueries instead of invalidateQueries for immediate update
+    // invalidateQueries only marks data as stale, but doesn't trigger refetch immediately
+    // refetchQueries forces an immediate refetch regardless of staleTime
+    queryClient.refetchQueries({
+      queryKey: ["listing_requests", "findMany"],
+      type: "active", // Only refetch active queries (currently mounted components)
+    });
   }, [queryClient]);
 
   useEffect(() => {
@@ -71,7 +76,7 @@ export function useRealtimeRequests(options?: {
       filter: `client_id=eq.${user.id}`,
       event: "*",
       onInsert: () => {
-        invalidateRequests();
+        refetchRequests();
       },
       onUpdate: (payload) => {
         const oldData = payload.old;
@@ -81,7 +86,7 @@ export function useRealtimeRequests(options?: {
         const requestId = (newData as listing_requests).id;
 
         if (oldStatus !== newStatus) {
-          invalidateRequests();
+          refetchRequests();
 
           if (onStatusChangeRef.current && requestId) {
             onStatusChangeRef.current(requestId, newStatus, oldStatus || null);
@@ -104,11 +109,11 @@ export function useRealtimeRequests(options?: {
               description: "Үйлчилгээ үзүүлэгч ажлын тайлан илгээлээ",
             });
           }
-          invalidateRequests();
+          refetchRequests();
         }
       },
       onDelete: () => {
-        invalidateRequests();
+        refetchRequests();
       },
     });
 
@@ -119,7 +124,7 @@ export function useRealtimeRequests(options?: {
       filter: `provider_id=eq.${user.id}`,
       event: "*",
       onInsert: () => {
-        invalidateRequests();
+        refetchRequests();
         if (showToasts) {
           toast.info("Шинэ хүсэлт ирлээ", {
             description: "Шинэ үйлчилгээний хүсэлт ирлээ",
@@ -134,17 +139,17 @@ export function useRealtimeRequests(options?: {
         const requestId = (newData as listing_requests).id;
 
         if (oldStatus !== newStatus) {
-          invalidateRequests();
+          refetchRequests();
 
           if (onStatusChangeRef.current && requestId) {
             onStatusChangeRef.current(requestId, newStatus, oldStatus || null);
           }
         } else {
-          invalidateRequests();
+          refetchRequests();
         }
       },
       onDelete: () => {
-        invalidateRequests();
+        refetchRequests();
       },
     });
 
@@ -152,5 +157,5 @@ export function useRealtimeRequests(options?: {
       clientSub.unsubscribe();
       providerSub.unsubscribe();
     };
-  }, [isAuthenticated, user?.id, invalidateRequests, showToasts]);
+  }, [isAuthenticated, user?.id, refetchRequests, showToasts]);
 }

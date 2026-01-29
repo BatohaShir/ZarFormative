@@ -43,7 +43,8 @@ export const ListingCard = React.memo(function ListingCard({
 }: ListingCardProps) {
   const { toggleFavorite, isFavorite, isToggling } = useFavorites();
   const { user } = useAuth();
-  const isLiked = isFavorite(listing.id);
+  // OPTIMIZATION: Memoize isFavorite check to avoid O(n) search on every render
+  const isLiked = React.useMemo(() => isFavorite(listing.id), [isFavorite, listing.id]);
   const isOwnListing = user?.id === listing.user.id;
   const [showMapModal, setShowMapModal] = React.useState(false);
 
@@ -112,9 +113,9 @@ export const ListingCard = React.memo(function ListingCard({
           </span>
         </div>
 
-        {/* Own listing badge */}
+        {/* Own listing badge - positioned to the right when no like button */}
         {isOwnListing && (
-          <div className="absolute top-2.5 right-12 md:top-3 md:right-14">
+          <div className="absolute top-2.5 right-2.5 md:top-3 md:right-3">
             <span className="text-[10px] md:text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1">
               <User className="w-3 h-3" />
               Миний
@@ -122,19 +123,21 @@ export const ListingCard = React.memo(function ListingCard({
           </div>
         )}
 
-        {/* Like button */}
-        <button
-          onClick={handleLike}
-          className="absolute top-2.5 right-2.5 md:top-3 md:right-3 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/90 dark:bg-gray-900/80 hover:bg-white dark:hover:bg-gray-900 flex items-center justify-center transition-all shadow-sm backdrop-blur-sm hover:scale-110"
-        >
-          <Heart
-            className={`w-4 h-4 md:w-5 md:h-5 transition-all ${
-              isLiked
-                ? "fill-red-500 text-red-500 scale-110"
-                : "text-gray-600 dark:text-gray-300"
-            }`}
-          />
-        </button>
+        {/* Like button - hidden for own listings */}
+        {!isOwnListing && (
+          <button
+            onClick={handleLike}
+            className="absolute top-2.5 right-2.5 md:top-3 md:right-3 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/90 dark:bg-gray-900/80 hover:bg-white dark:hover:bg-gray-900 flex items-center justify-center transition-all shadow-sm backdrop-blur-sm hover:scale-110"
+          >
+            <Heart
+              className={`w-4 h-4 md:w-5 md:h-5 transition-all ${
+                isLiked
+                  ? "fill-red-500 text-red-500 scale-110"
+                  : "text-gray-600 dark:text-gray-300"
+              }`}
+            />
+          </button>
+        )}
 
         {/* Price on image */}
         <div className="absolute bottom-2.5 left-2.5 right-2.5 md:bottom-3 md:left-3 md:right-3">

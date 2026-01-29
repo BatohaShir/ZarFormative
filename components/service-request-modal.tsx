@@ -167,9 +167,10 @@ export function ServiceRequestModal({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Date & Time state
-  const today = new Date();
-  const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
-  const [currentYear, setCurrentYear] = React.useState(today.getFullYear());
+  // Мемоизируем "сегодня" чтобы избежать пересоздания при каждом рендере
+  const today = React.useMemo(() => new Date(), []);
+  const [currentMonth, setCurrentMonth] = React.useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = React.useState(() => new Date().getFullYear());
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
   const [selectedHourIndex, setSelectedHourIndex] = React.useState(0);
   const [selectedMinuteIndex, setSelectedMinuteIndex] = React.useState(0);
@@ -181,6 +182,45 @@ export function ServiceRequestModal({
     () => generateCalendarDays(currentYear, currentMonth),
     [currentYear, currentMonth]
   );
+
+  // Вычисляем максимальную дату (2 месяца от сегодня)
+  const maxDate = React.useMemo(() => {
+    const max = new Date(today);
+    max.setMonth(max.getMonth() + 2);
+    return max;
+  }, [today]);
+
+  // Проверяем, выбрана ли сегодняшняя дата
+  const isSelectedDateToday = React.useMemo(() => {
+    if (!selectedDate) return false;
+    const now = new Date();
+    return (
+      selectedDate.getDate() === now.getDate() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getFullYear() === now.getFullYear()
+    );
+  }, [selectedDate]);
+
+  // Минимальный доступный час для сегодня (текущий час + 1 для буфера)
+  const minAvailableHour = React.useMemo(() => {
+    if (!isSelectedDateToday) return 0;
+    const now = new Date();
+    // Если текущие минуты > 30, переходим на следующий час
+    return now.getMinutes() > 30 ? now.getHours() + 1 : now.getHours();
+  }, [isSelectedDateToday]);
+
+  // Фильтрованные часы для picker (скрываем прошедшие для сегодня)
+  const availableHours = React.useMemo(() => {
+    if (!isSelectedDateToday) return hours;
+    return hours.filter((_, index) => index >= minAvailableHour);
+  }, [isSelectedDateToday, minAvailableHour]);
+
+  // Корректируем индекс часа при смене на сегодня
+  React.useEffect(() => {
+    if (isSelectedDateToday && selectedHourIndex < minAvailableHour) {
+      setSelectedHourIndex(minAvailableHour);
+    }
+  }, [isSelectedDateToday, minAvailableHour, selectedHourIndex]);
 
   const handlePrevMonth = React.useCallback(() => {
     if (currentMonth === 0) {
@@ -213,8 +253,9 @@ export function ServiceRequestModal({
   const isDateDisabled = React.useCallback((day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    return date < todayStart;
-  }, [currentYear, currentMonth, today]);
+    // Проверяем и минимальную (сегодня) и максимальную (2 месяца) дату
+    return date < todayStart || date > maxDate;
+  }, [currentYear, currentMonth, today, maxDate]);
 
   const isDateSelected = React.useCallback((day: number) => {
     if (!selectedDate) return false;
@@ -272,7 +313,8 @@ export function ServiceRequestModal({
 
   const formatSelectedDate = () => {
     if (!selectedDate) return "Огноо сонгох";
-    return `${selectedDate.getFullYear()}/${selectedDate.getMonth() + 1}/${selectedDate.getDate()}`;
+    // Унифицированный формат YYYY.MM.DD
+    return `${selectedDate.getFullYear()}.${(selectedDate.getMonth() + 1).toString().padStart(2, "0")}.${selectedDate.getDate().toString().padStart(2, "0")}`;
   };
 
   const formatSelectedTime = () => {
@@ -475,9 +517,9 @@ export function ServiceRequestModal({
                       {/* iOS Style Picker */}
                       <div className="flex gap-4">
                         <IOSPicker
-                          items={hours}
-                          selectedIndex={selectedHourIndex}
-                          onSelect={setSelectedHourIndex}
+                          items={availableHours}
+                          selectedIndex={isSelectedDateToday ? Math.max(0, selectedHourIndex - minAvailableHour) : selectedHourIndex}
+                          onSelect={(index) => setSelectedHourIndex(isSelectedDateToday ? index + minAvailableHour : index)}
                           label="Цаг"
                         />
                         <div className="flex items-center justify-center text-2xl font-bold text-muted-foreground">

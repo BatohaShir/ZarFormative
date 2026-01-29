@@ -77,6 +77,247 @@ const monthNames = [
 
 const weekDays = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
 
+// Time Wheel Picker Component (iOS-style)
+interface TimeWheelPickerProps {
+  selectedDate: Date | null;
+  selectedTime: string;
+  onTimeSelect: (time: string) => void;
+  onCancel: () => void;
+}
+
+function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }: TimeWheelPickerProps) {
+  const ITEM_HEIGHT = 40;
+
+  // Проверяем, сегодня ли выбранная дата
+  const isToday = React.useMemo(() => {
+    if (!selectedDate) return false;
+    const now = new Date();
+    return (
+      selectedDate.getDate() === now.getDate() &&
+      selectedDate.getMonth() === now.getMonth() &&
+      selectedDate.getFullYear() === now.getFullYear()
+    );
+  }, [selectedDate]);
+
+  // Вычисляем минимальное доступное время (текущее + 30 мин буфера)
+  const minTime = React.useMemo(() => {
+    if (!isToday) return { hour: 0, minute: 0 };
+    const now = new Date();
+    let minMinutes = now.getHours() * 60 + now.getMinutes() + 30;
+    // Округляем вверх до следующей минуты
+    const minHour = Math.floor(minMinutes / 60);
+    const minMinute = minMinutes % 60;
+    return { hour: Math.min(minHour, 23), minute: minHour >= 24 ? 59 : minMinute };
+  }, [isToday]);
+
+  // Генерируем доступные часы (для сегодня - только будущие)
+  const availableHours = React.useMemo(() => {
+    if (!isToday) return Array.from({ length: 24 }, (_, i) => i);
+    return Array.from({ length: 24 - minTime.hour }, (_, i) => i + minTime.hour);
+  }, [isToday, minTime.hour]);
+
+  // Получаем минимальную минуту для конкретного часа
+  const getMinMinuteForHour = React.useCallback((hour: number) => {
+    if (!isToday) return 0;
+    if (hour > minTime.hour) return 0;
+    if (hour === minTime.hour) return minTime.minute;
+    return 59; // Этот час уже прошел полностью
+  }, [isToday, minTime]);
+
+  // Генерируем доступные минуты для выбранного часа
+  const getAvailableMinutes = React.useCallback((hour: number) => {
+    const minMinute = getMinMinuteForHour(hour);
+    return Array.from({ length: 60 - minMinute }, (_, i) => i + minMinute);
+  }, [getMinMinuteForHour]);
+
+  // Parse initial time or default to first available time
+  const getInitialTime = React.useCallback(() => {
+    if (selectedTime) {
+      const [h, m] = selectedTime.split(":").map(Number);
+      // Проверяем что время валидно
+      if (!isToday || (h > minTime.hour || (h === minTime.hour && m >= minTime.minute))) {
+        return { hour: h, minute: m };
+      }
+    }
+    // Дефолт - первое доступное время
+    return { hour: availableHours[0] || 0, minute: getMinMinuteForHour(availableHours[0] || 0) };
+  }, [selectedTime, isToday, minTime, availableHours, getMinMinuteForHour]);
+
+  const [selectedHour, setSelectedHour] = React.useState(getInitialTime().hour);
+  const [selectedMinute, setSelectedMinute] = React.useState(getInitialTime().minute);
+
+  // Текущие доступные минуты для выбранного часа
+  const availableMinutes = React.useMemo(() => getAvailableMinutes(selectedHour), [getAvailableMinutes, selectedHour]);
+
+  const hourRef = React.useRef<HTMLDivElement>(null);
+  const minuteRef = React.useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Корректируем минуты когда меняется час
+  React.useEffect(() => {
+    const minMinute = getMinMinuteForHour(selectedHour);
+    if (selectedMinute < minMinute) {
+      setSelectedMinute(minMinute);
+      // Прокручиваем к новой минуте
+      if (minuteRef.current) {
+        const minuteIndex = availableMinutes.indexOf(minMinute);
+        if (minuteIndex >= 0) {
+          minuteRef.current.scrollTo({
+            top: minuteIndex * ITEM_HEIGHT,
+            behavior: "smooth",
+          });
+        }
+      }
+    }
+  }, [selectedHour, selectedMinute, getMinMinuteForHour, availableMinutes]);
+
+  // Scroll to selected value on mount
+  React.useEffect(() => {
+    if (hourRef.current) {
+      const hourIndex = availableHours.indexOf(selectedHour);
+      if (hourIndex >= 0) {
+        hourRef.current.scrollTop = hourIndex * ITEM_HEIGHT;
+      }
+    }
+    if (minuteRef.current) {
+      const minuteIndex = availableMinutes.indexOf(selectedMinute);
+      if (minuteIndex >= 0) {
+        minuteRef.current.scrollTop = minuteIndex * ITEM_HEIGHT;
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle scroll for hours
+  const handleHourScroll = React.useCallback(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!hourRef.current) return;
+      const scrollTop = hourRef.current.scrollTop;
+      const index = Math.round(scrollTop / ITEM_HEIGHT);
+      const clampedIndex = Math.max(0, Math.min(index, availableHours.length - 1));
+      const newHour = availableHours[clampedIndex];
+      if (newHour !== undefined) {
+        setSelectedHour(newHour);
+        hourRef.current.scrollTo({
+          top: clampedIndex * ITEM_HEIGHT,
+          behavior: "smooth",
+        });
+      }
+    }, 100);
+  }, [availableHours]);
+
+  // Handle scroll for minutes
+  const handleMinuteScroll = React.useCallback(() => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (!minuteRef.current) return;
+      const scrollTop = minuteRef.current.scrollTop;
+      const index = Math.round(scrollTop / ITEM_HEIGHT);
+      const clampedIndex = Math.max(0, Math.min(index, availableMinutes.length - 1));
+      const newMinute = availableMinutes[clampedIndex];
+      if (newMinute !== undefined) {
+        setSelectedMinute(newMinute);
+        minuteRef.current.scrollTo({
+          top: clampedIndex * ITEM_HEIGHT,
+          behavior: "smooth",
+        });
+      }
+    }, 100);
+  }, [availableMinutes]);
+
+  const handleConfirm = () => {
+    const time = `${selectedHour.toString().padStart(2, "0")}:${selectedMinute.toString().padStart(2, "0")}`;
+    onTimeSelect(time);
+  };
+
+  return (
+    <div className="border rounded-xl bg-card overflow-hidden">
+      {/* Picker area */}
+      <div className="relative flex justify-center items-center py-4">
+        {/* Selection highlight */}
+        <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-10 bg-primary/10 rounded-lg pointer-events-none border border-primary/20" />
+
+        {/* Hour wheel */}
+        <div
+          ref={hourRef}
+          className="w-16 h-50 overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+          onScroll={handleHourScroll}
+          style={{ scrollSnapType: "y mandatory" }}
+        >
+          {/* Padding for centering */}
+          <div style={{ height: ITEM_HEIGHT * 2 }} />
+          {availableHours.map((hour) => (
+            <div
+              key={hour}
+              className={cn(
+                "h-10 flex items-center justify-center text-lg font-medium snap-center transition-all",
+                selectedHour === hour
+                  ? "text-primary scale-110"
+                  : "text-muted-foreground"
+              )}
+              style={{ scrollSnapAlign: "center" }}
+            >
+              {hour.toString().padStart(2, "0")}
+            </div>
+          ))}
+          <div style={{ height: ITEM_HEIGHT * 2 }} />
+        </div>
+
+        {/* Separator */}
+        <div className="text-2xl font-bold text-primary mx-2">:</div>
+
+        {/* Minute wheel */}
+        <div
+          ref={minuteRef}
+          className="w-16 h-50 overflow-y-auto scrollbar-hide snap-y snap-mandatory"
+          onScroll={handleMinuteScroll}
+          style={{ scrollSnapType: "y mandatory" }}
+        >
+          <div style={{ height: ITEM_HEIGHT * 2 }} />
+          {availableMinutes.map((minute) => (
+            <div
+              key={minute}
+              className={cn(
+                "h-10 flex items-center justify-center text-lg font-medium snap-center transition-all",
+                selectedMinute === minute
+                  ? "text-primary scale-110"
+                  : "text-muted-foreground"
+              )}
+              style={{ scrollSnapAlign: "center" }}
+            >
+              {minute.toString().padStart(2, "0")}
+            </div>
+          ))}
+          <div style={{ height: ITEM_HEIGHT * 2 }} />
+        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="flex border-t">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 py-3 text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors"
+        >
+          Болих
+        </button>
+        <div className="w-px bg-border" />
+        <button
+          type="button"
+          onClick={handleConfirm}
+          className="flex-1 py-3 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+        >
+          Сонгох
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Форматирование монгольского номера телефона (+976 9911-2233)
 function formatMongolianPhone(value: string): string {
   // Убираем всё кроме цифр
@@ -112,6 +353,14 @@ function getPhoneDigits(formatted: string): string {
   return digits;
 }
 
+// Нормализует дату к началу дня в локальном timezone для корректного сохранения
+// Это предотвращает смещение даты при конвертации между timezone
+function normalizeToLocalDate(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(12, 0, 0, 0); // Устанавливаем полдень чтобы избежать edge cases
+  return normalized;
+}
+
 export function RequestForm({
   listingId,
   listingTitle,
@@ -136,9 +385,10 @@ export function RequestForm({
   const [messageTouched, setMessageTouched] = React.useState(false);
 
   // Date & Time state
-  const today = new Date();
-  const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
-  const [currentYear, setCurrentYear] = React.useState(today.getFullYear());
+  // Мемоизируем "сегодня" чтобы избежать пересоздания при каждом рендере
+  const today = React.useMemo(() => new Date(), []);
+  const [currentMonth, setCurrentMonth] = React.useState(() => new Date().getMonth());
+  const [currentYear, setCurrentYear] = React.useState(() => new Date().getFullYear());
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = React.useState<string>("");
   const [showCalendar, setShowCalendar] = React.useState(false);
@@ -403,6 +653,12 @@ export function RequestForm({
       return;
     }
 
+    // Валидация формата времени (HH:mm)
+    if (selectedTime && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(selectedTime)) {
+      toast.error("Цагийн формат буруу байна");
+      return;
+    }
+
     // OPTIMISTIC UPDATE: Show success state immediately
     setIsSuccess(true);
 
@@ -436,7 +692,7 @@ export function RequestForm({
           latitude: serviceType === "on_site" ? locationCoordinates?.[0] : null,
           longitude: serviceType === "on_site" ? locationCoordinates?.[1] : null,
           address_detail: serviceType === "on_site" ? locationAddress : null,
-          preferred_date: selectedDate || null,
+          preferred_date: selectedDate ? normalizeToLocalDate(selectedDate) : null,
           preferred_time: selectedTime || null,
           note: null,
           image_url: uploadedImageUrl,
@@ -732,38 +988,17 @@ export function RequestForm({
                       )}
                     </button>
 
-                    {/* Simple time selector */}
+                    {/* Time picker with scroll wheels */}
                     {showTimeSelector && (
-                      <div className="border rounded-xl p-3 bg-card">
-                        <div className="grid grid-cols-4 gap-2">
-                          {[
-                            "08:00", "08:30", "09:00", "09:30",
-                            "10:00", "10:30", "11:00", "11:30",
-                            "12:00", "12:30", "13:00", "13:30",
-                            "14:00", "14:30", "15:00", "15:30",
-                            "16:00", "16:30", "17:00", "17:30",
-                            "18:00", "18:30", "19:00", "19:30",
-                            "20:00", "20:30", "21:00", "21:30",
-                          ].map((time) => (
-                            <button
-                              key={time}
-                              type="button"
-                              onClick={() => {
-                                setSelectedTime(time);
-                                setShowTimeSelector(false);
-                              }}
-                              className={cn(
-                                "py-2 px-2 text-sm font-medium rounded-lg transition-all",
-                                selectedTime === time
-                                  ? "bg-primary text-primary-foreground shadow-md"
-                                  : "hover:bg-primary/10 hover:text-primary"
-                              )}
-                            >
-                              {time}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+                      <TimeWheelPicker
+                        selectedDate={selectedDate}
+                        selectedTime={selectedTime}
+                        onTimeSelect={(time) => {
+                          setSelectedTime(time);
+                          setShowTimeSelector(false);
+                        }}
+                        onCancel={() => setShowTimeSelector(false)}
+                      />
                     )}
                   </div>
                 )}

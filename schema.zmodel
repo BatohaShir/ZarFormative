@@ -50,7 +50,8 @@ enum ListingStatus {
 
 enum RequestStatus {
   pending                        // Ожидает ответа исполнителя
-  accepted                       // Принята исполнителем
+  price_proposed                 // Исполнитель предложил цену (для услуг с "Тохиролцоно")
+  accepted                       // Принята исполнителем (или клиент подтвердил цену)
   rejected                       // Отклонена исполнителем
   in_progress                    // В работе
   awaiting_client_confirmation   // Исполнитель нажал "Дуусгах", ждет подтверждения клиента
@@ -553,36 +554,23 @@ model listings {
   requests      listing_requests[]  // Заявки на это объявление
 
   // Indexes для оптимизации запросов
-  @@index([user_id])                              // Мои объявления
-  @@index([category_id])                          // Фильтр по категории
-  @@index([status, is_active])                    // Активные объявления
-  @@index([aimag_id])                             // Поиск по аймагу
-  @@index([aimag_id, district_id])                // Поиск по локации
-  @@index([aimag_id, district_id, khoroo_id])     // Полный поиск по локации
-  @@index([created_at(sort: Desc)])               // Сортировка по дате
-  @@index([status, aimag_id, category_id])        // Комбинированный фильтр
-  @@index([slug])                                 // Быстрый поиск по slug
-  // Оптимизация: индексы для профиля и сортировок
-  @@index([user_id, status, is_active])           // Профиль пользователя
+  // OPTIMIZED: Consolidated indexes - removed redundant ones to improve write performance
+  // NOTE: PostgreSQL uses leftmost prefix rule, so [a, b, c] covers queries on [a], [a, b], and [a, b, c]
+
+  @@index([user_id])                              // Мои объявления (базовый)
+  @@index([slug])                                 // Быстрый поиск по slug (уникальный, часто используется)
+
+  // ОСНОВНЫЕ индексы для публичных запросов (все используют status + is_active)
+  @@index([status, is_active, created_at(sort: Desc)])       // Главная: новые объявления
+  @@index([status, is_active, category_id, created_at(sort: Desc)])  // Фильтр по категории
+  @@index([status, is_active, aimag_id, created_at(sort: Desc)])     // Фильтр по аймагу
   @@index([status, is_active, views_count(sort: Desc)])  // Сортировка по популярности
-  @@index([status, is_active, price])             // Фильтрация по цене
-  // OPTIMIZATION: Составной индекс для фильтрации по категории с ценой
-  @@index([status, is_active, category_id, price])  // Фильтр категория + цена
-  // NEW: Оптимизация черновиков (страница создания объявления)
-  @@index([user_id, status, updated_at(sort: Desc)])  // Черновики с сортировкой
-  // OPTIMIZATION: Страница "Мои услуги" - сортировка по дате создания
-  @@index([user_id, created_at(sort: Desc)])          // Мои объявления с сортировкой
-  // NEW: Публичные объявления с датой публикации
-  @@index([status, is_active, published_at(sort: Desc)])  // Новые объявления
-  // NEW: Сортировка по избранным
   @@index([status, is_active, favorites_count(sort: Desc)])  // Популярные по лайкам
-  // OPTIMIZATION: Главная страница - сортировка по дате создания
-  @@index([status, is_active, created_at(sort: Desc)])       // Новые объявления на главной
-  // OPTIMIZATION: /services страница - фильтры по локации с сортировкой
-  @@index([status, is_active, aimag_id, created_at(sort: Desc)])     // Фильтр по аймагу + новые
-  @@index([status, is_active, district_id, created_at(sort: Desc)])  // Фильтр по дүүрэг + новые
-  // OPTIMIZATION: Фильтр категория + новые (без цены)
-  @@index([status, is_active, category_id, created_at(sort: Desc)])  // Фильтр категория + новые
+
+  // Индексы для профиля пользователя
+  @@index([user_id, status, is_active])           // Мои активные объявления
+  @@index([user_id, created_at(sort: Desc)])          // Мои объявления с сортировкой
+  @@index([user_id, status, updated_at(sort: Desc)])  // Черновики с сортировкой
 
   @@map("listings")
 
@@ -751,6 +739,9 @@ model listing_requests {
   // Ответ исполнителя (опционально)
   provider_response String?  @db.Text
 
+  // Предложенная цена (для услуг с "Тохиролцоно")
+  proposed_price    Decimal? @db.Decimal(12, 2)
+
   // Данные о завершении работы
   completion_description String?  @db.Text          // Описание проделанных работ
   completion_photos      String[] @default([])      // URL фотографий завершенной работы (до 3 фото)
@@ -883,6 +874,8 @@ model chat_messages {
   @@index([sender_id])                               // Сообщения пользователя
   @@index([request_id, is_read])                     // Непрочитанные сообщения
   @@index([request_id, sender_id, is_read])          // OPTIMIZED: подсчёт непрочитанных от конкретного отправителя
+  // OPTIMIZATION: Индекс для быстрого подсчёта непрочитанных сообщений пользователя
+  @@index([sender_id, is_read])                      // Для запросов WHERE sender_id = X AND is_read = false
 
   @@map("chat_messages")
 
@@ -921,6 +914,8 @@ model reviews {
   // Indexes
   @@index([provider_id, created_at(sort: Desc)])      // Отзывы об исполнителе
   @@index([client_id])                                  // Отзывы от клиента
+  // OPTIMIZATION: Индекс для фильтрации отзывов по рейтингу
+  @@index([provider_id, rating])                        // Для запросов WHERE provider_id = X AND rating >= Y
 
   @@map("reviews")
 
@@ -965,6 +960,8 @@ model request_locations {
   @@index([request_id, is_active])           // Активные треки по заявке
   @@index([user_id, is_active])              // Активные треки пользователя
   @@index([updated_at])                       // Для очистки старых записей
+  // OPTIMIZATION: Индекс для запросов истории локаций с сортировкой
+  @@index([request_id, updated_at(sort: Desc)])  // Для WHERE request_id = X ORDER BY updated_at DESC LIMIT 1
 
   @@map("request_locations")
 

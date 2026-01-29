@@ -39,6 +39,7 @@ export interface RequestWithRelations {
     service_type: "on_site" | "remote";
     address: string | null;
     price?: string | number | null;
+    is_negotiable?: boolean;
     // Телефон исполнителя
     phone?: string | null;
     // Координаты исполнителя (для remote услуг)
@@ -49,6 +50,8 @@ export interface RequestWithRelations {
       is_cover: boolean;
     }>;
   };
+  // Предложенная цена (для услуг с "Тохиролцоно")
+  proposed_price?: string | number | null;
   client: PersonInfo;
   provider: PersonInfo;
   // Отзыв клиента (после завершения)

@@ -380,9 +380,10 @@ export function QRPaymentModal({
     }
   }, [countdown]);
 
-  // Format price
-  const formattedPrice = request.listing.price
-    ? new Intl.NumberFormat("mn-MN").format(Number(request.listing.price))
+  // Format price - use proposed_price for negotiable listings, otherwise listing.price
+  const price = request.proposed_price || request.listing.price;
+  const formattedPrice = price
+    ? new Intl.NumberFormat("mn-MN").format(Number(price))
     : "—";
 
   return (
