@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import { reportErrorBoundaryError } from "@/lib/error-tracking";
 
 export default function Error({
   error,
@@ -15,8 +16,8 @@ export default function Error({
     // Log the error to an error reporting service
     console.error("Error caught by boundary:", error);
 
-    // TODO: Send to Sentry or other error tracking service
-    // Sentry.captureException(error);
+    // Report to error tracking service (Sentry when configured)
+    reportErrorBoundaryError(error);
   }, [error]);
 
   return (

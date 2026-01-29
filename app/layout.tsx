@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { LazyMessagesProvider, LazyNotificationsProvider } from "@/components/lazy-providers";
 import { MobileBottomNav } from "@/components/mobile-bottom-nav";
 import { NotificationBanner } from "@/components/notification-banner";
+import { RealtimeConnectionBanner } from "@/components/realtime-connection-banner";
 import { QueryProvider } from "@/providers/query-provider";
 import { OrganizationSchema, WebsiteSchema } from "@/components/structured-data";
 import { Toaster } from "sonner";
@@ -129,6 +130,7 @@ export default function RootLayout({
                     {children}
                     <MobileBottomNav />
                     <NotificationBanner />
+                    <RealtimeConnectionBanner />
                     <Toaster position="top-center" richColors closeButton />
                   </LazyMessagesProvider>
                 </LazyNotificationsProvider>

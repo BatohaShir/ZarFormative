@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Star } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StarRating } from "@/components/ui/star-rating";
 import { ReviewItem, type ReviewWithClient } from "@/components/ui/review-item";
 import { useFindManyreviews } from "@/lib/hooks/reviews";
+import { cn } from "@/lib/utils";
 
 interface ReviewsListProps {
   providerId: string;
@@ -59,32 +60,54 @@ export const ReviewsList = React.memo(function ReviewsList({
     );
   }
 
+  // Rating color based on score
+  const ratingColor = averageRating >= 4
+    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
+    : averageRating >= 3
+    ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30"
+    : "text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30";
+
   return (
     <div className={`${isDesktop ? "border-t pt-4 mt-4" : ""} space-y-3`}>
       <div className="flex items-center justify-between">
-        <h3 className={`font-semibold ${isDesktop ? "text-sm" : "text-base"} flex items-center gap-2`}>
-          <MessageSquare className="h-4 w-4" />
-          Сэтгэгдэл ({reviewCount})
-        </h3>
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          <h3 className={cn("font-semibold", isDesktop ? "text-sm" : "text-base")}>
+            Сэтгэгдэл
+          </h3>
+          {reviewCount > 0 && (
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
+              {reviewCount}
+            </span>
+          )}
+        </div>
         {reviewCount > 0 && (
-          <div className="flex items-center gap-1.5">
-            <StarRating rating={Math.round(averageRating)} size="sm" />
-            <span className="text-sm font-medium">{averageRating.toFixed(1)}</span>
+          <div className={cn(
+            "flex items-center gap-1.5 px-2 py-1 rounded-lg",
+            ratingColor
+          )}>
+            <Star className="h-3.5 w-3.5 fill-current" />
+            <span className="text-sm font-semibold">{averageRating.toFixed(1)}</span>
           </div>
         )}
       </div>
 
       {reviewCount === 0 ? (
-        <div className={`text-center ${isDesktop ? "py-6" : "py-8"} bg-muted/30 rounded-lg`}>
+        <div className={`text-center ${isDesktop ? "py-6" : "py-8"} border border-dashed rounded-xl`}>
           <MessageSquare className={`${isDesktop ? "h-10 w-10" : "h-12 w-12"} mx-auto mb-2 text-muted-foreground/40`} />
           <p className={`${isDesktop ? "text-xs" : "text-sm"} text-muted-foreground`}>
             Одоогоор сэтгэгдэл байхгүй байна
           </p>
         </div>
       ) : (
-        <div className="bg-muted/30 rounded-lg px-3">
-          {(reviews as ReviewWithClient[]).map((review) => (
-            <ReviewItem key={review.id} review={review} />
+        <div className="border rounded-xl overflow-hidden">
+          {(reviews as ReviewWithClient[]).map((review, index) => (
+            <ReviewItem
+              key={review.id}
+              review={review}
+              compact={isDesktop}
+              className={index !== (reviews?.length || 0) - 1 ? "border-b" : ""}
+            />
           ))}
         </div>
       )}

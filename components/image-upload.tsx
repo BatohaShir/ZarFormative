@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, DragEvent } from "react";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Image as ImageIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { toast } from "sonner";
+import { compressImage, formatBytes } from "@/lib/image-compression";
 
 export interface ImageFile {
   id: string;
@@ -18,6 +19,12 @@ interface ImageUploadProps {
   onChange: (images: ImageFile[]) => void;
   maxImages?: number;
   maxSizeMB?: number;
+  /** Enable image compression (default: true) */
+  compress?: boolean;
+  /** Max dimension for compression (default: 1920) */
+  maxDimension?: number;
+  /** Compression quality 0-1 (default: 0.85) */
+  compressionQuality?: number;
 }
 
 export function ImageUpload({
@@ -25,9 +32,14 @@ export function ImageUpload({
   onChange,
   maxImages = 3,
   maxSizeMB = 5,
+  compress = true,
+  maxDimension = 1920,
+  compressionQuality = 0.85,
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressionProgress, setCompressionProgress] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cleanup blob URLs when component unmounts or images change
@@ -43,7 +55,7 @@ export function ImageUpload({
     };
   }, []); // Only on unmount
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
 
     const remainingSlots = maxImages - images.length;
@@ -51,31 +63,73 @@ export function ImageUpload({
 
     const newImages: ImageFile[] = [];
 
-    filesToAdd.forEach((file) => {
+    // Show compression indicator
+    if (compress && filesToAdd.length > 0) {
+      setIsCompressing(true);
+    }
+
+    for (let i = 0; i < filesToAdd.length; i++) {
+      const file = filesToAdd[i];
+
+      // Update progress
+      setCompressionProgress(`${i + 1}/${filesToAdd.length}`);
+
       // Валидация типа
       if (!file.type.startsWith("image/")) {
         toast.error(`${file.name} зураг биш байна`);
-        return;
+        continue;
       }
 
-      // Валидация размера
+      // Валидация размера (before compression)
       if (file.size > maxSizeMB * 1024 * 1024) {
         toast.error(`${file.name} ${maxSizeMB}MB-ээс их байна`);
-        return;
+        continue;
+      }
+
+      let processedFile = file;
+
+      // Compress image if enabled
+      if (compress) {
+        try {
+          const result = await compressImage(file, {
+            maxWidth: maxDimension,
+            maxHeight: maxDimension,
+            quality: compressionQuality,
+            outputFormat: "webp",
+          });
+
+          processedFile = result.file;
+
+          // Log compression savings
+          if (result.compressionRatio < 0.8) {
+            const savings = Math.round((1 - result.compressionRatio) * 100);
+            console.log(
+              `[ImageUpload] Compressed: ${formatBytes(result.originalSize)} → ${formatBytes(result.compressedSize)} (${savings}% savings)`
+            );
+          }
+        } catch (err) {
+          console.error("[ImageUpload] Compression error:", err);
+          // Use original file if compression fails
+        }
       }
 
       const id = Math.random().toString(36).substring(7);
-      const preview = URL.createObjectURL(file);
+      const preview = URL.createObjectURL(processedFile);
 
       newImages.push({
         id,
-        file,
+        file: processedFile,
         preview,
         sortOrder: images.length + newImages.length,
       });
-    });
+    }
 
-    onChange([...images, ...newImages]);
+    setIsCompressing(false);
+    setCompressionProgress("");
+
+    if (newImages.length > 0) {
+      onChange([...images, ...newImages]);
+    }
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -188,34 +242,63 @@ export function ImageUpload({
             multiple
             className="hidden"
             onChange={(e) => handleFiles(e.target.files)}
+            disabled={isCompressing}
           />
 
           <div className="flex flex-col items-center gap-2">
-            {images.length === 0 ? (
-              <ImageIcon className="h-12 w-12 text-muted-foreground" />
+            {isCompressing ? (
+              <>
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-primary">
+                    Зураг шахаж байна... {compressionProgress}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Хүлээнэ үү
+                  </p>
+                </div>
+              </>
+            ) : images.length === 0 ? (
+              <>
+                <ImageIcon className="h-12 w-12 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    Зураг чирж оруулах эсвэл дарж сонгоно уу
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {images.length}/{maxImages} зураг • Дээд хэмжээ {maxSizeMB}MB
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Файл сонгох
+                </Button>
+              </>
             ) : (
-              <Upload className="h-8 w-8 text-muted-foreground" />
+              <>
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    Дахиж {maxImages - images.length} зураг нэмнэ үү
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {images.length}/{maxImages} зураг • Дээд хэмжээ {maxSizeMB}MB
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Файл сонгох
+                </Button>
+              </>
             )}
-
-            <div className="space-y-1">
-              <p className="text-sm font-medium">
-                {images.length === 0
-                  ? "Зураг чирж оруулах эсвэл дарж сонгоно уу"
-                  : `Дахиж ${maxImages - images.length} зураг нэмнэ үү`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {images.length}/{maxImages} зураг • Дээд хэмжээ {maxSizeMB}MB
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Файл сонгох
-            </Button>
           </div>
         </div>
       )}

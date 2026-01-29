@@ -353,6 +353,11 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       });
 
       lastSavedDataRef.current = dataString;
+      // Show subtle toast for auto-save success
+      toast.success("Автоматаар хадгалагдлаа", {
+        duration: 2000,
+        id: "auto-save", // Prevent duplicate toasts
+      });
     } catch {
       // Auto-save failed silently - will retry on next change
     }

@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { uploadRequestImage } from "@/lib/storage/requests";
+import { compressImage, formatBytes } from "@/lib/image-compression";
 import {
   useCreatelisting_requests,
   useFindFirstlisting_requests,
@@ -118,7 +119,7 @@ export function RequestForm({
   providerName,
   serviceType = "on_site",
 }: RequestFormProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, profile, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
@@ -131,6 +132,8 @@ export function RequestForm({
 
   // Phone state (для всех типов услуг)
   const [clientPhone, setClientPhone] = React.useState("");
+  const [phoneError, setPhoneError] = React.useState<string | null>(null);
+  const [messageTouched, setMessageTouched] = React.useState(false);
 
   // Date & Time state
   const today = new Date();
@@ -145,10 +148,18 @@ export function RequestForm({
   const [selectedImage, setSelectedImage] = React.useState<File | null>(null);
   const [imagePreview, setImagePreview] = React.useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = React.useState(false);
+  const [isCompressingImage, setIsCompressingImage] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Check if user is the owner of the listing
   const isOwner = user?.id === providerId;
+
+  // Auto-fill phone from profile when dialog opens
+  React.useEffect(() => {
+    if (open && profile?.phone_number && !clientPhone) {
+      setClientPhone(formatMongolianPhone(profile.phone_number));
+    }
+  }, [open, profile?.phone_number, clientPhone]);
 
   // Calculate max date (2 months from today)
   const maxDate = React.useMemo(() => {
@@ -205,6 +216,9 @@ export function RequestForm({
       setShowCalendar(false);
       setShowTimeSelector(false);
       setIsSuccess(false);
+      // Reset validation states
+      setPhoneError(null);
+      setMessageTouched(false);
       // Cleanup image
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
@@ -214,7 +228,7 @@ export function RequestForm({
     }
   };
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -235,8 +249,34 @@ export function RequestForm({
       URL.revokeObjectURL(imagePreview);
     }
 
-    setSelectedImage(file);
-    setImagePreview(URL.createObjectURL(file));
+    // Compress image before setting
+    setIsCompressingImage(true);
+    try {
+      const result = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1920,
+        quality: 0.85,
+        outputFormat: "webp",
+      });
+
+      // Log compression savings
+      if (result.compressionRatio < 0.8) {
+        const savings = Math.round((1 - result.compressionRatio) * 100);
+        console.log(
+          `[RequestForm] Compressed: ${formatBytes(result.originalSize)} → ${formatBytes(result.compressedSize)} (${savings}% savings)`
+        );
+      }
+
+      setSelectedImage(result.file);
+      setImagePreview(URL.createObjectURL(result.file));
+    } catch (err) {
+      console.error("[RequestForm] Compression error:", err);
+      // Fallback: use original file
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(file));
+    } finally {
+      setIsCompressingImage(false);
+    }
   };
 
   const handleRemoveImage = () => {
@@ -363,6 +403,9 @@ export function RequestForm({
       return;
     }
 
+    // OPTIMISTIC UPDATE: Show success state immediately
+    setIsSuccess(true);
+
     try {
       // Upload image first if selected
       let uploadedImageUrl: string | null = null;
@@ -373,6 +416,8 @@ export function RequestForm({
         setIsUploadingImage(false);
 
         if (result.error) {
+          // ROLLBACK: Revert optimistic update on image upload error
+          setIsSuccess(false);
           toast.error(`Зураг оруулахад алдаа: ${result.error}`);
           return;
         }
@@ -398,9 +443,9 @@ export function RequestForm({
         },
       });
 
-      // Send notification to provider about new request
+      // Send notification to provider about new request (fire and forget)
       if (newRequest) {
-        await createNotification.mutateAsync({
+        createNotification.mutate({
           data: {
             user_id: providerId,
             type: "new_request",
@@ -414,13 +459,12 @@ export function RequestForm({
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
 
-      setIsSuccess(true);
       toast.success("Хүсэлт амжилттай илгээгдлээ!");
 
       // Refetch to update existing request status
       refetchExisting();
 
-      // Close dialog after 2 seconds
+      // Close dialog after 1.5 seconds (faster since we already showed success)
       setTimeout(() => {
         setOpen(false);
         setMessage("");
@@ -436,8 +480,10 @@ export function RequestForm({
         }
         setSelectedImage(null);
         setImagePreview(null);
-      }, 2000);
+      }, 1500);
     } catch (error) {
+      // ROLLBACK: Revert optimistic update on error
+      setIsSuccess(false);
       toast.error(error instanceof Error ? error.message : "Хүсэлт илгээхэд алдаа гарлаа");
     }
   };
@@ -747,7 +793,12 @@ export function RequestForm({
                     className="hidden"
                     onChange={handleImageSelect}
                   />
-                  {imagePreview ? (
+                  {isCompressingImage ? (
+                    <div className="w-full flex items-center justify-center gap-3 p-6 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <span className="text-sm text-primary font-medium">Зураг шахаж байна...</span>
+                    </div>
+                  ) : imagePreview ? (
                     <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-primary/30 bg-muted">
                       <Image
                         src={imagePreview}
@@ -794,11 +845,20 @@ export function RequestForm({
                     placeholder="Үйлчилгээний талаар дэлгэрэнгүй бичнэ үү..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    onBlur={() => setMessageTouched(true)}
                     rows={4}
                     maxLength={2000}
                     disabled={createRequest.isPending || isUploadingImage}
-                    className="resize-none rounded-xl border-2 focus:border-primary/50 transition-colors"
+                    className={cn(
+                      "resize-none rounded-xl border-2 transition-colors",
+                      messageTouched && !message.trim()
+                        ? "border-destructive focus:border-destructive"
+                        : "focus:border-primary/50"
+                    )}
                   />
+                  {messageTouched && !message.trim() && (
+                    <p className="text-xs text-destructive">Мессеж заавал бичнэ үү</p>
+                  )}
                   <p className="text-xs text-muted-foreground text-right">
                     {message.length}/2000
                   </p>
@@ -814,11 +874,40 @@ export function RequestForm({
                     type="tel"
                     placeholder="+976 9911-2233"
                     value={clientPhone}
-                    onChange={(e) => setClientPhone(formatMongolianPhone(e.target.value))}
+                    onChange={(e) => {
+                      const formatted = formatMongolianPhone(e.target.value);
+                      setClientPhone(formatted);
+                      // Real-time validation
+                      const digits = getPhoneDigits(formatted);
+                      if (digits.length > 0 && digits.length < 8) {
+                        setPhoneError("Утасны дугаар 8 оронтой байх ёстой");
+                      } else {
+                        setPhoneError(null);
+                      }
+                    }}
+                    onBlur={() => {
+                      const digits = getPhoneDigits(clientPhone);
+                      if (digits.length > 0 && digits.length < 8) {
+                        setPhoneError("Утасны дугаар 8 оронтой байх ёстой");
+                      } else if (digits.length === 0) {
+                        setPhoneError("Утасны дугаар заавал бичнэ үү");
+                      }
+                    }}
                     disabled={createRequest.isPending || isUploadingImage}
-                    className="rounded-xl border-2 focus:border-primary/50 transition-colors"
+                    className={cn(
+                      "rounded-xl border-2 transition-colors",
+                      phoneError ? "border-destructive focus:border-destructive" : "focus:border-primary/50"
+                    )}
                     maxLength={15}
                   />
+                  {phoneError ? (
+                    <p className="text-xs text-destructive">{phoneError}</p>
+                  ) : getPhoneDigits(clientPhone).length === 8 ? (
+                    <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Дугаар зөв байна
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* Buttons */}
@@ -835,7 +924,7 @@ export function RequestForm({
                   <Button
                     type="submit"
                     className="flex-1 h-12 rounded-xl"
-                    disabled={createRequest.isPending || isUploadingImage || !message.trim() || getPhoneDigits(clientPhone).length !== 8}
+                    disabled={createRequest.isPending || isUploadingImage || isCompressingImage || !message.trim() || getPhoneDigits(clientPhone).length !== 8}
                   >
                     {isUploadingImage ? (
                       <>

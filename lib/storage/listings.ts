@@ -137,3 +137,65 @@ export function getListingImageUrl(
     .getPublicUrl(`${userId}/${listingId}/${fileName}`);
   return data.publicUrl;
 }
+
+// ========== SEQUENTIAL UPLOAD ==========
+
+export interface ImageUploadItem {
+  file: File;
+  sortOrder: number;
+  isCover: boolean;
+}
+
+export interface ImageUploadResult {
+  url: string | null;
+  sortOrder: number;
+  isCover: boolean;
+  error: string | null;
+}
+
+/**
+ * Upload multiple images sequentially with concurrency limit
+ * This prevents overwhelming the server/network with too many parallel uploads
+ *
+ * @param userId - User ID
+ * @param listingId - Listing ID
+ * @param images - Array of images to upload
+ * @param concurrency - Max concurrent uploads (default: 2)
+ * @param onProgress - Optional callback for progress updates
+ */
+export async function uploadListingImagesSequential(
+  userId: string,
+  listingId: string,
+  images: ImageUploadItem[],
+  concurrency = 2,
+  onProgress?: (completed: number, total: number) => void
+): Promise<ImageUploadResult[]> {
+  const results: ImageUploadResult[] = [];
+  let completed = 0;
+
+  // Process images in batches
+  for (let i = 0; i < images.length; i += concurrency) {
+    const batch = images.slice(i, i + concurrency);
+
+    const batchResults = await Promise.all(
+      batch.map(async (item) => {
+        const uuid = crypto.randomUUID();
+        const result = await uploadListingImage(userId, listingId, item.file, uuid);
+
+        completed++;
+        onProgress?.(completed, images.length);
+
+        return {
+          url: result.url,
+          sortOrder: item.sortOrder,
+          isCover: item.isCover,
+          error: result.error,
+        };
+      })
+    );
+
+    results.push(...batchResults);
+  }
+
+  return results;
+}

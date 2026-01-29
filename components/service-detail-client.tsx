@@ -178,8 +178,9 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
               </h1>
             </Link>
           </div>
-          {/* Mobile Nav - notifications bell */}
+          {/* Mobile Nav - theme toggle + notifications bell */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
           </div>
           {/* Desktop Nav */}
@@ -226,46 +227,66 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
                 description={listing.description}
                 className="flex-1 sm:flex-none"
               />
-              <Button
-                variant="outline"
-                size="sm"
-                className={`flex-1 sm:flex-none ${isFav ? "bg-pink-50 border-pink-200 text-pink-600 dark:bg-pink-950/30 dark:border-pink-800" : ""}`}
-                onClick={handleSave}
-              >
-                <Heart className={`h-4 w-4 mr-2 ${isFav ? "fill-current" : ""}`} />
-                {isFav ? "Хадгалсан" : "Хадгалах"}
-              </Button>
+              {!isOwnListing && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`flex-1 sm:flex-none ${isFav ? "bg-pink-50 border-pink-200 text-pink-600 dark:bg-pink-950/30 dark:border-pink-800" : ""}`}
+                  onClick={handleSave}
+                >
+                  <Heart className={`h-4 w-4 mr-2 ${isFav ? "fill-current" : ""}`} />
+                  {isFav ? "Хадгалсан" : "Хадгалах"}
+                </Button>
+              )}
             </div>
 
-            {/* Title & Price */}
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold mb-1 md:mb-2">{listing.title}</h1>
-              <p className="text-2xl md:text-3xl font-bold text-primary">{priceDisplay}</p>
-            </div>
+            {/* Title & Price Card */}
+            <div className="bg-card border rounded-2xl p-4 md:p-5 space-y-3">
+              <h1 className="text-xl md:text-2xl font-bold leading-tight">{listing.title}</h1>
 
-            {/* Location & Views */}
-            <div className="flex flex-wrap items-center gap-4 text-muted-foreground text-sm md:text-base">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                <span>
-                  {listing.service_type === "remote" && listing.address_detail
-                    ? listing.address_detail
-                    : locationDisplay}
+              {/* Price */}
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+                  {priceDisplay}
                 </span>
-                {hasCoordinates && (
-                  <button
-                    onClick={() => setShowMapModal(true)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
-                    title="Газрын зурагт харах"
-                  >
-                    <Navigation className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">Map</span>
-                  </button>
-                )}
               </div>
+
+              {/* Divider */}
+              <div className="border-t border-border/50" />
+
+              {/* Location & Views */}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-muted-foreground">Байршил</p>
+                    <p className="font-medium text-sm md:text-base wrap-break-word">
+                      {listing.service_type === "remote" && listing.address_detail
+                        ? listing.address_detail
+                        : locationDisplay}
+                    </p>
+                  </div>
+                  {hasCoordinates && (
+                    <button
+                      onClick={() => setShowMapModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-600 text-white transition-colors shrink-0 text-xs font-medium shadow-sm"
+                      title="Газрын зурагт харах"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Map</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Views badge */}
               <div className="flex items-center gap-2">
-                <Eye className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                <span>{viewsCount} үзсэн</span>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs">
+                  <Eye className="h-3.5 w-3.5" />
+                  <span>{viewsCount} үзсэн</span>
+                </div>
               </div>
             </div>
 

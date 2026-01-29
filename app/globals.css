@@ -208,3 +208,14 @@ html:not(.dark) {
 .dark .leaflet-overlay-pane {
   filter: invert(100%) hue-rotate(180deg);
 }
+
+/* Mobile notifications dropdown - center on screen */
+@media (max-width: 639px) {
+  .notification-dropdown-wrapper {
+    left: 16px !important;
+    right: 16px !important;
+    transform: none !important;
+    top: 61px !important;
+    width: auto !important;
+  }
+}

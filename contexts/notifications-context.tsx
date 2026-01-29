@@ -49,6 +49,7 @@ interface NotificationsActionsContextType {
   markAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
   isMarking: boolean;
+  isMarkingAll: boolean; // Separate flag for "mark all" operation
 }
 
 // Контекст 3: Полные данные
@@ -65,6 +66,9 @@ const NotificationsDataContext = React.createContext<NotificationsDataContextTyp
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+
+  // useTransition for non-blocking UI when marking all as read
+  const [isPendingMarkAll, startMarkAllTransition] = React.useTransition();
 
   // Optimistic state для мгновенного UI
   const [optimisticReadIds, setOptimisticReadIds] = React.useState<Set<string>>(new Set());
@@ -253,26 +257,38 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     [updateNotification]
   );
 
-  // Mark all as read
+  // Mark all as read with useTransition for non-blocking UI
   const markAllAsRead = React.useCallback(() => {
     if (!user?.id) return;
 
-    // Optimistic: mark all unread as read
-    const unreadIds = notificationsRef.current.filter((n) => !n.is_read).map((n) => n.id);
-    setOptimisticReadIds((prev) => new Set([...prev, ...unreadIds]));
+    // Use startTransition to prevent UI blocking with 50+ notifications
+    startMarkAllTransition(() => {
+      // Optimistic: mark all unread as read
+      const unreadIds = notificationsRef.current.filter((n) => !n.is_read).map((n) => n.id);
+      const previousOptimisticIds = new Set(optimisticReadIds);
+      setOptimisticReadIds((prev) => new Set([...prev, ...unreadIds]));
 
-    // Background sync
-    updateManyNotifications.mutate({
-      where: {
-        user_id: user.id,
-        is_read: false,
-      },
-      data: {
-        is_read: true,
-        read_at: new Date(),
-      },
+      // Background sync with rollback on error
+      updateManyNotifications.mutate(
+        {
+          where: {
+            user_id: user.id,
+            is_read: false,
+          },
+          data: {
+            is_read: true,
+            read_at: new Date(),
+          },
+        },
+        {
+          onError: () => {
+            // Rollback optimistic update on error
+            setOptimisticReadIds(previousOptimisticIds);
+          },
+        }
+      );
     });
-  }, [user?.id, updateManyNotifications]);
+  }, [user?.id, updateManyNotifications, optimisticReadIds]);
 
   // ========== МЕМОИЗИРОВАННЫЕ ЗНАЧЕНИЯ ==========
 
@@ -290,8 +306,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       markAsRead,
       markAllAsRead,
       isMarking: updateNotification.isPending || updateManyNotifications.isPending,
+      isMarkingAll: isPendingMarkAll || updateManyNotifications.isPending,
     }),
-    [markAsRead, markAllAsRead, updateNotification.isPending, updateManyNotifications.isPending]
+    [markAsRead, markAllAsRead, updateNotification.isPending, updateManyNotifications.isPending, isPendingMarkAll]
   );
 
   const dataValue = React.useMemo<NotificationsDataContextType>(
@@ -327,6 +344,7 @@ const DEFAULT_ACTIONS: NotificationsActionsContextType = {
   markAsRead: () => {},
   markAllAsRead: () => {},
   isMarking: false,
+  isMarkingAll: false,
 };
 
 const DEFAULT_DATA: NotificationsDataContextType = {

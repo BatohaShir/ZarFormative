@@ -24,13 +24,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
-import { createClient } from "@/lib/supabase/client";
 import {
   useFindManychat_messages,
   useCreatechat_messages,
   useUpdateManychat_messages,
   useCreatenotifications,
 } from "@/lib/hooks";
+import { useRealtimeChat } from "@/hooks/use-realtime-chat";
 import type { RequestWithRelations, PersonInfo } from "./types";
 import { formatCreatedAt, getPersonName, getPersonInitials } from "./utils";
 import {
@@ -130,12 +130,14 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   const [isUploading, setIsUploading] = React.useState(false);
   const [locationLoading, setLocationLoading] = React.useState(false);
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
+  const [pendingMessageId, setPendingMessageId] = React.useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isClient = request.client_id === user?.id;
   const otherPerson: PersonInfo = isClient ? request.provider : request.client;
+  const currentPerson: PersonInfo = isClient ? request.client : request.provider;
 
   // Fetch messages (без polling - используем Realtime)
   const { data: messages, refetch, isLoading: isLoadingMessages } = useFindManychat_messages(
@@ -176,44 +178,21 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   // Track which messages we've already marked as read to prevent duplicate calls
   const markedAsReadRef = React.useRef<Set<string>>(new Set());
 
-  // Supabase Realtime subscription for new messages AND read status updates
-  React.useEffect(() => {
-    const supabase = createClient();
-
-    const channel = supabase
-      .channel(`chat:${request.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-          filter: `request_id=eq.${request.id}`,
-        },
-        () => {
-          // Refetch messages when new message arrives
-          refetch();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "chat_messages",
-          filter: `request_id=eq.${request.id}`,
-        },
-        () => {
-          // Refetch messages when read status changes (for "read" indicator)
-          refetch();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [request.id, refetch]);
+  // Realtime chat subscription with retry logic
+  const {
+    isConnected: isChatConnected,
+    addOptimisticMessage,
+    removeOptimisticMessage,
+  } = useRealtimeChat({
+    requestId: request.id,
+    enabled: !!request.id && !!user?.id,
+    onNewMessage: () => {
+      refetch();
+    },
+    onMessageRead: () => {
+      refetch();
+    },
+  });
 
   // Mark unread messages as read when opening chat
   React.useEffect(() => {
@@ -346,6 +325,13 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   const handleSend = async () => {
     if ((!message.trim() && !attachment) || !user?.id) return;
 
+    const messageText = message.trim();
+    const currentAttachment = attachment;
+
+    // Clear UI immediately for instant feedback
+    setMessage("");
+    clearAttachment();
+
     try {
       setIsUploading(true);
 
@@ -356,16 +342,18 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
       let locationName: string | undefined;
 
       // Handle image upload
-      if (attachment?.type === "image" && attachment.file) {
+      if (currentAttachment?.type === "image" && currentAttachment.file) {
         const result = await uploadChatAttachment(
           request.id,
           user.id,
-          attachment.file
+          currentAttachment.file
         );
 
         if (result.error) {
           alert(result.error);
           setIsUploading(false);
+          // Restore message on error
+          setMessage(messageText);
           return;
         }
 
@@ -374,18 +362,42 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
       }
 
       // Handle location
-      if (attachment?.type === "location" && attachment.location) {
+      if (currentAttachment?.type === "location" && currentAttachment.location) {
         attachmentType = "location";
-        locationLat = attachment.location.lat;
-        locationLng = attachment.location.lng;
-        locationName = attachment.location.name;
+        locationLat = currentAttachment.location.lat;
+        locationLng = currentAttachment.location.lng;
+        locationName = currentAttachment.location.name;
       }
+
+      // Add optimistic message to UI immediately
+      const optimisticId = addOptimisticMessage({
+        request_id: request.id,
+        sender_id: user.id,
+        message: messageText || (attachmentType === "image" ? "📷 Зураг" : "📍 Байршил"),
+        attachment_type: attachmentType || null,
+        attachment_url: attachmentUrl || null,
+        location_lat: locationLat || null,
+        location_lng: locationLng || null,
+        location_name: locationName || null,
+        is_read: false,
+        read_at: null,
+        sender: {
+          id: user.id,
+          first_name: currentPerson.first_name,
+          last_name: currentPerson.last_name,
+          company_name: currentPerson.company_name,
+          is_company: currentPerson.is_company,
+          avatar_url: currentPerson.avatar_url,
+        },
+      });
+
+      setPendingMessageId(optimisticId);
 
       await createMessage.mutateAsync({
         data: {
           request_id: request.id,
           sender_id: user.id,
-          message: message.trim() || (attachmentType === "image" ? "📷 Зураг" : "📍 Байршил"),
+          message: messageText || (attachmentType === "image" ? "📷 Зураг" : "📍 Байршил"),
           attachment_type: attachmentType,
           attachment_url: attachmentUrl,
           location_lat: locationLat,
@@ -396,12 +408,12 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
 
       // Send notification to the other person (non-blocking)
       try {
-        const senderName = isClient ? getPersonName(request.client) : getPersonName(request.provider);
+        const senderName = getPersonName(currentPerson);
         const notificationMessage = attachmentType === "image"
           ? `${senderName}: [Зураг] илгээсэн`
           : attachmentType === "location"
           ? `${senderName}: [Байршил] илгээсэн`
-          : `${senderName}: ${message.trim().slice(0, 50)}${message.trim().length > 50 ? "..." : ""}`;
+          : `${senderName}: ${messageText.slice(0, 50)}${messageText.length > 50 ? "..." : ""}`;
 
         const notificationData = {
           user_id: otherPersonId,
@@ -419,13 +431,18 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
         // Notification failed but message was sent - don't block
       }
 
-      setMessage("");
-      clearAttachment();
+      // Refetch to get the real message ID
       refetch();
     } catch {
-      // Message sending failed - user will see the message wasn't sent
+      // Message sending failed - remove optimistic message
+      if (pendingMessageId) {
+        removeOptimisticMessage(pendingMessageId);
+      }
+      // Restore message text so user can retry
+      setMessage(messageText);
     } finally {
       setIsUploading(false);
+      setPendingMessageId(null);
     }
   };
 
@@ -448,6 +465,12 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
               {request.listing.title}
             </p>
           </div>
+          {!isChatConnected && (
+            <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full">
+              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+              Холболт...
+            </div>
+          )}
           <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full">
             <X className="h-5 w-5" />
           </Button>
@@ -488,14 +511,17 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                 location_lng?: number | null;
                 location_name?: string | null;
                 is_read?: boolean;
+                $optimistic?: boolean;
               }[]).map((msg) => {
                 const isMe = msg.sender_id === user?.id;
+                const isOptimistic = msg.$optimistic;
                 return (
                   <div
                     key={msg.id}
                     className={cn(
                       "flex gap-2 items-end",
-                      isMe ? "flex-row-reverse" : "flex-row"
+                      isMe ? "flex-row-reverse" : "flex-row",
+                      isOptimistic && "opacity-70"
                     )}
                   >
                     {!isMe && msg.sender && (
@@ -568,9 +594,11 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                         )}
                       >
                         <span className="text-[10px]">{formatCreatedAt(msg.created_at)}</span>
-                        {/* Read indicator - only for my messages */}
+                        {/* Status indicator - only for my messages */}
                         {isMe && (
-                          msg.is_read ? (
+                          isOptimistic ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : msg.is_read ? (
                             <CheckCheck className="h-3 w-3 text-blue-400" />
                           ) : (
                             <Check className="h-3 w-3" />

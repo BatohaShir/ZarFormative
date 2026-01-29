@@ -12,6 +12,7 @@ interface ServicesMapProps {
   listings: ListingWithRelations[];
   className?: string;
   onLocationSelect?: (districtId: string | null, aimagId: string | null) => void;
+  onClusterSelect?: (listingIds: string[]) => void;
 }
 
 // Динамический импорт Leaflet компонента (без SSR)
@@ -30,7 +31,7 @@ const ServicesMapLeaflet = dynamic(
 // Re-export для использования в других компонентах
 export { getListingsWithCoords, type ListingWithCoords };
 
-export function ServicesMap({ listings, className, onLocationSelect }: ServicesMapProps) {
+export function ServicesMap({ listings, className, onLocationSelect, onClusterSelect }: ServicesMapProps) {
   const [isMapActive, setIsMapActive] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
@@ -41,6 +42,14 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
     // Don't close the map - just filter results
     onLocationSelect?.(districtId, aimagId);
   }, [onLocationSelect]);
+
+  // Handle cluster selection from map - filter by listing IDs
+  const handleClusterSelect = React.useCallback((listingIds: string[]) => {
+    // Close fullscreen mode but keep map active
+    setIsFullscreen(false);
+    // Filter by listing IDs
+    onClusterSelect?.(listingIds);
+  }, [onClusterSelect]);
 
   // OPTIMIZATION: Используем общую функцию для вычисления координат
   // Результат передаётся в Leaflet компонент, избегая дублирования вычислений
@@ -83,6 +92,7 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
               listingsWithCoords={listingsWithCoords}
               onFullscreen={() => setIsFullscreen(true)}
               onLocationSelect={handleLocationSelect}
+              onClusterSelect={handleClusterSelect}
             />
             {/* Close button */}
             <button
@@ -128,6 +138,7 @@ export function ServicesMap({ listings, className, onLocationSelect }: ServicesM
                 listingsWithCoords={listingsWithCoords}
                 isFullscreen
                 onLocationSelect={handleLocationSelect}
+                onClusterSelect={handleClusterSelect}
               />
             </div>
           </div>

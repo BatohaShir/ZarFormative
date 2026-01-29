@@ -118,8 +118,9 @@ export default async function Home() {
             <span className="text-[#015197]">hilge</span>
             <span className="text-[#c4272f]">e.mn</span>
           </h1>
-          {/* Mobile Nav - only notifications bell */}
+          {/* Mobile Nav - theme toggle + notifications bell */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
           </div>
           {/* Desktop Nav */}

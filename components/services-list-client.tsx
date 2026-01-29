@@ -90,6 +90,8 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     (searchParams.get("provider") as ProviderType) || "all"
   );
   const [filtersOpen, setFiltersOpen] = React.useState(false);
+  // Filter by specific listing IDs (from map cluster click)
+  const [selectedListingIds, setSelectedListingIds] = React.useState<string[]>([]);
 
   // Строим where условие для запроса
   const whereCondition = React.useMemo(() => {
@@ -116,8 +118,12 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
       }
     }
 
-    // Фильтр по локации (аймаг и дүүрэг)
-    if (selectedDistrictId) {
+    // Фильтр по конкретным ID объявлений (из клика на кластер карты)
+    if (selectedListingIds.length > 0) {
+      conditions.id = { in: selectedListingIds };
+    }
+    // Фильтр по локации (аймаг и дүүрэг) - только если нет фильтра по ID
+    else if (selectedDistrictId) {
       conditions.district_id = selectedDistrictId;
     } else if (selectedAimagId) {
       conditions.aimag_id = selectedAimagId;
@@ -131,7 +137,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     }
 
     return conditions;
-  }, [selectedCategories, committedPriceRange, selectedAimagId, selectedDistrictId, providerType]);
+  }, [selectedCategories, committedPriceRange, selectedAimagId, selectedDistrictId, providerType, selectedListingIds]);
 
   // Строим orderBy для сортировки
   const orderByCondition = React.useMemo(() => {
@@ -157,7 +163,8 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     selectedAimagId ||
     selectedDistrictId ||
     providerType !== "all" ||
-    sortBy !== "newest";
+    sortBy !== "newest" ||
+    selectedListingIds.length > 0;
 
   // Загружаем объявления с cursor-based пагинацией
   const {
@@ -335,6 +342,8 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
 
   // Handle location selection from map - filter by district/aimag
   const handleLocationSelectFromMap = React.useCallback((districtId: string | null, aimagId: string | null) => {
+    // Clear listing IDs filter when using location filter
+    setSelectedListingIds([]);
     // Set location filters
     if (districtId) {
       setSelectedDistrictId(districtId);
@@ -349,6 +358,17 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     }
   }, []);
 
+  // Handle cluster selection from map - filter by listing IDs
+  const handleClusterSelectFromMap = React.useCallback((listingIds: string[]) => {
+    // Clear location filters when using listing IDs filter
+    setSelectedDistrictId("");
+    setSelectedAimagId("");
+    setSelectedAimagName("");
+    setSelectedDistrictName("");
+    // Set listing IDs filter
+    setSelectedListingIds(listingIds);
+  }, []);
+
   const resetFilters = React.useCallback(() => {
     setSelectedCategories([]);
     setLocalPriceRange([0, 1000000]);
@@ -359,13 +379,15 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     setSelectedDistrictId("");
     setSelectedDistrictName("");
     setProviderType("all");
+    setSelectedListingIds([]);
   }, []);
 
   const activeFiltersCount =
     selectedCategories.length +
     (committedPriceRange[0] > 0 || committedPriceRange[1] < 1000000 ? 1 : 0) +
     (selectedAimagId ? 1 : 0) +
-    (providerType !== "all" ? 1 : 0);
+    (providerType !== "all" ? 1 : 0) +
+    (selectedListingIds.length > 0 ? 1 : 0);
 
   const listingsData = (listings || []) as ListingWithRelations[];
 
@@ -391,8 +413,9 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
               </h1>
             </Link>
           </div>
-          {/* Mobile Nav - notifications bell */}
+          {/* Mobile Nav - theme toggle + notifications bell */}
           <div className="flex md:hidden items-center gap-2">
+            <ThemeToggle />
             <NotificationsButton />
           </div>
           {/* Desktop Nav */}
@@ -516,6 +539,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
               listings={listingsData}
               className="mb-4 h-50 md:h-70"
               onLocationSelect={handleLocationSelectFromMap}
+              onClusterSelect={handleClusterSelectFromMap}
             />
 
             {/* Results header with sort */}

@@ -1,19 +1,11 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { createRealtimeSubscription } from "@/lib/realtime-utils";
 import type { listing_requests } from "@prisma/client";
-
-// Тип payload от Supabase Realtime
-type RequestPayload = {
-  eventType: "INSERT" | "UPDATE" | "DELETE";
-  old: Partial<listing_requests> | null;
-  new: Partial<listing_requests> | null;
-};
 
 // Сообщения о статусах на монгольском
 const STATUS_MESSAGES: Record<string, { title: string; description: string }> = {
@@ -50,6 +42,7 @@ const STATUS_MESSAGES: Record<string, { title: string; description: string }> = 
 /**
  * Хук для real-time синхронизации статусов заявок
  * Автоматически инвалидирует кэш React Query и показывает toast при изменении статуса
+ * Uses retry logic with exponential backoff
  */
 export function useRealtimeRequests(options?: {
   showToasts?: boolean;
@@ -59,6 +52,10 @@ export function useRealtimeRequests(options?: {
   const queryClient = useQueryClient();
   const { user, isAuthenticated } = useAuth();
 
+  // Refs for stable callbacks
+  const onStatusChangeRef = useRef(onStatusChange);
+  onStatusChangeRef.current = onStatusChange;
+
   const invalidateRequests = useCallback(() => {
     // Инвалидируем все запросы заявок
     queryClient.invalidateQueries({ queryKey: ["listing_requests", "findMany"] });
@@ -67,73 +64,29 @@ export function useRealtimeRequests(options?: {
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
-    const supabase = createClient();
-    let clientChannel: RealtimeChannel | null = null;
-    let providerChannel: RealtimeChannel | null = null;
-
     // Подписка на заявки где я клиент
-    clientChannel = supabase
-      .channel(`requests-client:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "listing_requests",
-          filter: `client_id=eq.${user.id}`,
-        },
-        (payload: { eventType: string; old: Record<string, unknown> | null; new: Record<string, unknown> | null }) => {
-          const typedPayload = payload as unknown as RequestPayload;
-          handleRequestChange(typedPayload, "client");
-        }
-      )
-      .subscribe();
-
-    // Подписка на заявки где я исполнитель
-    providerChannel = supabase
-      .channel(`requests-provider:${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "listing_requests",
-          filter: `provider_id=eq.${user.id}`,
-        },
-        (payload: { eventType: string; old: Record<string, unknown> | null; new: Record<string, unknown> | null }) => {
-          const typedPayload = payload as unknown as RequestPayload;
-          handleRequestChange(typedPayload, "provider");
-        }
-      )
-      .subscribe();
-
-    function handleRequestChange(payload: RequestPayload, role: "client" | "provider") {
-      const { eventType, old: oldData, new: newData } = payload;
-
-      if (eventType === "INSERT") {
-        // Новая заявка
+    const clientSub = createRealtimeSubscription<listing_requests>({
+      channelName: `requests-client:${user.id}`,
+      table: "listing_requests",
+      filter: `client_id=eq.${user.id}`,
+      event: "*",
+      onInsert: () => {
         invalidateRequests();
+      },
+      onUpdate: (payload) => {
+        const oldData = payload.old;
+        const newData = payload.new;
+        const oldStatus = (oldData as listing_requests | null)?.status;
+        const newStatus = (newData as listing_requests).status;
+        const requestId = (newData as listing_requests).id;
 
-        if (showToasts && role === "provider") {
-          toast.info("Шинэ хүсэлт ирлээ", {
-            description: "Шинэ үйлчилгээний хүсэлт ирлээ",
-          });
-        }
-      } else if (eventType === "UPDATE") {
-        const oldStatus = oldData?.status as string | null;
-        const newStatus = newData?.status as string;
-        const requestId = newData?.id as string;
-
-        // Статус изменился
         if (oldStatus !== newStatus) {
           invalidateRequests();
 
-          // Вызываем callback если есть
-          if (onStatusChange && requestId) {
-            onStatusChange(requestId, newStatus, oldStatus);
+          if (onStatusChangeRef.current && requestId) {
+            onStatusChangeRef.current(requestId, newStatus, oldStatus || null);
           }
 
-          // Показываем toast о смене статуса
           if (showToasts && STATUS_MESSAGES[newStatus]) {
             const msg = STATUS_MESSAGES[newStatus];
             toast.info(msg.title, {
@@ -141,37 +94,63 @@ export function useRealtimeRequests(options?: {
             });
           }
         } else {
-          // Другие поля изменились (completion_description, etc.)
-          // Проверяем изменение completion данных
+          // Другие поля изменились
           const completionChanged =
-            oldData?.completion_description !== newData?.completion_description ||
-            oldData?.completion_photos !== newData?.completion_photos;
+            (oldData as listing_requests | null)?.completion_description !== (newData as listing_requests).completion_description ||
+            (oldData as listing_requests | null)?.completion_photos !== (newData as listing_requests).completion_photos;
 
-          if (completionChanged) {
-            invalidateRequests();
-
-            if (showToasts && role === "client") {
-              toast.info("Ажлын тайлан ирлээ", {
-                description: "Үйлчилгээ үзүүлэгч ажлын тайлан илгээлээ",
-              });
-            }
-          } else {
-            // Любые другие обновления
-            invalidateRequests();
+          if (completionChanged && showToasts) {
+            toast.info("Ажлын тайлан ирлээ", {
+              description: "Үйлчилгээ үзүүлэгч ажлын тайлан илгээлээ",
+            });
           }
+          invalidateRequests();
         }
-      } else if (eventType === "DELETE") {
+      },
+      onDelete: () => {
         invalidateRequests();
-      }
-    }
+      },
+    });
+
+    // Подписка на заявки где я исполнитель
+    const providerSub = createRealtimeSubscription<listing_requests>({
+      channelName: `requests-provider:${user.id}`,
+      table: "listing_requests",
+      filter: `provider_id=eq.${user.id}`,
+      event: "*",
+      onInsert: () => {
+        invalidateRequests();
+        if (showToasts) {
+          toast.info("Шинэ хүсэлт ирлээ", {
+            description: "Шинэ үйлчилгээний хүсэлт ирлээ",
+          });
+        }
+      },
+      onUpdate: (payload) => {
+        const oldData = payload.old;
+        const newData = payload.new;
+        const oldStatus = (oldData as listing_requests | null)?.status;
+        const newStatus = (newData as listing_requests).status;
+        const requestId = (newData as listing_requests).id;
+
+        if (oldStatus !== newStatus) {
+          invalidateRequests();
+
+          if (onStatusChangeRef.current && requestId) {
+            onStatusChangeRef.current(requestId, newStatus, oldStatus || null);
+          }
+        } else {
+          invalidateRequests();
+        }
+      },
+      onDelete: () => {
+        invalidateRequests();
+      },
+    });
 
     return () => {
-      if (clientChannel) {
-        supabase.removeChannel(clientChannel);
-      }
-      if (providerChannel) {
-        supabase.removeChannel(providerChannel);
-      }
+      clientSub.unsubscribe();
+      providerSub.unsubscribe();
     };
-  }, [isAuthenticated, user?.id, invalidateRequests, showToasts, onStatusChange]);
+  }, [isAuthenticated, user?.id, invalidateRequests, showToasts]);
 }

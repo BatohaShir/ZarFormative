@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { withRateLimit, rateLimitResponse, addRateLimitHeaders } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { toNumber } from "@/lib/prisma-utils";
 
 // Период уникальности просмотра (24 часа)
 const VIEW_UNIQUENESS_PERIOD_HOURS = 24;
@@ -95,7 +96,7 @@ export async function POST(
     const { views_count, inserted } = result[0];
 
     // Convert BigInt to Number for JSON serialization
-    const viewsCountNumber = typeof views_count === 'bigint' ? Number(views_count) : views_count;
+    const viewsCountNumber = toNumber(views_count);
 
     if (!inserted) {
       const response = NextResponse.json({

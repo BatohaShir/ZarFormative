@@ -1,11 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { MapContainer, TileLayer, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Circle } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { cn } from "@/lib/utils";
-import { X, ZoomIn, ZoomOut, Navigation2, Maximize2, MapPin, Loader2 } from "lucide-react";
-import { TILE_URL } from "@/components/ui/base-map";
+import { X } from "lucide-react";
+import {
+  TILE_URL,
+  MapViewController,
+  MapControlsContainer,
+  ZoomControls,
+  CenterButton,
+  MyLocationButton,
+  CloseButton,
+  LegendItem,
+  PreviewMapWrapper,
+  useGeolocation,
+  useAutoHideError,
+} from "@/components/maps/shared";
 
 interface AddressMapLeafletProps {
   coordinates: [number, number];
@@ -14,26 +25,8 @@ interface AddressMapLeafletProps {
   addressText?: string;
 }
 
-// Компонент для управления картой
-function MapController({
-  coordinates,
-  zoom
-}: {
-  coordinates: [number, number];
-  zoom: number;
-}) {
-  const map = useMap();
-
-  React.useEffect(() => {
-    map.setView(coordinates, zoom);
-  }, [map, coordinates, zoom]);
-
-  return null;
-}
-
-
-// Полноэкранная модалка карты
-function FullscreenMapModal({
+// Полноэкранная модалка карты для отображения адреса
+function AddressFullscreenModal({
   coordinates,
   radius,
   addressText,
@@ -44,7 +37,9 @@ function FullscreenMapModal({
   addressText?: string;
   onClose: () => void;
 }) {
-  const mapRef = React.useRef<L.Map | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mapRef = React.useRef<any>(null);
+
   // Zoom уровень зависит от радиуса: чем меньше радиус, тем ближе zoom
   const getInitialZoom = () => {
     if (radius <= 500) return 16;
@@ -53,75 +48,35 @@ function FullscreenMapModal({
     if (radius <= 5000) return 13;
     return 12;
   };
+
   const [zoom, setZoom] = React.useState(getInitialZoom());
-  const [userLocation, setUserLocation] = React.useState<[number, number] | null>(null);
-  const [isLocating, setIsLocating] = React.useState(false);
-  const [locationError, setLocationError] = React.useState<string | null>(null);
+  const { location: userLocation, isLocating, error, requestLocation, clearError } = useGeolocation();
+  const visibleError = useAutoHideError(error);
 
-  // Автоматически скрываем ошибку через 5 секунд
-  React.useEffect(() => {
-    if (locationError) {
-      const timer = setTimeout(() => setLocationError(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [locationError]);
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 1, 18));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 1, 10));
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 1, 18));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 1, 10));
   const handleCenter = () => {
     if (mapRef.current) {
       mapRef.current.setView(coordinates, zoom);
     }
   };
 
-  // Показать мое местоположение
   const handleShowMyLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError("Таны браузер байршил тодорхойлохыг дэмжихгүй байна");
-      return;
-    }
-
-    setIsLocating(true);
-    setLocationError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation([latitude, longitude]);
-        setIsLocating(false);
-
-        // Центрируем карту чтобы показать обе точки
-        if (mapRef.current) {
-          const bounds = [
-            coordinates,
-            [latitude, longitude] as [number, number]
-          ];
-          mapRef.current.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [50, 50] });
-        }
-      },
-      (error) => {
-        setIsLocating(false);
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            setLocationError("Байршил тодорхойлох зөвшөөрөл өгөөгүй байна");
-            break;
-          case error.POSITION_UNAVAILABLE:
-            setLocationError("Байршил тодорхойлох боломжгүй байна");
-            break;
-          case error.TIMEOUT:
-            setLocationError("Хугацаа дууслаа, дахин оролдоно уу");
-            break;
-          default:
-            setLocationError("Алдаа гарлаа");
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    requestLocation();
   };
+
+  // Fly to user location and fit bounds when it becomes available
+  React.useEffect(() => {
+    if (userLocation && mapRef.current) {
+      const bounds = [coordinates, userLocation];
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [userLocation, coordinates]);
 
   return (
     <div
-      className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-0 md:p-6"
+      className="fixed inset-0 bg-black/80 z-9999 flex items-center justify-center p-0 md:p-6"
       onClick={onClose}
     >
       <div
@@ -129,7 +84,7 @@ function FullscreenMapModal({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-[1001] bg-gradient-to-b from-black/60 to-transparent p-4">
+        <div className="absolute top-0 left-0 right-0 z-1001 bg-linear-to-b from-black/60 to-transparent p-4">
           <div className="flex items-start justify-between">
             <div className="text-white">
               <h3 className="font-semibold text-lg">Байршил</h3>
@@ -137,13 +92,7 @@ function FullscreenMapModal({
                 <p className="text-sm text-white/80 mt-0.5">{addressText}</p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
-            >
-              <X className="h-5 w-5 text-white" />
-            </button>
+            <CloseButton onClick={onClose} />
           </div>
         </div>
 
@@ -158,7 +107,7 @@ function FullscreenMapModal({
             attributionControl={false}
             ref={mapRef}
           >
-            <MapController coordinates={coordinates} zoom={zoom} />
+            <MapViewController center={coordinates} zoom={zoom} />
             <TileLayer url={TILE_URL} maxZoom={19} />
             <Circle
               center={coordinates}
@@ -196,79 +145,37 @@ function FullscreenMapModal({
             )}
           </MapContainer>
 
-          {/* Controls - позиционируем ниже header */}
-          <div className="absolute top-20 right-4 z-[1000] flex flex-col gap-1.5">
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              className="w-10 h-10 bg-white dark:bg-gray-800 rounded-lg shadow-md flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
-            >
-              <ZoomIn className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            </button>
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              className="w-10 h-10 bg-white dark:bg-gray-800 rounded-lg shadow-md flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
-            >
-              <ZoomOut className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            </button>
-            {/* Фокус на адресе */}
-            <button
-              type="button"
-              onClick={handleCenter}
-              className="w-10 h-10 bg-white dark:bg-gray-800 rounded-lg shadow-md flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border border-gray-200 dark:border-gray-600"
-              title="Байршилд төвлөрөх"
-            >
-              <MapPin className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-            </button>
-            {/* Миний байршил */}
-            <button
-              type="button"
+          {/* Controls */}
+          <MapControlsContainer position="top-right" offsetTop>
+            <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
+            <CenterButton onClick={handleCenter} />
+            <MyLocationButton
               onClick={handleShowMyLocation}
-              disabled={isLocating}
-              className={cn(
-                "w-10 h-10 rounded-lg shadow-md flex items-center justify-center transition-colors border",
-                userLocation
-                  ? "bg-green-500 hover:bg-green-600 border-green-600"
-                  : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border-gray-200 dark:border-gray-600",
-                isLocating && "opacity-70 cursor-wait"
-              )}
-              title="Миний байршил"
-            >
-              {isLocating ? (
-                <Loader2 className={cn("h-5 w-5 animate-spin", userLocation ? "text-white" : "text-gray-700 dark:text-gray-300")} />
-              ) : (
-                <Navigation2 className={cn("h-5 w-5 rotate-45", userLocation ? "text-white" : "text-gray-700 dark:text-gray-300")} />
-              )}
-            </button>
-          </div>
+              isLocating={isLocating}
+              hasLocation={!!userLocation}
+            />
+          </MapControlsContainer>
         </div>
 
-        {/* Footer info - с учётом safe area на мобильных */}
-        <div className="absolute bottom-0 left-0 right-0 z-[1001] p-4 pb-safe bg-gradient-to-t from-black/40 via-black/20 to-transparent">
+        {/* Footer */}
+        <div className="absolute bottom-0 left-0 right-0 z-1001 p-4 pb-safe bg-linear-to-t from-black/40 via-black/20 to-transparent">
           {/* Ошибка геолокации */}
-          {locationError && (
+          {visibleError && (
             <button
               type="button"
-              onClick={() => setLocationError(null)}
+              onClick={clearError}
               className="mb-3 text-xs text-white bg-red-500/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg flex items-center gap-2 hover:bg-red-600/90 transition-colors"
             >
-              <span>{locationError}</span>
+              <span>{visibleError}</span>
               <X className="h-3.5 w-3.5 shrink-0" />
             </button>
           )}
 
-          {/* Легенда - более заметная */}
+          {/* Легенда */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <div className="flex items-center gap-2.5 bg-white dark:bg-gray-800 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-gray-100 dark:border-gray-700">
-              <span className="w-3.5 h-3.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50" />
-              <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Үйлчилгээний хаяг</span>
-            </div>
+            <LegendItem color="#ef4444" label="Үйлчилгээний хаяг" />
             {userLocation && (
-              <div className="flex items-center gap-2.5 bg-white dark:bg-gray-800 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-gray-100 dark:border-gray-700">
-                <span className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-sm shadow-green-500/50" />
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Миний байршил</span>
-              </div>
+              <LegendItem color="#22c55e" label="Миний байршил" />
             )}
           </div>
         </div>
@@ -288,14 +195,10 @@ export function AddressMapLeaflet({
   return (
     <>
       {/* Preview карта */}
-      <button
-        type="button"
+      <PreviewMapWrapper
         onClick={() => setShowFullscreen(true)}
-        className={cn(
-          "w-full h-[180px] rounded-xl overflow-hidden relative z-0 group cursor-pointer",
-          "ring-1 ring-border hover:ring-primary/50 transition-all",
-          className
-        )}
+        className={className}
+        height="h-45"
       >
         <MapContainer
           center={coordinates}
@@ -319,25 +222,11 @@ export function AddressMapLeaflet({
             }}
           />
         </MapContainer>
-
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg">
-            <Maximize2 className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-          </div>
-        </div>
-
-        {/* Click hint */}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-[10px] bg-black/50 text-white px-2 py-1 rounded-full">
-            Дарж томруулах
-          </span>
-        </div>
-      </button>
+      </PreviewMapWrapper>
 
       {/* Fullscreen модалка */}
       {showFullscreen && (
-        <FullscreenMapModal
+        <AddressFullscreenModal
           coordinates={coordinates}
           radius={radius}
           addressText={addressText}

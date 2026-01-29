@@ -78,11 +78,12 @@ interface ServicesMapLeafletProps {
   isFullscreen?: boolean;
   onFullscreen?: () => void;
   onLocationSelect?: (districtId: string | null, aimagId: string | null) => void;
+  onClusterSelect?: (listingIds: string[]) => void;
 }
 
 // OPTIMIZATION: Убрана двойная загрузка - leaflet импортируется статически
 // Компонент уже загружается через dynamic() в services-map.tsx
-export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsWithCoords, isFullscreen, onFullscreen, onLocationSelect }: ServicesMapLeafletProps) {
+export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsWithCoords, isFullscreen, onFullscreen, onLocationSelect, onClusterSelect }: ServicesMapLeafletProps) {
   const [myLocation, setMyLocation] = React.useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = React.useState(false);
   const [flyToPosition, setFlyToPosition] = React.useState<[number, number] | null>(null);
@@ -129,10 +130,23 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
     );
   };
 
-  // Handle location click - filter by district/aimag
+  // Handle location click - filter by district/aimag (legacy)
   const handleLocationClick = (districtId: string | null, aimagId: string | null) => {
     if (onLocationSelect) {
       onLocationSelect(districtId, aimagId);
+    }
+  };
+
+  // Handle cluster click - filter by listing IDs
+  const handleClusterClick = (listingIds: string[]) => {
+    if (onClusterSelect) {
+      onClusterSelect(listingIds);
+    } else if (onLocationSelect) {
+      // Fallback to old behavior
+      const firstListing = listingsWithCoords.find(l => l.id === listingIds[0]);
+      if (firstListing) {
+        onLocationSelect(firstListing.district?.id || null, firstListing.aimag?.id || null);
+      }
     }
   };
 
@@ -200,8 +214,7 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
         {/* Listing markers - show count only, click to filter */}
         {groupedListings.map((group, groupIndex) => {
           const firstListing = group[0];
-          const districtId = firstListing.district?.id || null;
-          const aimagId = firstListing.aimag?.id || null;
+          const listingIds = group.map(l => l.id);
 
           return (
             <Marker
@@ -209,7 +222,7 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
               position={[firstListing.lat, firstListing.lng]}
               icon={createClusterIcon(group.length)}
               eventHandlers={{
-                click: () => handleLocationClick(districtId, aimagId),
+                click: () => handleClusterClick(listingIds),
               }}
             />
           );
