@@ -541,20 +541,7 @@ function RequestsPageContent() {
         // OPTIMIZED: Invalidate cache to ensure consistency
         await queryClient.invalidateQueries({ queryKey });
 
-        toast.success("Хүсэлт зөвшөөрөгдлөө!", {
-          action: {
-            label: "Буцаах",
-            onClick: () => {
-              if (oldStatus) {
-                updateRequest.mutate({
-                  where: { id: requestId },
-                  data: { status: oldStatus, accepted_at: null },
-                });
-                revertOptimisticUpdate(requestId, oldStatus);
-              }
-            },
-          },
-        });
+        toast.success("Хүсэлт зөвшөөрөгдлөө!");
         setSelectedRequest(null);
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -593,20 +580,7 @@ function RequestsPageContent() {
         // OPTIMIZED: Invalidate cache to ensure consistency
         await queryClient.invalidateQueries({ queryKey });
 
-        toast.success("Хүсэлт татгалзагдлаа", {
-          action: {
-            label: "Буцаах",
-            onClick: () => {
-              if (oldStatus) {
-                updateRequest.mutate({
-                  where: { id: requestId },
-                  data: { status: oldStatus },
-                });
-                revertOptimisticUpdate(requestId, oldStatus);
-              }
-            },
-          },
-        });
+        toast.success("Хүсэлт татгалзагдлаа");
         setSelectedRequest(null);
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -645,20 +619,7 @@ function RequestsPageContent() {
         // OPTIMIZED: Invalidate cache to ensure consistency
         await queryClient.invalidateQueries({ queryKey });
 
-        toast.success("Хүсэлт цуцлагдлаа", {
-          action: {
-            label: "Буцаах",
-            onClick: () => {
-              if (oldStatus) {
-                updateRequest.mutate({
-                  where: { id: requestId },
-                  data: { status: oldStatus },
-                });
-                revertOptimisticUpdate(requestId, oldStatus);
-              }
-            },
-          },
-        });
+        toast.success("Хүсэлт цуцлагдлаа");
         setSelectedRequest(null);
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -697,20 +658,7 @@ function RequestsPageContent() {
         // OPTIMIZED: Invalidate cache to ensure consistency
         await queryClient.invalidateQueries({ queryKey });
 
-        toast.success("Хүсэлт цуцлагдлаа", {
-          action: {
-            label: "Буцаах",
-            onClick: () => {
-              if (oldStatus) {
-                updateRequest.mutate({
-                  where: { id: requestId },
-                  data: { status: oldStatus },
-                });
-                revertOptimisticUpdate(requestId, oldStatus);
-              }
-            },
-          },
-        });
+        toast.success("Хүсэлт цуцлагдлаа");
         setSelectedRequest(null);
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);

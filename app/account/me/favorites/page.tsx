@@ -239,20 +239,13 @@ export default function FavoritesPage() {
     // Optimistically remove (context already handles this)
     toggleFavorite(listingId);
 
-    // Show toast with Undo button
+    // Show toast
     toast.success(
       <div className="flex items-center gap-2">
         <span className="truncate max-w-50">&quot;{title}&quot; хасагдлаа</span>
       </div>,
       {
-        duration: 5000,
-        action: {
-          label: "Буцаах",
-          onClick: () => {
-            // Re-add to favorites
-            toggleFavorite(listingId);
-          },
-        },
+        duration: 3000,
         icon: <Heart className="w-4 h-4 text-pink-500" />,
       }
     );

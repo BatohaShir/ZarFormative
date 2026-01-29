@@ -345,28 +345,7 @@ export default function MyServicesPage() {
         where: { id },
         data: { status: newStatus },
       });
-      toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо", {
-        action: {
-          label: "Буцаах",
-          onClick: () => {
-            // Revert optimistically
-            queryClient.setQueriesData<ListingWithRelations[]>(
-              { queryKey },
-              (old) => {
-                if (!old) return old;
-                return old.map((listing) =>
-                  listing.id === id ? { ...listing, status: oldStatus } : listing
-                );
-              }
-            );
-            // Then sync with server
-            updateListing({
-              where: { id },
-              data: { status: oldStatus },
-            });
-          },
-        },
-      });
+      toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо");
     } catch {
       // Revert on error
       queryClient.setQueriesData<ListingWithRelations[]>(
