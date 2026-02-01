@@ -17,6 +17,8 @@ export type Profile = {
   company_name: string | null;
   registration_number: string | null;
   is_deleted: boolean;
+  // Язык интерфейса (mn, ru, en)
+  preferred_language: string;
   // Денормализованные статистики (обновляются триггером в БД)
   avg_rating: number | null;
   reviews_count: number;
@@ -100,6 +102,7 @@ export function useCurrentUser() {
         company_name: true,
         registration_number: true,
         is_deleted: true,
+        preferred_language: true,
         // Денормализованные статистики - убирают 2 отдельных запроса на странице профиля
         avg_rating: true,
         reviews_count: true,

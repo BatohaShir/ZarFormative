@@ -259,6 +259,14 @@ const metadata: ModelMeta = {
                 }, name: {
                     name: "name",
                     type: "String",
+                }, name_ru: {
+                    name: "name_ru",
+                    type: "String",
+                    isOptional: true,
+                }, name_en: {
+                    name: "name_en",
+                    type: "String",
+                    isOptional: true,
                 }, icon: {
                     name: "icon",
                     type: "String",
@@ -370,6 +378,10 @@ const metadata: ModelMeta = {
                     name: "is_deleted",
                     type: "Boolean",
                     attributes: [{ "name": "@default", "args": [{ "name": "value", "value": false }] }],
+                }, preferred_language: {
+                    name: "preferred_language",
+                    type: "String",
+                    attributes: [{ "name": "@default", "args": [{ "name": "value", "value": "mn" }] }],
                 }, avg_rating: {
                     name: "avg_rating",
                     type: "Decimal",

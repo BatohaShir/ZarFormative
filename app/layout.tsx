@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { ThemeProvider } from "@/components/theme-provider";
 import { FavoritesProvider } from "@/contexts/favorites-context";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -95,13 +97,17 @@ export const metadata: Metadata = {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseHost = supabaseUrl ? new URL(supabaseUrl).host : null;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Получаем текущую локаль и переводы
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="mn" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         {/* Preconnect для Supabase - ускоряет загрузку изображений и API */}
         {supabaseHost && (
@@ -116,34 +122,36 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <QueryProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="light"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <AuthProvider>
-              <FavoritesProvider>
-                <LazyNotificationsProvider>
-                  <LazyMessagesProvider>
-                    {children}
-                    <MobileBottomNav />
-                    <NotificationBanner />
-                    <RealtimeConnectionBanner />
-                    <Toaster
-                      position="top-center"
-                      closeButton
-                      toastOptions={{
-                        duration: 4000,
-                      }}
-                    />
-                  </LazyMessagesProvider>
-                </LazyNotificationsProvider>
-              </FavoritesProvider>
-            </AuthProvider>
-          </ThemeProvider>
-        </QueryProvider>
+        <NextIntlClientProvider messages={messages}>
+          <QueryProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="light"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <AuthProvider>
+                <FavoritesProvider>
+                  <LazyNotificationsProvider>
+                    <LazyMessagesProvider>
+                      {children}
+                      <MobileBottomNav />
+                      <NotificationBanner />
+                      <RealtimeConnectionBanner />
+                      <Toaster
+                        position="top-center"
+                        closeButton
+                        toastOptions={{
+                          duration: 4000,
+                        }}
+                      />
+                    </LazyMessagesProvider>
+                  </LazyNotificationsProvider>
+                </FavoritesProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </QueryProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

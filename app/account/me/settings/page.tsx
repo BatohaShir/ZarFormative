@@ -18,6 +18,7 @@ import {
   Loader2,
   Sparkles,
   LogOut,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -32,7 +33,9 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { NotificationsButton } from "@/components/notifications-button";
 import { useTheme } from "next-themes";
+import { useTranslations } from "next-intl";
 import { usePushSubscription } from "@/hooks/use-push-subscription";
+import { LanguageSelector } from "@/components/language-selector";
 import {
   useNotificationSettings,
   type NotificationSettings,
@@ -159,6 +162,7 @@ export default function AppSettingsPage() {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const t = useTranslations("settings");
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -265,18 +269,35 @@ export default function AppSettingsPage() {
       </header>
 
       <div className="container mx-auto px-4 py-6 max-w-2xl space-y-6">
-        {/* Appearance Section */}
+        {/* Language Section */}
         <section className="space-y-3">
           <div className="flex items-center gap-2 px-1">
-            <Palette className="h-4 w-4 text-primary" />
+            <Globe className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Харагдац
+              {t("language")}
             </h2>
           </div>
 
           <div className="bg-card rounded-2xl border p-4 space-y-4">
             <div>
-              <Label className="text-sm font-medium mb-3 block">Өнгөний загвар</Label>
+              <Label className="text-sm font-medium mb-3 block">{t("languageDescription")}</Label>
+              <LanguageSelector />
+            </div>
+          </div>
+        </section>
+
+        {/* Appearance Section */}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Palette className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              {t("theme")}
+            </h2>
+          </div>
+
+          <div className="bg-card rounded-2xl border p-4 space-y-4">
+            <div>
+              <Label className="text-sm font-medium mb-3 block">{t("themeDescription")}</Label>
               {mounted && <ThemeSelector value={theme} onChange={setTheme} />}
             </div>
           </div>

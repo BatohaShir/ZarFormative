@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useCurrentUser, type Profile } from "@/hooks/use-current-user";
 import type { User } from "@supabase/supabase-js";
+import { LOCALE_COOKIE, isValidLocale } from "@/i18n/config";
 
 interface AuthContextType {
   user: User | null;
@@ -32,6 +33,15 @@ interface AuthContextType {
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
+// Быстрое получение cookie
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return match ? match[2] : null;
+}
+
+// Ключ для отслеживания смены языка пользователем
+const LOCALE_CHANGED_KEY = "locale_changed_by_user";
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const {
     user,
@@ -52,7 +62,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refetchProfile();
   }, [refetchProfile]);
 
-  // Мемоизируем context value чтобы предотвратить ненужные ре-рендеры потребителей
+  // Синхронизация языка из БД при логине на другом устройстве
+  // НЕ синхронизируем если пользователь только что сменил язык локально
+  const syncedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const preferredLang = profile?.preferred_language;
+
+    // Быстрый выход
+    if (!preferredLang || !isValidLocale(preferredLang) || syncedRef.current) {
+      return;
+    }
+
+    // Проверяем, менял ли пользователь язык локально
+    const userChangedLocale = sessionStorage.getItem(LOCALE_CHANGED_KEY);
+    if (userChangedLocale) {
+      // Пользователь сам менял язык - очищаем флаг и НЕ синхронизируем
+      sessionStorage.removeItem(LOCALE_CHANGED_KEY);
+      syncedRef.current = true;
+      return;
+    }
+
+    const currentCookie = getCookie(LOCALE_COOKIE);
+
+    // Синхронизируем только если язык отличается
+    // Это сработает при логине на новом устройстве
+    if (currentCookie !== preferredLang) {
+      syncedRef.current = true;
+      document.cookie = `${LOCALE_COOKIE}=${preferredLang};path=/;max-age=31536000;SameSite=Lax`;
+      localStorage.setItem("locale", preferredLang);
+      window.location.reload();
+    }
+  }, [profile?.preferred_language]);
+
   const contextValue = React.useMemo<AuthContextType>(
     () => ({
       user,

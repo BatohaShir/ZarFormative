@@ -221,7 +221,9 @@ model khoroos {
 model categories {
   id          String   @id @default(uuid()) @db.Uuid
   slug        String   @unique          // "transport", "repair" и т.д.
-  name        String                    // "Тээвэрлэлт, хүргэлт"
+  name        String                    // "Тээвэрлэлт, хүргэлт" (монгольский)
+  name_ru     String?                   // "Транспорт, доставка" (русский)
+  name_en     String?                   // "Transport, delivery" (английский)
   icon        String?                   // "/icons/delivery-man.png" или emoji
 
   // Иерархия
@@ -276,6 +278,9 @@ model profiles {
   company_name        String?
   registration_number String?
   is_deleted          Boolean  @default(false)
+
+  // Язык интерфейса (mn - монгольский, ru - русский, en - английский)
+  preferred_language  String   @default("mn")
 
   // Денормализованные агрегатные поля для производительности
   // Обновляются триггером при изменении reviews/listing_requests

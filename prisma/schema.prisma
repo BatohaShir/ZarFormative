@@ -144,6 +144,8 @@ model categories {
   id         String       @id() @default(uuid()) @db.Uuid()
   slug       String       @unique()
   name       String
+  name_ru    String?
+  name_en    String?
   icon       String?
   parent_id  String?      @db.Uuid()
   parent     categories?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
@@ -174,6 +176,7 @@ model profiles {
   company_name            String?
   registration_number     String?
   is_deleted              Boolean                         @default(false)
+  preferred_language      String                          @default("mn")
   avg_rating              Decimal?                        @db.Decimal(2, 1)
   reviews_count           Int                             @default(0)
   completed_jobs_count    Int                             @default(0)
