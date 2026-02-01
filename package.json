@@ -55,6 +55,7 @@
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "decimal.js": "^10.6.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.563.0",
     "next": "16.1.4",
