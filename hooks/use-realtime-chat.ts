@@ -3,11 +3,28 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import { createRealtimeSubscription } from "@/lib/realtime-utils";
-import type { chat_messages } from "@prisma/client";
-import { Prisma } from "@prisma/client";
+import { createClient } from "@/lib/supabase/client";
+import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { Decimal } from "decimal.js";
 
-interface ChatMessage extends chat_messages {
+// Тип для chat_messages (соответствует Prisma модели)
+interface ChatMessageBase {
+  id: string;
+  request_id: string;
+  sender_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: Date;
+  read_at: Date | null;
+  attachment_type: string | null;
+  attachment_url: string | null;
+  location_lat: Decimal | null;
+  location_lng: Decimal | null;
+  location_name: string | null;
+  updated_at: Date;
+}
+
+interface ChatMessage extends ChatMessageBase {
   sender?: {
     id: string;
     first_name: string | null;
@@ -19,6 +36,23 @@ interface ChatMessage extends chat_messages {
   $optimistic?: boolean;
 }
 
+// Тип для payload от Supabase
+interface ChatMessagePayload {
+  id: string;
+  request_id: string;
+  sender_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  read_at: string | null;
+  attachment_type: string | null;
+  attachment_url: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  location_name: string | null;
+  [key: string]: unknown;
+}
+
 interface UseRealtimeChatOptions {
   requestId: string;
   enabled?: boolean;
@@ -28,17 +62,17 @@ interface UseRealtimeChatOptions {
 
 /**
  * Hook for real-time chat synchronization
- * - Subscribes to INSERT events (new messages)
- * - Subscribes to UPDATE events (read status)
- * - Uses retry logic with exponential backoff
- * - Supports optimistic updates
+ *
+ * CRITICAL FIX: Подписываемся на ВСЕ изменения таблицы без фильтров
+ * и фильтруем на клиенте. Это гарантирует доставку событий.
+ * (По аналогии с use-realtime-requests.ts)
  */
 export function useRealtimeChat(options: UseRealtimeChatOptions) {
   const { requestId, enabled = true, onNewMessage, onMessageRead } = options;
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
-  const [isConnected, setIsConnected] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
 
   // Refs for stable callbacks
   const onNewMessageRef = useRef(onNewMessage);
@@ -48,8 +82,17 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
   onMessageReadRef.current = onMessageRead;
 
   const invalidateMessages = useCallback(() => {
+    console.log("[useRealtimeChat] Invalidating chat_messages queries");
+
+    // Invalidate all chat_messages queries
     queryClient.invalidateQueries({
-      queryKey: ["chat_messages", "findMany"],
+      queryKey: ["chat_messages"],
+    });
+
+    // Also refetch active queries immediately
+    queryClient.refetchQueries({
+      queryKey: ["chat_messages"],
+      type: "active",
     });
   }, [queryClient]);
 
@@ -57,26 +100,48 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
    * Add optimistic message to cache
    */
   const addOptimisticMessage = useCallback(
-    (message: Omit<ChatMessage, "id" | "created_at" | "updated_at" | "location_lat" | "location_lng"> & {
+    (message: {
+      request_id: string;
+      sender_id: string;
+      message: string;
+      attachment_type?: string | null;
+      attachment_url?: string | null;
       location_lat?: number | null;
       location_lng?: number | null;
+      location_name?: string | null;
+      is_read: boolean;
+      read_at?: Date | null;
+      sender?: ChatMessage["sender"];
     }) => {
       const optimisticMessage: ChatMessage = {
-        ...message,
         id: `optimistic-${Date.now()}`,
+        request_id: message.request_id,
+        sender_id: message.sender_id,
+        message: message.message,
+        attachment_type: message.attachment_type || null,
+        attachment_url: message.attachment_url || null,
+        location_lat: message.location_lat ? new Decimal(message.location_lat) : null,
+        location_lng: message.location_lng ? new Decimal(message.location_lng) : null,
+        location_name: message.location_name || null,
+        is_read: message.is_read,
+        read_at: message.read_at || null,
         created_at: new Date(),
         updated_at: new Date(),
-        location_lat: message.location_lat ? new Prisma.Decimal(message.location_lat) : null,
-        location_lng: message.location_lng ? new Prisma.Decimal(message.location_lng) : null,
+        sender: message.sender,
         $optimistic: true,
       } as ChatMessage;
 
-      // Add to cache
-      queryClient.setQueryData<ChatMessage[]>(
-        ["chat_messages", "findMany", { where: { request_id: requestId } }],
+      // Add to cache - use partial key match
+      queryClient.setQueriesData<ChatMessage[]>(
+        { queryKey: ["chat_messages", "findMany"] },
         (old) => {
           if (!old) return [optimisticMessage];
-          return [...old, optimisticMessage];
+          // Only add to queries for this request
+          const hasOurRequest = old.some(m => m.request_id === requestId);
+          if (hasOurRequest || old.length === 0) {
+            return [...old, optimisticMessage];
+          }
+          return old;
         }
       );
 
@@ -90,15 +155,15 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
    */
   const removeOptimisticMessage = useCallback(
     (optimisticId: string) => {
-      queryClient.setQueryData<ChatMessage[]>(
-        ["chat_messages", "findMany", { where: { request_id: requestId } }],
+      queryClient.setQueriesData<ChatMessage[]>(
+        { queryKey: ["chat_messages", "findMany"] },
         (old) => {
           if (!old) return [];
           return old.filter((m) => m.id !== optimisticId);
         }
       );
     },
-    [queryClient, requestId]
+    [queryClient]
   );
 
   /**
@@ -106,65 +171,117 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
    */
   const replaceOptimisticMessage = useCallback(
     (optimisticId: string, realMessage: ChatMessage) => {
-      queryClient.setQueryData<ChatMessage[]>(
-        ["chat_messages", "findMany", { where: { request_id: requestId } }],
+      queryClient.setQueriesData<ChatMessage[]>(
+        { queryKey: ["chat_messages", "findMany"] },
         (old) => {
           if (!old) return [realMessage];
           return old.map((m) => (m.id === optimisticId ? realMessage : m));
         }
       );
     },
-    [queryClient, requestId]
+    [queryClient]
   );
 
   useEffect(() => {
     if (!enabled || !requestId || !user?.id) return;
 
-    const subscription = createRealtimeSubscription<chat_messages>({
-      channelName: `chat-messages:${requestId}`,
-      table: "chat_messages",
-      filter: `request_id=eq.${requestId}`,
-      event: "*",
-      onInsert: (payload) => {
-        const newMessage = payload.new as ChatMessage;
+    const supabase = createClient();
+    const userId = user.id;
 
-        // If message is from another user, add to cache immediately
-        if (newMessage.sender_id !== user.id) {
-          invalidateMessages();
+    console.log("[useRealtimeChat] Setting up realtime subscription for request:", requestId, "user:", userId);
 
-          if (onNewMessageRef.current) {
-            onNewMessageRef.current(newMessage);
+    // CRITICAL: Подписываемся на ВСЕ изменения без фильтров
+    // Фильтры Supabase Realtime могут не работать если REPLICA IDENTITY неправильно настроен
+    // Фильтруем на клиенте для надёжности
+    const channel = supabase
+      .channel(`chat-messages-${requestId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "chat_messages",
+        },
+        (payload: RealtimePostgresChangesPayload<ChatMessagePayload>) => {
+          const newData = payload.new as ChatMessagePayload | null;
+          const oldData = payload.old as ChatMessagePayload | null;
+
+          // Проверяем что это событие относится к нашему request_id
+          const isOurRequest =
+            newData?.request_id === requestId ||
+            oldData?.request_id === requestId;
+
+          if (!isOurRequest) {
+            // Это событие не для нас, игнорируем
+            return;
           }
-        } else {
-          // Our own message - might already be in cache as optimistic
-          // Just invalidate to get the real data
-          invalidateMessages();
-        }
 
-        setIsConnected(true);
-      },
-      onUpdate: (payload) => {
-        const updatedMessage = payload.new as ChatMessage;
-        const oldMessage = payload.old as Partial<ChatMessage>;
+          console.log("[useRealtimeChat] Received event:", {
+            eventType: payload.eventType,
+            messageId: newData?.id || oldData?.id,
+            senderId: newData?.sender_id,
+            isOwnMessage: newData?.sender_id === userId,
+            isRead: newData?.is_read,
+            wasRead: oldData?.is_read,
+          });
 
-        // Check if read status changed
-        if (oldMessage.is_read === false && updatedMessage.is_read === true) {
-          invalidateMessages();
+          if (payload.eventType === "INSERT") {
+            // Новое сообщение
+            console.log("[useRealtimeChat] INSERT - New message received");
 
-          if (onMessageReadRef.current && updatedMessage.id) {
-            onMessageReadRef.current(updatedMessage.id);
+            // Инвалидируем кэш для получения актуальных данных
+            invalidateMessages();
+
+            // Если сообщение от другого пользователя - вызываем callback
+            if (newData?.sender_id !== userId && onNewMessageRef.current) {
+              onNewMessageRef.current(newData as unknown as ChatMessage);
+            }
+          } else if (payload.eventType === "UPDATE") {
+            const wasRead = oldData?.is_read === false;
+            const nowRead = newData?.is_read === true;
+
+            console.log("[useRealtimeChat] UPDATE - wasRead:", wasRead, "nowRead:", nowRead);
+
+            // Проверяем изменение статуса прочтения
+            if (wasRead && nowRead) {
+              console.log("[useRealtimeChat] Message marked as read");
+              invalidateMessages();
+
+              if (onMessageReadRef.current && newData?.id) {
+                onMessageReadRef.current(newData.id);
+              }
+            } else {
+              // Другое обновление
+              invalidateMessages();
+            }
+          } else if (payload.eventType === "DELETE") {
+            console.log("[useRealtimeChat] DELETE - Message deleted");
+            invalidateMessages();
           }
-        } else {
-          // Other update
-          invalidateMessages();
         }
-
-        setIsConnected(true);
-      },
-    });
+      )
+      .subscribe((status: string, err?: Error) => {
+        console.log("[useRealtimeChat] Subscription status:", status);
+        if (err) {
+          console.error("[useRealtimeChat] Subscription error:", err);
+        }
+        if (status === "SUBSCRIBED") {
+          console.log("[useRealtimeChat] ✅ Successfully subscribed to chat_messages changes");
+          setIsConnected(true);
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("[useRealtimeChat] ❌ Channel error - check Supabase Realtime configuration!");
+          console.error("[useRealtimeChat] Make sure chat_messages is added to supabase_realtime publication:");
+          console.error("[useRealtimeChat] ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;");
+          setIsConnected(false);
+        } else if (status === "CLOSED" || status === "TIMED_OUT") {
+          setIsConnected(false);
+        }
+      });
 
     return () => {
-      subscription.unsubscribe();
+      console.log("[useRealtimeChat] Cleaning up subscription for request:", requestId);
+      setIsConnected(false);
+      supabase.removeChannel(channel);
     };
   }, [enabled, requestId, user?.id, invalidateMessages]);
 

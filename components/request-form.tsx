@@ -711,7 +711,10 @@ export function RequestForm({
             actor_id: user.id,
           },
         });
-        // Invalidate notifications cache for both users
+        // Invalidate caches - triggers immediate refetch for all subscribers
+        // listing_requests invalidation ensures provider sees new request immediately
+        // (backup for realtime - works even if Supabase Realtime is not configured)
+        queryClient.invalidateQueries({ queryKey: ["listing_requests"] });
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
 
