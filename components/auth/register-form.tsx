@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -26,6 +27,9 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
+  const t = useTranslations("auth");
+  const tCommon = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
@@ -60,46 +64,46 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
 
     if (registerUserType === "individual") {
       if (!regFirstName.trim()) {
-        newErrors.firstName = "Нэрээ оруулна уу";
+        newErrors.firstName = t("enterFirstName");
       }
       if (!regLastName.trim()) {
-        newErrors.lastName = "Овгоо оруулна уу";
+        newErrors.lastName = t("enterLastName");
       }
     } else {
       if (!regCompanyName.trim()) {
-        newErrors.companyName = "Компанийн нэрийг оруулна уу";
+        newErrors.companyName = t("enterCompanyName");
       }
       if (!regRegistrationNumber.trim()) {
-        newErrors.registrationNumber = "Регистрийн дугаарыг оруулна уу";
+        newErrors.registrationNumber = t("enterRegistrationNumber");
       }
     }
 
     if (!regPhone.trim()) {
-      newErrors.phone = "Утасны дугаараа оруулна уу";
+      newErrors.phone = t("enterPhone");
     } else if (!validatePhone(regPhone)) {
-      newErrors.phone = "Утасны дугаар 8 оронтой байх ёстой";
+      newErrors.phone = tErrors("phoneLength");
     }
 
     if (!regEmail.trim()) {
-      newErrors.email = "И-мэйл хаягаа оруулна уу";
+      newErrors.email = t("enterEmail");
     } else if (!validateEmail(regEmail)) {
-      newErrors.email = "И-мэйл хаяг буруу байна";
+      newErrors.email = tErrors("invalidEmail");
     }
 
     if (!regPassword.trim()) {
-      newErrors.password = "Нууц үгээ оруулна уу";
+      newErrors.password = t("enterPassword");
     } else if (regPassword.length < 6) {
-      newErrors.password = "Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой";
+      newErrors.password = t("passwordMinLength");
     }
 
     if (!regConfirmPassword.trim()) {
-      newErrors.confirmPassword = "Нууц үгээ давтан оруулна уу";
+      newErrors.confirmPassword = t("enterConfirmPassword");
     } else if (regPassword !== regConfirmPassword) {
-      newErrors.confirmPassword = "Нууц үг таарахгүй байна";
+      newErrors.confirmPassword = t("passwordsDoNotMatch");
     }
 
     if (!regTermsAccepted) {
-      newErrors.terms = "Үйлчилгээний нөхцлийг зөвшөөрнө үү";
+      newErrors.terms = t("acceptTerms");
     }
 
     setRegErrors(newErrors);
@@ -117,6 +121,8 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
     regTermsAccepted,
     validateEmail,
     validatePhone,
+    t,
+    tErrors,
   ]);
 
   const handleRegister = React.useCallback(async () => {
@@ -196,7 +202,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
           }`}
         >
           <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          Хувь хүн
+          {t("individual")}
         </button>
         <button
           type="button"
@@ -211,7 +217,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
           }`}
         >
           <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-          Байгууллага
+          {t("company")}
         </button>
       </div>
 
@@ -224,7 +230,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Нэр"
+                  placeholder={t("firstName")}
                   className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
                   value={regFirstName}
                   onChange={(e) => {
@@ -242,7 +248,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Овог"
+                  placeholder={t("lastName")}
                   className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
                   value={regLastName}
                   onChange={(e) => {
@@ -266,7 +272,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               <div className="relative">
                 <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Компанийн нэр"
+                  placeholder={t("companyName")}
                   className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
                   value={regCompanyName}
                   onChange={(e) => {
@@ -284,7 +290,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               <div className="relative">
                 <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Регистрийн дугаар"
+                  placeholder={t("registrationNumber")}
                   className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
                   value={regRegistrationNumber}
                   onChange={(e) => {
@@ -307,7 +313,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type="tel"
-              placeholder="Утасны дугаар"
+              placeholder={t("phoneNumber")}
               className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
               value={regPhone}
               onChange={(e) => {
@@ -326,7 +332,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type="email"
-              placeholder="Имэйл"
+              placeholder={t("email")}
               className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
               value={regEmail}
               onChange={(e) => {
@@ -345,7 +351,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type={showPassword ? "text" : "password"}
-              placeholder="Нууц үг"
+              placeholder={t("password")}
               className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
               value={regPassword}
               onChange={(e) => {
@@ -375,7 +381,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type={showConfirmPassword ? "text" : "password"}
-              placeholder="Нууц үг давтах"
+              placeholder={t("confirmPassword")}
               className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
               value={regConfirmPassword}
               onChange={(e) => {
@@ -418,13 +424,13 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               className="text-[10px] sm:text-xs font-normal leading-tight cursor-pointer text-muted-foreground"
             >
               <a href="#" className="text-primary hover:underline">
-                Үйлчилгээний нөхцөл
+                {t("termsAndConditions")}
               </a>{" "}
-              болон{" "}
+              {t("and")}{" "}
               <a href="#" className="text-primary hover:underline">
-                нууцлалын бодлого
+                {t("privacyPolicy")}
               </a>
-              -г зөвшөөрч байна.
+              {t("agreeToTerms")}
             </Label>
           </div>
           {regErrors.terms && (
@@ -443,7 +449,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
           onClick={handleRegister}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Уншиж байна..." : "Бүртгүүлэх"}
+          {isSubmitting ? tCommon("loading") : t("register")}
         </Button>
       </div>
     </div>

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
@@ -48,6 +49,8 @@ interface ServicesListClientProps {
 }
 
 function ServicesListContent({ initialListings, initialTotalCount }: ServicesListClientProps) {
+  const t = useTranslations("listings");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -432,9 +435,9 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
       <div className="container mx-auto px-4 py-4 md:py-6">
         {/* Page Title with Total Count */}
         <div className="flex items-baseline gap-2 mb-4">
-          <h2 className="text-xl md:text-2xl font-bold">Бүх үйлчилгээ</h2>
+          <h2 className="text-xl md:text-2xl font-bold">{t("allServices")}</h2>
           <span className="text-sm text-muted-foreground">
-            ({displayTotalCount} үр дүн)
+            ({displayTotalCount} {t("results")})
           </span>
         </div>
 
@@ -473,7 +476,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
               <Button variant="outline" className="w-full justify-between h-11">
                 <span className="flex items-center gap-2">
                   <SlidersHorizontal className="h-4 w-4" />
-                  <span>Шүүлтүүр</span>
+                  <span>{t("filters")}</span>
                   {activeFiltersCount > 0 && (
                     <span className="h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
                       {activeFiltersCount}
@@ -511,7 +514,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
             <div className="sticky top-24 border rounded-lg p-4">
               <h3 className="font-semibold mb-4 flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4" />
-                Шүүлтүүр
+                {t("filters")}
                 {activeFiltersCount > 0 && (
                   <span className="ml-auto h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
                     {activeFiltersCount}
@@ -545,18 +548,18 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
             {/* Results header with sort */}
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-muted-foreground">
-                {isLoading ? "Ачааллаж байна..." : `${listingsData.length} үйлчилгээ`}
+                {isLoading ? t("loading") : `${listingsData.length} ${t("services")}`}
               </p>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
                 <SelectTrigger className="w-36 md:w-44">
                   <ArrowUpDown className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Эрэмбэлэх" />
+                  <SelectValue placeholder={t("sort")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">Шинэ</SelectItem>
-                  <SelectItem value="popular">Эрэлттэй</SelectItem>
-                  <SelectItem value="price_asc">Үнэ ↑</SelectItem>
-                  <SelectItem value="price_desc">Үнэ ↓</SelectItem>
+                  <SelectItem value="newest">{t("sortNewest")}</SelectItem>
+                  <SelectItem value="popular">{t("sortPopular")}</SelectItem>
+                  <SelectItem value="price_asc">{t("sortPriceAsc")}</SelectItem>
+                  <SelectItem value="price_desc">{t("sortPriceDesc")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -587,7 +590,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
                         onClick={() => fetchNextPage()}
                         className="min-w-40"
                       >
-                        Дараагийнхыг харах
+                        {t("loadMore")}
                       </Button>
                     )}
                   </div>
@@ -597,23 +600,23 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Image
                   src="/icons/7486744.png"
-                  alt="Пустая коробка"
+                  alt={t("noResults")}
                   width={80}
                   height={80}
                   className="mb-4 opacity-70"
                 />
-                <p className="text-muted-foreground mb-2">Үйлчилгээ олдсонгүй</p>
+                <p className="text-muted-foreground mb-2">{t("noResults")}</p>
                 <p className="text-muted-foreground/70 text-sm mb-4">
-                  Шүүлтүүр өөрчилж үзнэ үү эсвэл эхний зараа нэмээрэй
+                  {t("noResultsHint")}
                 </p>
                 <div className="flex gap-2">
                   {activeFiltersCount > 0 && (
                     <Button variant="outline" onClick={resetFilters}>
-                      Шүүлтүүр цэвэрлэх
+                      {t("clearFilters")}
                     </Button>
                   )}
                   <Link href="/services/create">
-                    <Button>Зар нэмэх</Button>
+                    <Button>{t("addListing")}</Button>
                   </Link>
                 </div>
               </div>

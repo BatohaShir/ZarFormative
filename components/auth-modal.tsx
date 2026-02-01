@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -23,6 +24,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
+  const t = useTranslations();
   const {
     user,
     signIn,
@@ -91,7 +93,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
       }}
     >
       <DialogTrigger asChild>
-        <Button className="text-sm md:text-base">Нэвтрэх</Button>
+        <Button className="text-sm md:text-base">{t("auth.login")}</Button>
       </DialogTrigger>
       <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl p-4 sm:p-6">
         <DialogHeader>
@@ -104,10 +106,10 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10">
             <TabsTrigger value="login" className="text-xs sm:text-sm">
-              Нэвтрэх
+              {t("auth.login")}
             </TabsTrigger>
             <TabsTrigger value="register" className="text-xs sm:text-sm">
-              Бүртгүүлэх
+              {t("auth.register")}
             </TabsTrigger>
           </TabsList>
 

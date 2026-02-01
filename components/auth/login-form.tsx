@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Phone, Mail, Lock, Eye, EyeOff } from "lucide-react";
@@ -11,6 +12,8 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
+  const t = useTranslations("auth");
+  const tCommon = useTranslations("common");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
   const [phoneStep, setPhoneStep] = React.useState<"phone" | "code">("phone");
@@ -20,7 +23,7 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
 
   const handleLogin = React.useCallback(async () => {
     if (!email || !password) {
-      setError("Имэйл болон нууц үгээ оруулна уу");
+      setError(t("enterEmailAndPassword"));
       return;
     }
 
@@ -49,18 +52,18 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <Input
                 type="tel"
-                placeholder="Утасны дугаар"
+                placeholder={t("phoneNumber")}
                 className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
               />
             </div>
             <Button className="w-full h-9 sm:h-10 text-sm" onClick={() => setPhoneStep("code")}>
-              Код авах
+              {t("getCode")}
             </Button>
           </>
         ) : (
           <>
             <p className="text-xs sm:text-sm text-muted-foreground text-center">
-              Таны утсанд илгээсэн кодыг оруулна уу
+              {t("enterCodeSent")}
             </p>
             <div className="flex gap-2 justify-center">
               {[1, 2, 3, 4].map((i) => (
@@ -72,13 +75,13 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
                 />
               ))}
             </div>
-            <Button className="w-full h-9 sm:h-10 text-sm">Нэвтрэх</Button>
+            <Button className="w-full h-9 sm:h-10 text-sm">{t("login")}</Button>
             <Button
               variant="ghost"
               className="w-full text-xs sm:text-sm h-8 sm:h-9"
               onClick={() => setPhoneStep("phone")}
             >
-              Буцах
+              {tCommon("back")}
             </Button>
           </>
         )}
@@ -89,7 +92,7 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-[10px] sm:text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">эсвэл имэйлээр</span>
+          <span className="bg-background px-2 text-muted-foreground">{t("orWithEmail")}</span>
         </div>
       </div>
 
@@ -104,7 +107,7 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
           <Input
             type="email"
-            placeholder="Имэйл"
+            placeholder={t("email")}
             className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
             value={email}
             onChange={(e) => {
@@ -117,7 +120,7 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
           <Input
             type={showPassword ? "text" : "password"}
-            placeholder="Нууц үг"
+            placeholder={t("password")}
             className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
             value={password}
             onChange={(e) => {
@@ -147,10 +150,10 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
           onClick={handleLogin}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Уншиж байна..." : "Нэвтрэх"}
+          {isSubmitting ? tCommon("loading") : t("login")}
         </Button>
         <Button variant="link" className="w-full text-xs sm:text-sm h-8">
-          Нууц үгээ мартсан?
+          {t("forgotPassword")}
         </Button>
       </div>
     </div>

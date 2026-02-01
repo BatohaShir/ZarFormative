@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Home, Heart, Plus, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/contexts/favorites-context";
@@ -13,6 +14,7 @@ import { AuthModal } from "./auth-modal";
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const t = useTranslations();
   const { count: favoritesCount } = useFavorites();
   const { totalUnreadCount } = useMessages();
   const { isAuthenticated, avatarUrl } = useAuth();
@@ -43,21 +45,21 @@ export function MobileBottomNav() {
     {
       href: "/",
       icon: Home,
-      label: "Нүүр",
+      label: t("nav.home"),
       isActive: isActive("/") && pathname === "/",
       badge: null,
     },
     {
       href: "/account/me/favorites",
       icon: Heart,
-      label: "Лайк",
+      label: t("nav.favorites"),
       isActive: isActive("/account/me/favorites"),
       badge: favoritesCount > 0 ? favoritesCount : null,
     },
     {
       href: "/services/create",
       icon: Plus,
-      label: "Зар оруулах",
+      label: t("nav.postAd"),
       isActive: isActive("/services/create"),
       badge: null,
       isCenter: true,
@@ -65,7 +67,7 @@ export function MobileBottomNav() {
     {
       href: "/account/me/requests",
       icon: FileText,
-      label: "Заявки",
+      label: t("nav.requests"),
       isActive: isActive("/account/me/requests"),
       badge: totalUnreadCount > 0 ? totalUnreadCount : null,
       onClick: handleRequestsClick,
@@ -73,7 +75,7 @@ export function MobileBottomNav() {
     {
       href: "/account/me",
       icon: User,
-      label: "Профайл",
+      label: t("nav.profile"),
       isActive: pathname === "/account/me",
       badge: null,
       onClick: handleProfileClick,
@@ -134,7 +136,7 @@ export function MobileBottomNav() {
                   <div className="relative">
                     <Image
                       src={avatarUrl}
-                      alt="Профайл"
+                      alt={t("nav.profile")}
                       width={24}
                       height={24}
                       unoptimized={avatarUrl.includes("dicebear")}

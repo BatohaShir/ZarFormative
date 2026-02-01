@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -90,6 +91,7 @@ interface ServiceDetailClientProps {
 }
 
 export const ServiceDetailClient = React.memo(function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
+  const t = useTranslations("listings");
   const router = useRouter();
   const queryClient = useQueryClient();
   // Используем раздельные хуки для лучшей производительности
@@ -235,7 +237,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
                   onClick={handleSave}
                 >
                   <Heart className={`h-4 w-4 mr-2 ${isFav ? "fill-current" : ""}`} />
-                  {isFav ? "Хадгалсан" : "Хадгалах"}
+                  {isFav ? t("saved") : t("save")}
                 </Button>
               )}
             </div>
@@ -249,7 +251,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
 
               {/* Price */}
               <div className="flex items-baseline gap-2">
-                <span className="text-sm text-muted-foreground">Үнэ:</span>
+                <span className="text-sm text-muted-foreground">{t("price")}:</span>
                 <span className="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-primary/80 bg-clip-text text-transparent">
                   {priceDisplay}
                 </span>
@@ -262,7 +264,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
                     <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-muted-foreground">Байршил</p>
+                    <p className="text-sm text-muted-foreground">{t("location")}</p>
                     <p className="font-medium text-sm md:text-base wrap-break-word">
                       {listing.service_type === "remote" && listing.address_detail
                         ? listing.address_detail
@@ -286,7 +288,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs">
                   <Eye className="h-3.5 w-3.5" />
-                  <span>{viewsCount} үзсэн</span>
+                  <span>{viewsCount} {t("views")}</span>
                 </div>
               </div>
             </div>
@@ -313,8 +315,8 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
                     <FileText className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-base md:text-lg">Дэлгэрэнгүй</h2>
-                    <p className="text-xs text-muted-foreground">Үйлчилгээний тайлбар</p>
+                    <h2 className="font-semibold text-base md:text-lg">{t("details")}</h2>
+                    <p className="text-xs text-muted-foreground">{t("serviceDescription")}</p>
                   </div>
                 </div>
               </div>
@@ -328,7 +330,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
             {/* Gallery - lazy load images */}
             {listing.images.length > 1 && (
               <div className="space-y-2 md:space-y-3">
-                <h2 className="text-base md:text-lg font-semibold">Зургууд ({listing.images.length - 1})</h2>
+                <h2 className="text-base md:text-lg font-semibold">{t("photos")} ({listing.images.length - 1})</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {listing.images.slice(1).map((image, index) => (
                     <div
@@ -455,19 +457,28 @@ export function ServiceDetailSkeleton() {
 
 // Not found component
 export function ServiceNotFound() {
+  // Note: For server components that render this, translations should be passed as props
+  // For now, we use a client-side approach with useTranslations
+  return (
+    <ServiceNotFoundClient />
+  );
+}
+
+function ServiceNotFoundClient() {
+  const t = useTranslations("listings");
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center">
         <Image
           src="/icons/7486744.png"
-          alt="Not found"
+          alt={t("notFound")}
           width={80}
           height={80}
           className="mx-auto mb-4 opacity-70"
         />
-        <h1 className="text-xl md:text-2xl font-bold mb-4">Үйлчилгээ олдсонгүй</h1>
+        <h1 className="text-xl md:text-2xl font-bold mb-4">{t("notFound")}</h1>
         <Link href="/">
-          <Button>Нүүр хуудас руу буцах</Button>
+          <Button>{t("backToHome")}</Button>
         </Link>
       </div>
     </div>
