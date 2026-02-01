@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 export default function GlobalError({
@@ -10,35 +11,20 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Global error:", error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
     <html>
       <body>
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          padding: "20px",
-          textAlign: "center"
-        }}>
-          <h2 style={{ fontSize: "24px", marginBottom: "16px" }}>Алдаа гарлаа</h2>
-          <p style={{ marginBottom: "24px", color: "#666" }}>
-            Уучлаарай, ямар нэг зүйл буруу болсон байна.
+        <div className="flex min-h-screen flex-col items-center justify-center p-4">
+          <h1 className="mb-4 text-2xl font-bold">Алдаа гарлаа</h1>
+          <p className="mb-4 text-gray-600">
+            Уучлаарай, системд алдаа гарлаа. Дахин оролдоно уу.
           </p>
           <button
             onClick={() => reset()}
-            style={{
-              padding: "10px 20px",
-              background: "#000",
-              color: "#fff",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
-            }}
+            className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
             Дахин оролдох
           </button>

@@ -2,6 +2,8 @@
  * Centralized error handling utility
  */
 
+import * as Sentry from "@sentry/nextjs";
+
 export class AppError extends Error {
   constructor(
     message: string,
@@ -69,16 +71,21 @@ export function formatError(error: unknown) {
 }
 
 /**
- * Log error (replace with your logging service)
+ * Log error and send to Sentry
  */
 export function logError(error: unknown, context?: Record<string, unknown>) {
-  // In production, send to error tracking service (Sentry, LogRocket, etc.)
+  // Always log to console for debugging
   console.error("Error:", error, "Context:", context);
 
-  // TODO: Implement error tracking
-  // if (process.env.NODE_ENV === 'production') {
-  //   Sentry.captureException(error, { extra: context });
-  // }
+  // Send to Sentry in production (or when DSN is configured)
+  if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+    Sentry.captureException(error, {
+      extra: context,
+      tags: {
+        errorType: error instanceof AppError ? error.name : "UnknownError",
+      },
+    });
+  }
 }
 
 /**
