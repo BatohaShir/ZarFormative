@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -90,6 +91,7 @@ const initialWorkForm: NewWorkExperienceForm = {
 
 export function MyProfileClient() {
   const router = useRouter();
+  const t = useTranslations();
   const { isAuthenticated, isLoading, user, profile, signOut, uploadAvatar, displayName, avatarUrl, updateProfile } = useAuth();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
@@ -448,17 +450,17 @@ export function MyProfileClient() {
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <Star className="h-5 w-5 text-yellow-500 fill-current" />
                   <span className="font-bold text-lg">{averageRating > 0 ? averageRating : "-"}</span>
-                  <span className="text-sm text-muted-foreground">Үнэлгээ{reviewCount > 0 ? ` (${reviewCount})` : ""}</span>
+                  <span className="text-sm text-muted-foreground">{t("profile.rating")}{reviewCount > 0 ? ` (${reviewCount})` : ""}</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsUp className="h-5 w-5 text-green-500" />
                   <span className="font-bold text-lg">{completedCount}</span>
-                  <span className="text-sm text-muted-foreground">Амжилттай</span>
+                  <span className="text-sm text-muted-foreground">{t("profile.completedJobs")}</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsDown className="h-5 w-5 text-red-500" />
                   <span className="font-bold text-lg">{failedCount}</span>
-                  <span className="text-sm text-muted-foreground">Амжилтгүй</span>
+                  <span className="text-sm text-muted-foreground">{t("profile.failedJobs")}</span>
                 </div>
               </div>
             </div>
@@ -468,18 +470,18 @@ export function MyProfileClient() {
               <Button variant="default" className="gap-2" asChild>
                 <Link href="/account/me/services">
                   <Package className="h-4 w-4" />
-                  Миний үйлчилгээнүүд
+                  {t("profile.myServices")}
                 </Link>
               </Button>
               <Button variant="outline" className="gap-2" asChild>
                 <Link href="/account/me/settings">
                   <Settings className="h-4 w-4" />
-                  Апп тохиргоо
+                  {t("profile.appSettings")}
                 </Link>
               </Button>
               <Button variant="outline" onClick={() => setShowEditProfileModal(true)} className="gap-2">
                 <Pencil className="h-4 w-4" />
-                Засварлах
+                {t("common.edit")}
               </Button>
             </div>
           </div>
@@ -496,7 +498,7 @@ export function MyProfileClient() {
                 ) : (
                   <User className="h-5 w-5 text-primary" />
                 )}
-                {profile?.is_company ? "Компанийн мэдээлэл" : "Хувийн мэдээлэл"}
+                {profile?.is_company ? t("profile.companyInfo") : t("profile.personalInfo")}
               </h3>
 
               <div className="space-y-4">
@@ -505,7 +507,7 @@ export function MyProfileClient() {
                     <div className="flex items-start gap-3">
                       <Building2 className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Нэр</p>
+                        <p className="text-xs text-muted-foreground">{t("profile.name")}</p>
                         <p className="font-medium truncate">{profile?.company_name || "-"}</p>
                       </div>
                     </div>
@@ -513,7 +515,7 @@ export function MyProfileClient() {
                     <div className="flex items-start gap-3">
                       <Hash className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Регистрийн дугаар</p>
+                        <p className="text-xs text-muted-foreground">{t("profile.registrationNumber")}</p>
                         <p className="font-medium truncate">{profile?.registration_number || "-"}</p>
                       </div>
                     </div>
@@ -523,7 +525,7 @@ export function MyProfileClient() {
                     <div className="flex items-start gap-3">
                       <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Нэр</p>
+                        <p className="text-xs text-muted-foreground">{t("profile.name")}</p>
                         <p className="font-medium truncate">{profile?.first_name || "-"}</p>
                       </div>
                     </div>
@@ -531,7 +533,7 @@ export function MyProfileClient() {
                     <div className="flex items-start gap-3">
                       <User className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">Овог</p>
+                        <p className="text-xs text-muted-foreground">{t("profile.lastName")}</p>
                         <p className="font-medium truncate">{profile?.last_name || "-"}</p>
                       </div>
                     </div>
@@ -541,7 +543,7 @@ export function MyProfileClient() {
                 <div className="flex items-start gap-3">
                   <Mail className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Имэйл</p>
+                    <p className="text-xs text-muted-foreground">{t("auth.email")}</p>
                     <p className="font-medium truncate">{user?.email}</p>
                   </div>
                 </div>
@@ -549,7 +551,7 @@ export function MyProfileClient() {
                 <div className="flex items-start gap-3">
                   <Phone className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-muted-foreground">Утас</p>
+                    <p className="text-xs text-muted-foreground">{t("profile.phone")}</p>
                     <p className="font-medium truncate">{profile?.phone_number || "-"}</p>
                   </div>
                 </div>
@@ -562,7 +564,7 @@ export function MyProfileClient() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
                     <FileText className="h-5 w-5 text-primary" />
-                    О себе
+                    {t("profile.about")}
                   </h3>
                   {!isEditingAbout && (
                     <Button
@@ -574,12 +576,12 @@ export function MyProfileClient() {
                       {profile?.about ? (
                         <>
                           <Pencil className="h-4 w-4" />
-                          Засварлах
+                          {t("common.edit")}
                         </>
                       ) : (
                         <>
                           <Plus className="h-4 w-4" />
-                          Нэмэх
+                          {t("common.add")}
                         </>
                       )}
                     </Button>
@@ -589,7 +591,7 @@ export function MyProfileClient() {
                 {isEditingAbout ? (
                   <div className="space-y-3">
                     <Textarea
-                      placeholder="Өөрийнхөө тухай бичнэ үү..."
+                      placeholder={t("profile.aboutPlaceholder")}
                       value={aboutText}
                       onChange={(e) => setAboutText(e.target.value)}
                       className="min-h-30 resize-none"
@@ -609,7 +611,7 @@ export function MyProfileClient() {
                             className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
-                            Устгах
+                            {t("common.delete")}
                           </Button>
                         )}
                         <Button
@@ -618,7 +620,7 @@ export function MyProfileClient() {
                           onClick={handleCancelAbout}
                           disabled={isSavingAbout}
                         >
-                          Болих
+                          {t("common.cancel")}
                         </Button>
                         <Button
                           size="sm"
@@ -626,11 +628,11 @@ export function MyProfileClient() {
                           disabled={isSavingAbout || !aboutText.trim()}
                         >
                           {isSavingAbout ? (
-                            "Хадгалж байна..."
+                            t("common.saving")
                           ) : (
                             <>
                               <Check className="h-4 w-4 mr-1" />
-                              Хадгалах
+                              {t("common.save")}
                             </>
                           )}
                         </Button>
@@ -643,7 +645,7 @@ export function MyProfileClient() {
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    Өөрийнхөө тухай мэдээлэл нэмээгүй байна
+                    {t("profile.noAbout")}
                   </p>
                 )}
               </div>
@@ -657,7 +659,7 @@ export function MyProfileClient() {
               >
                 <Link href="/account/me/services">
                   <Package className="h-4 w-4" />
-                  Миний үйлчилгээнүүд
+                  {t("profile.myServices")}
                 </Link>
               </Button>
               <Button
@@ -666,7 +668,7 @@ export function MyProfileClient() {
                 onClick={() => setShowEditProfileModal(true)}
               >
                 <Pencil className="h-4 w-4" />
-                Засварлах
+                {t("common.edit")}
               </Button>
               <Button
                 variant="outline"
@@ -675,7 +677,7 @@ export function MyProfileClient() {
               >
                 <Link href="/account/me/settings">
                   <Settings className="h-4 w-4" />
-                  Апп тохиргоо
+                  {t("profile.appSettings")}
                 </Link>
               </Button>
             </div>
@@ -689,7 +691,7 @@ export function MyProfileClient() {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-lg flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
-                    О компании
+                    {t("profile.aboutCompany")}
                   </h3>
                   {!isEditingAbout && (
                     <Button
@@ -701,12 +703,12 @@ export function MyProfileClient() {
                       {profile?.about ? (
                         <>
                           <Pencil className="h-4 w-4" />
-                          Засварлах
+                          {t("common.edit")}
                         </>
                       ) : (
                         <>
                           <Plus className="h-4 w-4" />
-                          Нэмэх
+                          {t("common.add")}
                         </>
                       )}
                     </Button>
@@ -716,7 +718,7 @@ export function MyProfileClient() {
                 {isEditingAbout ? (
                   <div className="space-y-3">
                     <Textarea
-                      placeholder="Компанийнхаа тухай бичнэ үү..."
+                      placeholder={t("profile.aboutCompanyPlaceholder")}
                       value={aboutText}
                       onChange={(e) => setAboutText(e.target.value)}
                       className="min-h-40 resize-none"
@@ -736,7 +738,7 @@ export function MyProfileClient() {
                             className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                           >
                             <Trash2 className="h-4 w-4 mr-1" />
-                            Устгах
+                            {t("common.delete")}
                           </Button>
                         )}
                         <Button
@@ -745,7 +747,7 @@ export function MyProfileClient() {
                           onClick={handleCancelAbout}
                           disabled={isSavingAbout}
                         >
-                          Болих
+                          {t("common.cancel")}
                         </Button>
                         <Button
                           size="sm"
@@ -753,11 +755,11 @@ export function MyProfileClient() {
                           disabled={isSavingAbout || !aboutText.trim()}
                         >
                           {isSavingAbout ? (
-                            "Хадгалж байна..."
+                            t("common.saving")
                           ) : (
                             <>
                               <Check className="h-4 w-4 mr-1" />
-                              Хадгалах
+                              {t("common.save")}
                             </>
                           )}
                         </Button>
@@ -770,7 +772,7 @@ export function MyProfileClient() {
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    Компанийн тухай мэдээлэл нэмээгүй байна
+                    {t("profile.noAbout")}
                   </p>
                 )}
               </div>
@@ -782,7 +784,7 @@ export function MyProfileClient() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-lg flex items-center gap-2">
                       <GraduationCap className="h-5 w-5 text-primary" />
-                      Боловсрол
+                      {t("profile.education")}
                     </h3>
                     {!showAddEducation && (
                       <Button
@@ -792,7 +794,7 @@ export function MyProfileClient() {
                         onClick={() => setShowAddEducation(true)}
                       >
                         <Plus className="h-4 w-4" />
-                        Нэмэх
+                        {t("common.add")}
                       </Button>
                     )}
                   </div>
@@ -801,7 +803,7 @@ export function MyProfileClient() {
                   {showAddEducation && (
                     <div className="p-4 border rounded-lg space-y-3 bg-muted/20 mb-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-sm">Шинэ боловсрол нэмэх</h4>
+                        <h4 className="font-medium text-sm">{t("profile.addEducation")}</h4>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -815,7 +817,7 @@ export function MyProfileClient() {
                         </Button>
                       </div>
                       <AutocompleteInput
-                        placeholder="Сургуулийн нэр"
+                        placeholder={t("profile.schoolName")}
                         value={newEducation.institution}
                         onChange={(value) =>
                           setNewEducation({ ...newEducation, institution: value })
@@ -824,7 +826,7 @@ export function MyProfileClient() {
                         className="h-10"
                       />
                       <AutocompleteInput
-                        placeholder="Мэргэжил, зэрэг"
+                        placeholder={t("profile.degree")}
                         value={newEducation.degree}
                         onChange={(value) =>
                           setNewEducation({ ...newEducation, degree: value })
@@ -833,7 +835,7 @@ export function MyProfileClient() {
                         className="h-10"
                       />
                       <Input
-                        placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                        placeholder={t("profile.fieldOfStudy")}
                         value={newEducation.field_of_study}
                         onChange={(e) =>
                           setNewEducation({ ...newEducation, field_of_study: e.target.value })
@@ -843,7 +845,7 @@ export function MyProfileClient() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">
-                            Эхэлсэн
+                            {t("profile.startDate")}
                           </label>
                           <Input
                             type="month"
@@ -859,7 +861,7 @@ export function MyProfileClient() {
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">
-                            Төгссөн
+                            {t("profile.endDate")}
                           </label>
                           <Input
                             type="month"
@@ -888,7 +890,7 @@ export function MyProfileClient() {
                           }
                           className="rounded"
                         />
-                        <span className="text-sm">Одоо суралцаж байгаа</span>
+                        <span className="text-sm">{t("profile.currentlyStudying")}</span>
                       </label>
                       <Button
                         className="w-full"
@@ -900,7 +902,7 @@ export function MyProfileClient() {
                           !newEducation.start_date
                         }
                       >
-                        {isCreatingEducation ? "Хадгалж байна..." : "Хадгалах"}
+                        {isCreatingEducation ? t("common.saving") : t("common.save")}
                       </Button>
                     </div>
                   )}
@@ -918,7 +920,7 @@ export function MyProfileClient() {
                     </div>
                   ) : educations.length === 0 && !showAddEducation ? (
                     <p className="text-muted-foreground text-center py-8">
-                      Боловсролын мэдээлэл нэмээгүй байна
+                      {t("profile.noEducation")}
                     </p>
                   ) : (
                     <div className="grid gap-3">
@@ -929,7 +931,7 @@ export function MyProfileClient() {
                               className="p-4 border rounded-lg space-y-3 bg-muted/20"
                             >
                               <AutocompleteInput
-                                placeholder="Сургуулийн нэр"
+                                placeholder={t("profile.schoolName")}
                                 value={newEducation.institution}
                                 onChange={(value) =>
                                   setNewEducation({ ...newEducation, institution: value })
@@ -938,7 +940,7 @@ export function MyProfileClient() {
                                 className="h-10"
                               />
                               <AutocompleteInput
-                                placeholder="Мэргэжил, зэрэг"
+                                placeholder={t("profile.degree")}
                                 value={newEducation.degree}
                                 onChange={(value) =>
                                   setNewEducation({ ...newEducation, degree: value })
@@ -947,7 +949,7 @@ export function MyProfileClient() {
                                 className="h-10"
                               />
                               <Input
-                                placeholder="Чиглэл/Мэргэжил (заавал биш)"
+                                placeholder={t("profile.fieldOfStudy")}
                                 value={newEducation.field_of_study}
                                 onChange={(e) =>
                                   setNewEducation({ ...newEducation, field_of_study: e.target.value })
@@ -957,7 +959,7 @@ export function MyProfileClient() {
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="text-xs text-muted-foreground mb-1 block">
-                                    Эхэлсэн
+                                    {t("profile.startDate")}
                                   </label>
                                   <Input
                                     type="month"
@@ -973,7 +975,7 @@ export function MyProfileClient() {
                                 </div>
                                 <div>
                                   <label className="text-xs text-muted-foreground mb-1 block">
-                                    Төгссөн
+                                    {t("profile.endDate")}
                                   </label>
                                   <Input
                                     type="month"
@@ -1002,7 +1004,7 @@ export function MyProfileClient() {
                                   }
                                   className="rounded"
                                 />
-                                <span className="text-sm">Одоо суралцаж байгаа</span>
+                                <span className="text-sm">{t("profile.currentlyStudying")}</span>
                               </label>
                               <div className="flex gap-2">
                                 <Button
@@ -1015,13 +1017,13 @@ export function MyProfileClient() {
                                     !newEducation.start_date
                                   }
                                 >
-                                  {isUpdatingEducation ? "Хадгалж байна..." : "Хадгалах"}
+                                  {isUpdatingEducation ? t("common.saving") : t("common.save")}
                                 </Button>
                                 <Button
                                   variant="outline"
                                   onClick={handleCancelEditEducation}
                                 >
-                                  Болих
+                                  {t("common.cancel")}
                                 </Button>
                               </div>
                             </div>
@@ -1043,7 +1045,7 @@ export function MyProfileClient() {
                                 <p className="text-sm text-muted-foreground mt-1">
                                   {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))} -{" "}
                                   {edu.is_current
-                                    ? "Одоог хүртэл"
+                                    ? t("common.present")
                                     : edu.end_date ? formatWorkDate(new Date(edu.end_date).toISOString().slice(0, 7)) : ""}
                                 </p>
                               </div>
@@ -1074,7 +1076,7 @@ export function MyProfileClient() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-lg flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-primary" />
-                      Ажлын туршлага
+                      {t("profile.workExperience")}
                     </h3>
                     {!showAddWork && (
                       <Button
@@ -1084,7 +1086,7 @@ export function MyProfileClient() {
                         onClick={() => setShowAddWork(true)}
                       >
                         <Plus className="h-4 w-4" />
-                        Нэмэх
+                        {t("common.add")}
                       </Button>
                     )}
                   </div>
@@ -1093,7 +1095,7 @@ export function MyProfileClient() {
                   {showAddWork && (
                     <div className="p-4 border rounded-lg space-y-3 bg-muted/20 mb-4">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-sm">Шинэ ажлын туршлага нэмэх</h4>
+                        <h4 className="font-medium text-sm">{t("profile.addWorkExperience")}</h4>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1107,14 +1109,14 @@ export function MyProfileClient() {
                         </Button>
                       </div>
                       <AutocompleteInput
-                        placeholder="Байгууллагын нэр"
+                        placeholder={t("profile.companyNamePlaceholder")}
                         value={newWork.company}
                         onChange={(value) => setNewWork({ ...newWork, company: value })}
                         suggestions={COMPANIES_DB}
                         className="h-10"
                       />
                       <AutocompleteInput
-                        placeholder="Албан тушаал"
+                        placeholder={t("profile.position")}
                         value={newWork.position}
                         onChange={(value) =>
                           setNewWork({ ...newWork, position: value })
@@ -1125,7 +1127,7 @@ export function MyProfileClient() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">
-                            Эхэлсэн
+                            {t("profile.startDate")}
                           </label>
                           <Input
                             type="month"
@@ -1138,7 +1140,7 @@ export function MyProfileClient() {
                         </div>
                         <div>
                           <label className="text-xs text-muted-foreground mb-1 block">
-                            Дууссан
+                            {t("profile.endDate")}
                           </label>
                           <Input
                             type="month"
@@ -1164,7 +1166,7 @@ export function MyProfileClient() {
                           }
                           className="rounded"
                         />
-                        <span className="text-sm">Одоо ажиллаж байгаа</span>
+                        <span className="text-sm">{t("profile.currentlyWorking")}</span>
                       </label>
                       <Button
                         className="w-full"
@@ -1176,7 +1178,7 @@ export function MyProfileClient() {
                           !newWork.start_date
                         }
                       >
-                        {isCreatingWork ? "Хадгалж байна..." : "Хадгалах"}
+                        {isCreatingWork ? t("common.saving") : t("common.save")}
                       </Button>
                     </div>
                   )}
@@ -1194,7 +1196,7 @@ export function MyProfileClient() {
                     </div>
                   ) : workExperiences.length === 0 && !showAddWork ? (
                     <p className="text-muted-foreground text-center py-8">
-                      Ажлын туршлага нэмээгүй байна
+                      {t("profile.noWorkExperience")}
                     </p>
                   ) : (
                     <div className="grid gap-3">
@@ -1205,7 +1207,7 @@ export function MyProfileClient() {
                               className="p-4 border rounded-lg space-y-3 bg-muted/20"
                             >
                               <AutocompleteInput
-                                placeholder="Байгууллагын нэр"
+                                placeholder={t("profile.companyNamePlaceholder")}
                                 value={newWork.company}
                                 onChange={(value) =>
                                   setNewWork({ ...newWork, company: value })
@@ -1214,7 +1216,7 @@ export function MyProfileClient() {
                                 className="h-10"
                               />
                               <AutocompleteInput
-                                placeholder="Албан тушаал"
+                                placeholder={t("profile.position")}
                                 value={newWork.position}
                                 onChange={(value) =>
                                   setNewWork({ ...newWork, position: value })
@@ -1225,7 +1227,7 @@ export function MyProfileClient() {
                               <div className="grid grid-cols-2 gap-3">
                                 <div>
                                   <label className="text-xs text-muted-foreground mb-1 block">
-                                    Эхэлсэн
+                                    {t("profile.startDate")}
                                   </label>
                                   <Input
                                     type="month"
@@ -1241,7 +1243,7 @@ export function MyProfileClient() {
                                 </div>
                                 <div>
                                   <label className="text-xs text-muted-foreground mb-1 block">
-                                    Дууссан
+                                    {t("profile.endDate")}
                                   </label>
                                   <Input
                                     type="month"
@@ -1270,7 +1272,7 @@ export function MyProfileClient() {
                                   }
                                   className="rounded"
                                 />
-                                <span className="text-sm">Одоо ажиллаж байгаа</span>
+                                <span className="text-sm">{t("profile.currentlyWorking")}</span>
                               </label>
                               <div className="flex gap-2">
                                 <Button
@@ -1283,13 +1285,13 @@ export function MyProfileClient() {
                                     !newWork.start_date
                                   }
                                 >
-                                  {isUpdatingWork ? "Хадгалж байна..." : "Хадгалах"}
+                                  {isUpdatingWork ? t("common.saving") : t("common.save")}
                                 </Button>
                                 <Button
                                   variant="outline"
                                   onClick={handleCancelEditWork}
                                 >
-                                  Болих
+                                  {t("common.cancel")}
                                 </Button>
                               </div>
                             </div>
@@ -1306,7 +1308,7 @@ export function MyProfileClient() {
                                 <p className="text-sm text-muted-foreground mt-1">
                                   {formatWorkDate(new Date(work.start_date).toISOString().slice(0, 7))} -{" "}
                                   {work.is_current
-                                    ? "Одоог хүртэл"
+                                    ? t("common.present")
                                     : work.end_date ? formatWorkDate(new Date(work.end_date).toISOString().slice(0, 7)) : ""}
                                 </p>
                               </div>
