@@ -62,19 +62,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refetchProfile();
   }, [refetchProfile]);
 
-  // Синхронизация языка из БД при логине на другом устройстве
-  // НЕ синхронизируем если пользователь только что сменил язык локально
+  // Синхронизация языка из БД при логине
+  // Приоритет: БД > cookie/localStorage (для синхронизации между устройствами)
   const syncedRef = React.useRef(false);
+  const prevUserIdRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const preferredLang = profile?.preferred_language;
+    const currentUserId = user?.id ?? null;
 
-    // Быстрый выход
-    if (!preferredLang || !isValidLocale(preferredLang) || syncedRef.current) {
+    // Детектим новый логин (смена пользователя)
+    const isNewLogin = currentUserId && currentUserId !== prevUserIdRef.current;
+    prevUserIdRef.current = currentUserId;
+
+    // Быстрый выход если нет данных
+    if (!preferredLang || !isValidLocale(preferredLang)) {
       return;
     }
 
-    // Проверяем, менял ли пользователь язык локально
+    // Если уже синхронизировали для этого пользователя - выходим
+    if (syncedRef.current && !isNewLogin) {
+      return;
+    }
+
+    // Проверяем, менял ли пользователь язык локально В ЭТОЙ СЕССИИ
     const userChangedLocale = sessionStorage.getItem(LOCALE_CHANGED_KEY);
     if (userChangedLocale) {
       // Пользователь сам менял язык - очищаем флаг и НЕ синхронизируем
@@ -85,15 +96,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const currentCookie = getCookie(LOCALE_COOKIE);
 
-    // Синхронизируем только если язык отличается
-    // Это сработает при логине на новом устройстве
-    if (currentCookie !== preferredLang) {
+    // Синхронизируем если:
+    // 1. Это новый логин (приоритет БД над локальными настройками)
+    // 2. Или язык в cookie отличается от БД
+    if (isNewLogin || currentCookie !== preferredLang) {
       syncedRef.current = true;
       document.cookie = `${LOCALE_COOKIE}=${preferredLang};path=/;max-age=31536000;SameSite=Lax`;
       localStorage.setItem("locale", preferredLang);
-      window.location.reload();
+      // Перезагружаем только если язык реально изменился
+      if (currentCookie !== preferredLang) {
+        window.location.reload();
+      }
+    } else {
+      syncedRef.current = true;
     }
-  }, [profile?.preferred_language]);
+  }, [profile?.preferred_language, user?.id]);
 
   const contextValue = React.useMemo<AuthContextType>(
     () => ({

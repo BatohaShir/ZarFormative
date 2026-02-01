@@ -40,9 +40,16 @@ export function useLocale() {
       // 2. Обновить localStorage
       localStorage.setItem("locale", newLocale);
 
-      // 3. Обновить в БД (если авторизован) - не ждём
+      // 3. Обновить в БД (если авторизован) - ВАЖНО: ждём завершения!
       if (isAuthenticated) {
-        updateProfile({ preferred_language: newLocale }).catch(() => {});
+        try {
+          const result = await updateProfile({ preferred_language: newLocale });
+          if (result.error) {
+            console.error("Failed to save language to DB:", result.error);
+          }
+        } catch (e) {
+          console.error("Failed to save language to DB:", e);
+        }
       }
 
       // 4. Перезагрузить страницу
