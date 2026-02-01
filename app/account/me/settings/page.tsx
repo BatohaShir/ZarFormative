@@ -48,12 +48,10 @@ const LoginPromptModal = dynamic(
   { ssr: false }
 );
 
-// Theme options - defined outside component to prevent recreation
-const THEME_OPTIONS = [
-  { value: "light", label: "Цайвар", icon: Sun, color: "bg-amber-500" },
-  { value: "dark", label: "Бараан", icon: Moon, color: "bg-slate-700" },
-  { value: "system", label: "Систем", icon: Monitor, color: "bg-blue-500" },
-] as const;
+// Theme option values - labels are translated in the component
+const THEME_VALUES = ["light", "dark", "system"] as const;
+const THEME_ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
+const THEME_COLORS = { light: "bg-amber-500", dark: "bg-slate-700", system: "bg-blue-500" } as const;
 
 // Setting Item Component - memoized to prevent unnecessary re-renders
 const SettingItem = React.memo(function SettingItem({
@@ -122,38 +120,43 @@ const SubSettingItem = React.memo(function SubSettingItem({
   );
 });
 
-// Theme Selector Component - memoized, uses THEME_OPTIONS from outside
+// Theme Selector Component - memoized
 const ThemeSelector = React.memo(function ThemeSelector({
   value,
   onChange,
+  labels,
 }: {
   value: string | undefined;
   onChange: (v: string) => void;
+  labels: { light: string; dark: string; system: string };
 }) {
   return (
     <div className="grid grid-cols-3 gap-2">
-      {THEME_OPTIONS.map((t) => (
-        <button
-          key={t.value}
-          onClick={() => onChange(t.value)}
-          className={cn(
-            "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
-            value === t.value
-              ? "border-primary bg-primary/5"
-              : "border-transparent bg-muted/50 hover:bg-muted"
-          )}
-        >
-          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", t.color)}>
-            <t.icon className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-xs font-medium">{t.label}</span>
-          {value === t.value && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-              <Check className="h-3 w-3 text-white" />
+      {THEME_VALUES.map((themeValue) => {
+        const Icon = THEME_ICONS[themeValue];
+        return (
+          <button
+            key={themeValue}
+            onClick={() => onChange(themeValue)}
+            className={cn(
+              "flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all",
+              value === themeValue
+                ? "border-primary bg-primary/5"
+                : "border-transparent bg-muted/50 hover:bg-muted"
+            )}
+          >
+            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", THEME_COLORS[themeValue])}>
+              <Icon className="h-5 w-5 text-white" />
             </div>
-          )}
-        </button>
-      ))}
+            <span className="text-xs font-medium">{labels[themeValue]}</span>
+            {value === themeValue && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                <Check className="h-3 w-3 text-white" />
+              </div>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 });
@@ -163,6 +166,7 @@ export default function AppSettingsPage() {
   const { isAuthenticated, isLoading: authLoading, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const t = useTranslations("settings");
+  const tCommon = useTranslations("common");
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
@@ -261,7 +265,7 @@ export default function AppSettingsPage() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
-            <h1 className="font-semibold">Апп тохиргоо</h1>
+            <h1 className="font-semibold">{t("appSettings")}</h1>
           </div>
           {/* Notifications bell - shown on all screen sizes */}
           <NotificationsButton />
@@ -298,7 +302,17 @@ export default function AppSettingsPage() {
           <div className="bg-card rounded-2xl border p-4 space-y-4">
             <div>
               <Label className="text-sm font-medium mb-3 block">{t("themeDescription")}</Label>
-              {mounted && <ThemeSelector value={theme} onChange={setTheme} />}
+              {mounted && (
+                <ThemeSelector
+                  value={theme}
+                  onChange={setTheme}
+                  labels={{
+                    light: t("themeLight"),
+                    dark: t("themeDark"),
+                    system: t("themeSystem"),
+                  }}
+                />
+              )}
             </div>
           </div>
         </section>
@@ -308,7 +322,7 @@ export default function AppSettingsPage() {
           <div className="flex items-center gap-2 px-1">
             <Bell className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Push мэдэгдэл
+              {t("pushNotifications")}
             </h2>
           </div>
 
@@ -318,15 +332,15 @@ export default function AppSettingsPage() {
               iconColor={
                 settings.pushEnabled && pushPermission === "granted" ? "bg-green-500" : "bg-gray-400"
               }
-              title="Push мэдэгдэл"
+              title={t("pushNotifications")}
               description={
                 !pushSupported
-                  ? "Таны браузер дэмжихгүй"
+                  ? t("browserNotSupported")
                   : pushPermission === "denied"
-                  ? "Браузерын тохиргооноос зөвшөөрнө үү"
+                  ? t("enableInBrowserSettings")
                   : settings.pushEnabled
-                  ? "Идэвхтэй"
-                  : "Идэвхгүй"
+                  ? t("active")
+                  : t("inactive")
               }
               className="border-0 rounded-none"
             >
@@ -341,19 +355,19 @@ export default function AppSettingsPage() {
               <div className="border-t bg-muted/30">
                 <SubSettingItem
                   icon={FileText}
-                  title="Шинэ захиалга"
+                  title={t("newOrder")}
                   checked={settings.pushNewRequests}
                   onCheckedChange={(v) => handleSettingChange("pushNewRequests", v)}
                 />
                 <SubSettingItem
                   icon={MessageSquare}
-                  title="Шинэ мессеж"
+                  title={t("newMessage")}
                   checked={settings.pushNewMessages}
                   onCheckedChange={(v) => handleSettingChange("pushNewMessages", v)}
                 />
                 <SubSettingItem
                   icon={Sparkles}
-                  title="Статус өөрчлөлт"
+                  title={t("statusChange")}
                   checked={settings.pushStatusChanges}
                   onCheckedChange={(v) => handleSettingChange("pushStatusChanges", v)}
                 />
@@ -367,7 +381,7 @@ export default function AppSettingsPage() {
           <div className="flex items-center gap-2 px-1">
             <Mail className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Имэйл мэдэгдэл
+              {t("emailNotifications")}
             </h2>
           </div>
 
@@ -375,8 +389,8 @@ export default function AppSettingsPage() {
             <SettingItem
               icon={Mail}
               iconColor={settings.emailEnabled ? "bg-blue-500" : "bg-gray-400"}
-              title="Имэйл мэдэгдэл"
-              description={settings.emailEnabled ? "Идэвхтэй" : "Идэвхгүй"}
+              title={t("emailNotifications")}
+              description={settings.emailEnabled ? t("active") : t("inactive")}
               className="border-0 rounded-none"
             >
               <Switch
@@ -389,26 +403,26 @@ export default function AppSettingsPage() {
               <div className="border-t bg-muted/30">
                 <SubSettingItem
                   icon={FileText}
-                  title="Шинэ захиалга"
+                  title={t("newOrder")}
                   checked={settings.emailNewRequests}
                   onCheckedChange={(v) => handleSettingChange("emailNewRequests", v)}
                 />
                 <SubSettingItem
                   icon={MessageSquare}
-                  title="Шинэ мессеж (оффлайн)"
+                  title={t("newMessageOffline")}
                   checked={settings.emailNewMessages}
                   onCheckedChange={(v) => handleSettingChange("emailNewMessages", v)}
                 />
                 <SubSettingItem
                   icon={Mail}
-                  title="Өдрийн тойм"
+                  title={t("dailySummary")}
                   checked={settings.emailDigest}
                   onCheckedChange={(v) => handleSettingChange("emailDigest", v)}
                 />
 
                 {settings.emailDigest && (
                   <div className="flex items-center justify-between py-3 px-4 border-t">
-                    <span className="text-sm text-muted-foreground">Тоймын давтамж</span>
+                    <span className="text-sm text-muted-foreground">{t("summaryFrequency")}</span>
                     <Select
                       value={settings.emailDigestFrequency}
                       onValueChange={(v) =>
@@ -419,9 +433,9 @@ export default function AppSettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="daily">Өдөр бүр</SelectItem>
-                        <SelectItem value="weekly">7 хоног</SelectItem>
-                        <SelectItem value="never">Хэзээ ч үгүй</SelectItem>
+                        <SelectItem value="daily">{t("daily")}</SelectItem>
+                        <SelectItem value="weekly">{t("weekly")}</SelectItem>
+                        <SelectItem value="never">{t("never")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -436,7 +450,7 @@ export default function AppSettingsPage() {
           <div className="flex items-center gap-2 px-1">
             <Moon className="h-4 w-4 text-primary" />
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Тайван цаг
+              {t("quietHours")}
             </h2>
           </div>
 
@@ -444,11 +458,11 @@ export default function AppSettingsPage() {
             <SettingItem
               icon={Moon}
               iconColor={settings.quietHoursEnabled ? "bg-indigo-500" : "bg-gray-400"}
-              title="Тайван цаг"
+              title={t("quietHours")}
               description={
                 settings.quietHoursEnabled
                   ? `${settings.quietHoursStart} - ${settings.quietHoursEnd}`
-                  : "Идэвхгүй"
+                  : t("inactive")
               }
               className="border-0 rounded-none"
             >
@@ -462,7 +476,7 @@ export default function AppSettingsPage() {
               <div className="border-t bg-muted/30 p-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs text-muted-foreground mb-2 block">Эхлэх</Label>
+                    <Label className="text-xs text-muted-foreground mb-2 block">{t("start")}</Label>
                     <input
                       type="time"
                       value={settings.quietHoursStart}
@@ -471,7 +485,7 @@ export default function AppSettingsPage() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground mb-2 block">Дуусах</Label>
+                    <Label className="text-xs text-muted-foreground mb-2 block">{t("end")}</Label>
                     <input
                       type="time"
                       value={settings.quietHoursEnd}
@@ -497,7 +511,7 @@ export default function AppSettingsPage() {
             ) : (
               <LogOut className="h-5 w-5" />
             )}
-            <span className="font-medium">Гарах</span>
+            <span className="font-medium">{t("logout")}</span>
           </button>
         </section>
       </div>
@@ -516,15 +530,15 @@ export default function AppSettingsPage() {
             {isSaving ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Хадгалж байна...
+                {t("saving")}
               </>
             ) : saveSuccess ? (
               <>
                 <Check className="h-5 w-5 mr-2" />
-                Хадгалагдлаа!
+                {t("saved")}
               </>
             ) : (
-              "Хадгалах"
+              tCommon("save")
             )}
           </Button>
         </div>
