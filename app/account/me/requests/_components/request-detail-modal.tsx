@@ -212,8 +212,10 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             </div>
           </div>
 
-          {/* Chat Button - MOVED UP, prominent placement */}
-          {(request.status === "accepted" ||
+          {/* Chat Button - available on ALL active stages */}
+          {(request.status === "pending" ||
+            request.status === "price_proposed" ||
+            request.status === "accepted" ||
             request.status === "in_progress" ||
             request.status === "awaiting_client_confirmation" ||
             request.status === "awaiting_completion_details" ||
@@ -782,6 +784,43 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
             </div>
           )}
 
+          {/* AWAITING_COMPLETION_DETAILS: Provider must submit completion report */}
+          {isProvider && request.status === "awaiting_completion_details" && (
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 h-9 md:h-10 text-sm"
+                onClick={() => setShowProviderForm(true)}
+                disabled={actions.isUpdating}
+              >
+                {actions.isUpdating ? (
+                  <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2 animate-spin" />
+                ) : (
+                  <MessageSquare className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
+                )}
+                Тайлан илгээх
+              </Button>
+            </div>
+          )}
+
+          {/* AWAITING_COMPLETION_DETAILS: Client waiting for provider report */}
+          {isMyRequest && request.status === "awaiting_completion_details" && (
+            <div className="flex flex-col gap-2">
+              <div className="p-2.5 md:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-xs md:text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5 md:h-4 md:w-4 shrink-0" />
+                  Гүйцэтгэгч ажлын тайлан илгээхийг хүлээж байна...
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
+              </Button>
+            </div>
+          )}
+
           {/* AWAITING_CLIENT_CONFIRMATION: Client can confirm and leave review */}
           {isMyRequest && request.status === "awaiting_client_confirmation" && (
             <div className="flex gap-2 md:gap-3">
@@ -931,6 +970,15 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
                   <X className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" />
                 )}
                 Цуцлах
+              </Button>
+            </div>
+          )}
+
+          {/* Client: in_progress - just close button (work is ongoing) */}
+          {isMyRequest && request.status === "in_progress" && (
+            <div className="flex gap-2 md:gap-3">
+              <Button variant="outline" size="sm" className="flex-1 h-9 md:h-10 text-sm" onClick={onClose}>
+                Хаах
               </Button>
             </div>
           )}

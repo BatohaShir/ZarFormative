@@ -306,18 +306,16 @@ export function shouldShowInActiveJobs(
  * Проверяет, доступен ли чат для заявки
  *
  * Условия:
- * - Статус: in_progress, awaiting_*, completed - чат всегда доступен
- * - Если accepted: за 2 часа до начала работы или позже
- * - Чат НЕ доступен: pending, rejected, cancelled_*, disputed, expired
+ * - Чат доступен на ВСЕХ этапах заявки кроме закрытых/отменённых
+ * - Чат НЕ доступен: rejected, cancelled_*, disputed, expired
  */
 export function isChatAvailable(
   status: RequestStatus,
-  preferredDate: Date | string | null,
-  preferredTime: string | null
+  _preferredDate: Date | string | null,
+  _preferredTime: string | null
 ): { available: boolean; message: string | null } {
-  // Chat NOT available for these terminal/cancelled statuses
+  // Chat NOT available only for terminal/cancelled statuses
   const chatUnavailableStatuses = [
-    "pending",
     "rejected",
     "cancelled_by_client",
     "cancelled_by_provider",
@@ -329,23 +327,6 @@ export function isChatAvailable(
     return { available: false, message: null };
   }
 
-  // Chat available for in_progress, all completion flow statuses, and completed
-  const chatAlwaysAvailableStatuses = [
-    "in_progress",
-    "awaiting_client_confirmation",
-    "awaiting_completion_details",
-    "awaiting_payment",
-    "completed",
-  ];
-
-  if (chatAlwaysAvailableStatuses.includes(status)) {
-    return { available: true, message: null };
-  }
-
-  // Чат доступен сразу после принятия заявки
-  if (status === "accepted") {
-    return { available: true, message: null };
-  }
-
-  return { available: false, message: null };
+  // Chat available for all active statuses including pending and price_proposed
+  return { available: true, message: null };
 }
