@@ -206,6 +206,17 @@ function RequestsPageContent() {
 
   // OPTIMIZATION: Single reducer instead of 10+ useState calls
   const [state, dispatch] = React.useReducer(requestsReducer, initialState);
+
+  // Read active tab from URL, default to "my_requests"
+  const activeTab = searchParams.get("tab") || "my_requests";
+
+  // Handle tab change - update URL parameter
+  const handleTabChange = React.useCallback((value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", value);
+    router.push(`/account/me/requests?${params.toString()}`, { scroll: false });
+  }, [searchParams, router]);
+
   const {
     searchInput,
     searchQuery,
@@ -1209,6 +1220,39 @@ function RequestsPageContent() {
     }
   }, [highlightRequestId, openChatParam, allRequests, requestsLoading, selectedRequest, router]);
 
+  // Handle request URL parameter - restore open modal on page refresh
+  React.useEffect(() => {
+    const requestIdFromUrl = searchParams.get("request");
+    if (!requestIdFromUrl || !allRequests || requestsLoading || selectedRequest) return;
+
+    const requestToOpen = (allRequests as RequestWithRelations[])?.find(
+      (r) => r.id === requestIdFromUrl
+    );
+
+    if (requestToOpen) {
+      dispatch({ type: "SET_SELECTED_REQUEST", payload: requestToOpen });
+    }
+  }, [searchParams, allRequests, requestsLoading, selectedRequest]);
+
+  // Sync URL when selectedRequest changes (for cases where modal is opened via dispatch)
+  React.useEffect(() => {
+    const requestIdFromUrl = searchParams.get("request");
+
+    // If a request is selected but not in URL, add it
+    if (selectedRequest && requestIdFromUrl !== selectedRequest.id) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("request", selectedRequest.id);
+      router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
+    }
+
+    // If no request is selected but URL has one, remove it
+    if (!selectedRequest && requestIdFromUrl) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("request");
+      router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
+    }
+  }, [selectedRequest, searchParams, router]);
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1274,7 +1318,7 @@ function RequestsPageContent() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="my_requests" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <div className="flex justify-center mb-6">
             <TabsList className="inline-flex p-1 h-10 md:h-11 bg-muted/50 rounded-full">
               <TabsTrigger
