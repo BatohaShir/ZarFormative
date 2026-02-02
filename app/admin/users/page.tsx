@@ -12,7 +12,6 @@ import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import type { UserRole } from "@prisma/client";
 import {
   Search,
-  Loader2,
   Users,
   Shield,
   User,
@@ -23,6 +22,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // Тип профиля
 type Profile = {
@@ -126,8 +126,7 @@ export default function UsersPage() {
           schema: "public",
           table: "profiles",
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log("[Admin Users] Profile changed:", payload.eventType);
+        (_payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
           refetchProfiles();
         }
       )
@@ -164,8 +163,9 @@ export default function UsersPage() {
       });
       setOpenDropdown(null);
       refetch();
+      toast.success("Роль успешно изменена");
     } catch (error) {
-      console.error("Error updating role:", error);
+      toast.error("Не удалось изменить роль");
     }
   };
 

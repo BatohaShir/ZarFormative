@@ -13,24 +13,21 @@ import { createClient } from "@/lib/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import {
   Search,
-  Loader2,
   Package,
   Eye,
-  EyeOff,
   Trash2,
   ExternalLink,
   ChevronDown,
   Check,
   ToggleLeft,
   ToggleRight,
-  AlertCircle,
   Clock,
   Pause,
   Archive,
   Play,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 // Типы статусов
 type ListingStatus = "draft" | "active" | "paused" | "archived" | "deleted";
@@ -172,8 +169,7 @@ export default function ListingsPage() {
           schema: "public",
           table: "listings",
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log("[Admin Listings] Listing changed:", payload.eventType);
+        (_payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
           refetchListings();
         }
       )
@@ -206,8 +202,9 @@ export default function ListingsPage() {
       });
       setOpenDropdown(null);
       refetch();
+      toast.success("Статус изменён");
     } catch (error) {
-      console.error("Error updating status:", error);
+      toast.error("Не удалось изменить статус");
     }
   };
 
@@ -219,8 +216,9 @@ export default function ListingsPage() {
         data: { is_active: !listing.is_active },
       });
       refetch();
+      toast.success(listing.is_active ? "Объявление скрыто" : "Объявление показано");
     } catch (error) {
-      console.error("Error toggling active:", error);
+      toast.error("Не удалось изменить видимость");
     }
   };
 
@@ -237,8 +235,9 @@ export default function ListingsPage() {
       });
       setDeleteConfirm(null);
       refetch();
+      toast.success("Объявление удалено");
     } catch (error) {
-      console.error("Error deleting listing:", error);
+      toast.error("Не удалось удалить объявление");
     }
   };
 

@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 import {
   Search,
-  Loader2,
   FileText,
   Clock,
   CheckCircle,
@@ -165,7 +164,7 @@ export default function RequestsPage() {
   const queryClient = useQueryClient();
 
   // Fetch requests с include
-  const { data: requests, isLoading, refetch } = useFindManylisting_requests(
+  const { data: requests, isLoading } = useFindManylisting_requests(
     {
       orderBy: { created_at: "desc" },
       include: {
@@ -218,8 +217,7 @@ export default function RequestsPage() {
           schema: "public",
           table: "listing_requests",
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log("[Admin Requests] Request changed:", payload.eventType);
+        (_payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
           refetchRequests();
         }
       )
