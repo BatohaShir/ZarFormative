@@ -1167,9 +1167,19 @@ function RequestsPageContent() {
     dispatch({ type: "OPEN_CHAT_FOR_REQUEST", payload: request });
   }, []);
 
+  // Track if modal was manually closed to prevent useEffect from reopening
+  const wasManuallyClosedRef = React.useRef(false);
+
   const handleCloseModal = React.useCallback(() => {
+    // Mark as manually closed to prevent useEffect from reopening
+    wasManuallyClosedRef.current = true;
+    // Remove request param from URL
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("request");
+    router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
+    // Close modal
     dispatch({ type: "CLOSE_MODAL" });
-  }, []);
+  }, [searchParams, router]);
 
   // REALTIME SYNC: Update selectedRequest when allRequests changes (e.g., via realtime refetch)
   // This ensures the modal always shows the latest data
@@ -1246,6 +1256,13 @@ function RequestsPageContent() {
   // Handle request URL parameter - restore open modal on page refresh
   React.useEffect(() => {
     const requestIdFromUrl = searchParams.get("request");
+
+    // Don't reopen if user just closed the modal
+    if (wasManuallyClosedRef.current) {
+      wasManuallyClosedRef.current = false;
+      return;
+    }
+
     if (!requestIdFromUrl || !allRequests || requestsLoading || selectedRequest) return;
 
     const requestToOpen = (allRequests as RequestWithRelations[])?.find(
@@ -1268,12 +1285,8 @@ function RequestsPageContent() {
       router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
     }
 
-    // If no request is selected but URL has one, remove it
-    if (!selectedRequest && requestIdFromUrl) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("request");
-      router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
-    }
+    // NOTE: Removal of request param from URL is handled in handleCloseModal
+    // to prevent race condition with the above useEffect
   }, [selectedRequest, searchParams, router]);
 
   if (authLoading) {
