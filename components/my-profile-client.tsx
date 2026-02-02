@@ -343,13 +343,17 @@ export function MyProfileClient() {
     setIsEditingAbout(false);
   }, [profile?.about]);
 
-  // Show loading or redirect is in progress
-  if (isLoading || !isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+  // Redirect to home if not authenticated (after loading completes)
+  // Don't show loading spinner here - let Next.js loading.tsx handle it
+  // This prevents flash of white screen between loading.tsx and content
+  if (!isLoading && !isAuthenticated) {
+    return null; // Will redirect via useEffect above
+  }
+
+  // Show nothing while initial auth is loading - Next.js loading.tsx will show skeleton
+  // This prevents flash between skeleton → white spinner → content
+  if (isLoading && !profile) {
+    return null;
   }
 
   return (
