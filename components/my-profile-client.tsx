@@ -40,6 +40,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
 import { useEducations, type Education } from "@/hooks/use-educations";
 import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experiences";
+// Realtime хук для автоматического обновления данных без перезагрузки страницы
+import { useRealtimeProfile } from "@/hooks/use-realtime-profile";
+// Skeleton компоненты для красивой загрузки
+import { ProfileSkeleton, EducationSkeleton, WorkExperienceSkeleton } from "@/components/profile-skeleton";
 // REMOVED: useFindManylisting_requests, useFindManyreviews - используем денормализованные данные из профиля
 import {
   SCHOOLS_DB,
@@ -142,6 +146,10 @@ export function MyProfileClient() {
   const [showAddWork, setShowAddWork] = React.useState(false);
   const [editingWorkId, setEditingWorkId] = React.useState<string | null>(null);
   const [newWork, setNewWork] = React.useState<NewWorkExperienceForm>(initialWorkForm);
+
+  // REALTIME: Подписываемся на изменения профиля для автоматического обновления UI
+  // Когда кто-то оставит отзыв или изменятся данные - UI обновится без перезагрузки
+  useRealtimeProfile(user?.id);
 
   // OPTIMIZED: Используем денормализованные данные из профиля вместо 2 отдельных запросов
   // Поля avg_rating, reviews_count, completed_jobs_count обновляются триггером в БД
@@ -350,10 +358,10 @@ export function MyProfileClient() {
     return null; // Will redirect via useEffect above
   }
 
-  // Show nothing while initial auth is loading - Next.js loading.tsx will show skeleton
-  // This prevents flash between skeleton → white spinner → content
+  // Показываем красивый skeleton пока данные загружаются
+  // Это лучше чем пустой экран - пользователь видит что страница загружается
   if (isLoading && !profile) {
-    return null;
+    return <ProfileSkeleton />;
   }
 
   return (
@@ -913,15 +921,7 @@ export function MyProfileClient() {
 
                   {/* Education List */}
                   {isEducationsLoading ? (
-                    <div className="grid gap-3">
-                      {[1, 2].map((i) => (
-                        <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
-                          <div className="h-5 bg-muted rounded w-1/3 mb-2" />
-                          <div className="h-4 bg-muted rounded w-1/2 mb-1" />
-                          <div className="h-4 bg-muted rounded w-2/5 mt-2" />
-                        </div>
-                      ))}
-                    </div>
+                    <EducationSkeleton />
                   ) : educations.length === 0 && !showAddEducation ? (
                     <p className="text-muted-foreground text-center py-8">
                       {t("profile.noEducation")}
@@ -1189,15 +1189,7 @@ export function MyProfileClient() {
 
                   {/* Work List */}
                   {isWorkExperiencesLoading ? (
-                    <div className="grid gap-3">
-                      {[1, 2].map((i) => (
-                        <div key={i} className="p-4 bg-muted/30 rounded-lg animate-pulse">
-                          <div className="h-5 bg-muted rounded w-2/5 mb-2" />
-                          <div className="h-4 bg-muted rounded w-1/3 mb-1" />
-                          <div className="h-4 bg-muted rounded w-2/5 mt-2" />
-                        </div>
-                      ))}
-                    </div>
+                    <WorkExperienceSkeleton />
                   ) : workExperiences.length === 0 && !showAddWork ? (
                     <p className="text-muted-foreground text-center py-8">
                       {t("profile.noWorkExperience")}
