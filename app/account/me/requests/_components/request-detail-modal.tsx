@@ -161,8 +161,14 @@ export const RequestDetailModal = React.memo(function RequestDetailModal({
   );
 
   return (
-    <div className="fixed inset-x-0 top-0 bottom-21.5 md:bottom-0 md:inset-0 bg-black/50 z-100 flex items-stretch md:items-center justify-center">
-      <div className="bg-background w-full h-full md:h-auto md:max-w-2xl md:rounded-xl md:max-h-[90vh] overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-x-0 top-0 bottom-21.5 md:bottom-0 md:inset-0 bg-black/50 z-100 flex items-stretch md:items-center justify-center"
+      onClick={onClose}
+    >
+      <div
+        className="bg-background w-full h-full md:h-auto md:max-w-2xl md:rounded-xl md:max-h-[90vh] overflow-hidden flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="shrink-0 bg-background border-b p-3 md:p-4 flex items-center justify-between md:rounded-t-xl">
           <h3 className="font-semibold text-base md:text-lg">Хүсэлтийн дэлгэрэнгүй</h3>

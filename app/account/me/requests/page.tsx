@@ -208,13 +208,36 @@ function RequestsPageContent() {
   const [state, dispatch] = React.useReducer(requestsReducer, initialState);
 
   // Read active tab from URL, default to "my_requests"
-  const activeTab = searchParams.get("tab") || "my_requests";
+  const urlTab = searchParams.get("tab") || "my_requests";
 
-  // Handle tab change - update URL parameter
+  // OPTIMIZATION: Local state for instant tab switching (optimistic UI)
+  // This avoids waiting for URL update before showing the new tab
+  const [localActiveTab, setLocalActiveTab] = React.useState(urlTab);
+
+  // Sync local state with URL when URL changes (e.g., browser back/forward)
+  React.useEffect(() => {
+    setLocalActiveTab(urlTab);
+  }, [urlTab]);
+
+  // Use local state for instant UI, URL is updated in background
+  const activeTab = localActiveTab;
+
+  // Handle tab change - update URL parameter and close any open modals
   const handleTabChange = React.useCallback((value: string) => {
+    // OPTIMIZATION: Update local state FIRST for instant UI response
+    setLocalActiveTab(value);
+
+    // IMPORTANT: Close any open modals when switching tabs
+    dispatch({ type: "CLOSE_MODAL" });
+    dispatch({ type: "CLOSE_DELETE_DIALOG" });
+    dispatch({ type: "CLOSE_START_WORK_DIALOG" });
+
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
-    router.push(`/account/me/requests?${params.toString()}`, { scroll: false });
+    // Remove request param when switching tabs to avoid reopening modal
+    params.delete("request");
+    // Use replace instead of push for faster navigation (no history entry)
+    router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
   }, [searchParams, router]);
 
   const {
