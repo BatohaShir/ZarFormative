@@ -1,9 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { FolderTree, Users, Settings, ArrowRight } from "lucide-react";
+import {
+  FolderTree,
+  Users,
+  ArrowRight,
+  MapPin,
+  Building,
+  Home,
+  Package,
+  FileText,
+} from "lucide-react";
 
 const quickLinks = [
+  // Справочники
   {
     name: "Категории",
     description: "Управление категориями услуг",
@@ -12,18 +22,47 @@ const quickLinks = [
     color: "bg-blue-500",
   },
   {
+    name: "Аймаги",
+    description: "Управление аймагами (регионами)",
+    href: "/admin/aimags",
+    icon: MapPin,
+    color: "bg-teal-500",
+  },
+  {
+    name: "Районы",
+    description: "Управление районами",
+    href: "/admin/districts",
+    icon: Building,
+    color: "bg-orange-500",
+  },
+  {
+    name: "Хороо",
+    description: "Управление хороо (микрорайонами)",
+    href: "/admin/khoroos",
+    icon: Home,
+    color: "bg-pink-500",
+  },
+  // Контент
+  {
     name: "Пользователи",
-    description: "Управление пользователями",
+    description: "Просмотр и редактирование ролей",
     href: "/admin/users",
     icon: Users,
     color: "bg-green-500",
   },
   {
-    name: "Настройки",
-    description: "Настройки системы",
-    href: "/admin/settings",
-    icon: Settings,
+    name: "Услуги",
+    description: "Модерация объявлений",
+    href: "/admin/listings",
+    icon: Package,
     color: "bg-purple-500",
+  },
+  {
+    name: "Заявки",
+    description: "Просмотр всех заявок",
+    href: "/admin/requests",
+    icon: FileText,
+    color: "bg-amber-500",
   },
 ];
 

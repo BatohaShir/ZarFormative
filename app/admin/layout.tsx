@@ -10,18 +10,29 @@ import {
   LayoutDashboard,
   FolderTree,
   Users,
-  Settings,
   LogOut,
   Menu,
   X,
+  MapPin,
+  Building,
+  Home,
+  Package,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Навигация админ-панели - все справочники и разделы
 const navigation = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  // Справочники
   { name: "Категории", href: "/admin/categories", icon: FolderTree },
+  { name: "Аймаги", href: "/admin/aimags", icon: MapPin },
+  { name: "Районы", href: "/admin/districts", icon: Building },
+  { name: "Хороо", href: "/admin/khoroos", icon: Home },
+  // Контент
   { name: "Пользователи", href: "/admin/users", icon: Users },
-  { name: "Настройки", href: "/admin/settings", icon: Settings },
+  { name: "Услуги", href: "/admin/listings", icon: Package },
+  { name: "Заявки", href: "/admin/requests", icon: FileText },
 ];
 
 // Middleware handles auth check - this component just renders the admin layout
