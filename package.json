@@ -52,7 +52,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.1",
     "@zenstackhq/runtime": "2.22.1",
-    "@zenstackhq/server": "2.22.1",
+    "@zenstackhq/server": "3.3.2",
     "@zenstackhq/tanstack-query": "2.22.1",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
