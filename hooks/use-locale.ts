@@ -34,25 +34,21 @@ export function useLocale() {
       // Это предотвратит синхронизацию из БД в auth-context
       sessionStorage.setItem(LOCALE_CHANGED_KEY, "true");
 
-      // 1. Обновить cookie (для SSR)
+      // 1. Обновить cookie (для SSR) - INSTANT
       document.cookie = `${LOCALE_COOKIE}=${newLocale};path=/;max-age=31536000;SameSite=Lax`;
 
-      // 2. Обновить localStorage
+      // 2. Обновить localStorage - INSTANT
       localStorage.setItem("locale", newLocale);
 
-      // 3. Обновить в БД (если авторизован) - ВАЖНО: ждём завершения!
+      // 3. Обновить в БД (если авторизован) - fire and forget, не ждём!
+      // Сохранение в БД не должно блокировать UI - пользователь хочет видеть результат сразу
       if (isAuthenticated) {
-        try {
-          const result = await updateProfile({ preferred_language: newLocale });
-          if (result.error) {
-            console.error("Failed to save language to DB:", result.error);
-          }
-        } catch (e) {
+        updateProfile({ preferred_language: newLocale }).catch((e) => {
           console.error("Failed to save language to DB:", e);
-        }
+        });
       }
 
-      // 4. Перезагрузить страницу
+      // 4. Перезагрузить страницу СРАЗУ - не ждём БД
       window.location.reload();
     },
     [currentLocale, isAuthenticated, updateProfile]
