@@ -118,9 +118,8 @@ export default async function Home() {
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
           <h1 className="text-lg md:text-2xl font-bold">
-            <span className="text-[#c4272f]">Uilc</span>
-            <span className="text-[#015197]">hilge</span>
-            <span className="text-[#c4272f]">e.mn</span>
+            <span className="text-[#015197]">Tsogts</span>
+            <span className="text-[#c4272f]">.mn</span>
           </h1>
           {/* Mobile Nav - theme toggle + notifications bell */}
           <div className="flex md:hidden items-center gap-2">

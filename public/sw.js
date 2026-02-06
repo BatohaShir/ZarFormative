@@ -1,7 +1,7 @@
 // Service Worker for Push Notifications
-// Uilchilgee.mn v1.0.0
+// Tsogts.mn v1.0.0
 
-const CACHE_NAME = 'uilchilgee-v1';
+const CACHE_NAME = 'tsogts-v1';
 
 // Install event
 self.addEventListener('install', (event) => {
@@ -20,7 +20,7 @@ self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event);
 
   let data = {
-    title: 'Uilchilgee.mn',
+    title: 'Tsogts.mn',
     body: 'Танд шинэ мэдэгдэл ирлээ',
     icon: '/icons/notification-icon.png',
     badge: '/icons/badge-icon.png',

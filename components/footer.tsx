@@ -9,8 +9,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <h2 className="text-lg md:text-xl font-bold mb-3">
-              <span className="text-[#c4272f]">Uilc</span>
-              <span className="text-[#015197]">hilge</span>
+              <span className="text-[#015197]">Tsogts</span>
               <span className="text-[#c4272f]">.mn</span>
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -103,7 +102,7 @@ export function Footer() {
                 <span className="block">Утас: +976 9911-1234</span>
               </li>
               <li className="text-sm text-muted-foreground">
-                <span className="block">И-мэйл: info@uilchilgee.mn</span>
+                <span className="block">И-мэйл: info@tsogts.mn</span>
               </li>
               <li className="text-sm text-muted-foreground">
                 <span className="block">Хаяг: Улаанбаатар хот</span>
@@ -117,7 +116,7 @@ export function Footer() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Copyright */}
             <p className="text-xs md:text-sm text-muted-foreground text-center md:text-left">
-              &copy; 2025 Uilchilgee.mn. Бүх эрх хуулиар хамгаалагдсан.
+              &copy; 2025 Tsogts.mn. Бүх эрх хуулиар хамгаалагдсан.
             </p>
             {/* Company Info */}
             <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">

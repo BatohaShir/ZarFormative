@@ -98,9 +98,8 @@ export function PublicProfileClient({
             </Button>
             <Link href="/">
               <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#c4272f]">Uilc</span>
-                <span className="text-[#015197]">hilge</span>
-                <span className="text-[#c4272f]">e.mn</span>
+                <span className="text-[#015197]">Tsogts</span>
+                <span className="text-[#c4272f]">.mn</span>
               </h1>
             </Link>
           </div>
@@ -336,7 +335,7 @@ export function PublicProfileClient({
 
         {/* Footer Info */}
         <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-          <p>Uilchilgee.mn v1.0.0</p>
+          <p>Tsogts.mn v1.0.0</p>
           <p className="mt-1">© 2024 Бүх эрх хуулиар хамгаалагдсан</p>
         </div>
       </div>

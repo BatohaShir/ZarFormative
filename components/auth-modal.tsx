@@ -98,9 +98,8 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
       <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-center text-lg sm:text-2xl">
-            <span className="text-[#c4272f]">Uilc</span>
-            <span className="text-[#015197]">hilge</span>
-            <span className="text-[#c4272f]">e.mn</span>
+            <span className="text-[#015197]">Tsogts</span>
+            <span className="text-[#c4272f]">.mn</span>
           </DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="login" className="w-full">

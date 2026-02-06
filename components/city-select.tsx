@@ -21,7 +21,7 @@ interface CitySelectProps {
   value?: { aimagId: string; districtId: string };
 }
 
-const STORAGE_KEY = "uilchilgee_selected_location";
+const STORAGE_KEY = "tsogts_selected_location";
 
 interface StoredLocation {
   aimagId: string;

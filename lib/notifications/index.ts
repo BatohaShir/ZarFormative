@@ -1,5 +1,5 @@
 // Push Notifications utilities
-// Uilchilgee.mn
+// Tsogts.mn
 
 export interface NotificationPayload {
   title: string;

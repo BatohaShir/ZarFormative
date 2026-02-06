@@ -1,6 +1,6 @@
-# Contributing to Uilchilgee.mn
+# Contributing to Tsogts.mn
 
-First off, thank you for considering contributing to Uilchilgee.mn! 🎉
+First off, thank you for considering contributing to Tsogts.mn! 🎉
 
 ## Code of Conduct
 

@@ -24,13 +24,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://uilchilgee.mn";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tsogts.mn";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Uilchilgee.mn - Монголын үйлчилгээний платформ",
-    template: "%s | Uilchilgee.mn",
+    default: "Tsogts.mn - Монголын үйлчилгээний платформ",
+    template: "%s | Tsogts.mn",
   },
   description:
     "Монголын хамгийн том үйлчилгээний платформ. Засвар, цэвэрлэгээ, тээвэр, сургалт, IT болон бусад үйлчилгээг олж, захиалаарай.",
@@ -47,9 +47,9 @@ export const metadata: Metadata = {
     "Дархан",
     "Эрдэнэт",
   ],
-  authors: [{ name: "Uilchilgee.mn" }],
-  creator: "Uilchilgee.mn",
-  publisher: "Uilchilgee.mn",
+  authors: [{ name: "Tsogts.mn" }],
+  creator: "Tsogts.mn",
+  publisher: "Tsogts.mn",
   robots: {
     index: true,
     follow: true,
@@ -65,8 +65,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "mn_MN",
     url: siteUrl,
-    siteName: "Uilchilgee.mn",
-    title: "Uilchilgee.mn - Монголын үйлчилгээний платформ",
+    siteName: "Tsogts.mn",
+    title: "Tsogts.mn - Монголын үйлчилгээний платформ",
     description:
       "Монголын хамгийн том үйлчилгээний платформ. Засвар, цэвэрлэгээ, тээвэр, сургалт болон бусад үйлчилгээ.",
     images: [
@@ -74,13 +74,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Uilchilgee.mn - Монголын үйлчилгээний платформ",
+        alt: "Tsogts.mn - Монголын үйлчилгээний платформ",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Uilchilgee.mn - Монголын үйлчилгээний платформ",
+    title: "Tsogts.mn - Монголын үйлчилгээний платформ",
     description:
       "Монголын хамгийн том үйлчилгээний платформ. Засвар, цэвэрлэгээ, тээвэр, сургалт болон бусад үйлчилгээ.",
     images: ["/og-image.png"],

@@ -98,7 +98,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const providerName = getProviderName(listing.user);
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const imageUrl = getFirstImageUrl(listing.images);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://uilchilgee.mn";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tsogts.mn";
   const fullUrl = `${siteUrl}/services/${listing.slug}`;
 
   // Краткое описание для meta
@@ -113,14 +113,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       listing.category?.name || "үйлчилгээ",
       listing.aimag?.name || "Улаанбаатар",
       providerName,
-      "Uilchilgee.mn",
+      "Tsogts.mn",
     ].filter(Boolean),
     authors: [{ name: providerName }],
     openGraph: {
       type: "website",
       locale: "mn_MN",
       url: fullUrl,
-      siteName: "Uilchilgee.mn",
+      siteName: "Tsogts.mn",
       title: listing.title,
       description: metaDescription,
       images: [
@@ -153,7 +153,7 @@ function ServiceJsonLd({ listing }: { listing: ServiceDetailListing }) {
   const providerName = getProviderName(listing.user);
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const imageUrl = getFirstImageUrl(listing.images);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://uilchilgee.mn";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tsogts.mn";
 
   const jsonLd = {
     "@context": "https://schema.org",

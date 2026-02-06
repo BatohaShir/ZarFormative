@@ -9,9 +9,9 @@ interface OrganizationSchemaProps {
 }
 
 export function OrganizationSchema({
-  name = "Uilchilgee.mn",
-  url = "https://uilchilgee.mn",
-  logo = "https://uilchilgee.mn/logo.png",
+  name = "Tsogts.mn",
+  url = "https://tsogts.mn",
+  logo = "https://tsogts.mn/logo.png",
   description = "Монголын хамгийн том үйлчилгээний платформ",
 }: OrganizationSchemaProps) {
   const schema = {
@@ -22,8 +22,8 @@ export function OrganizationSchema({
     logo,
     description,
     sameAs: [
-      "https://facebook.com/uilchilgee.mn",
-      "https://instagram.com/uilchilgee.mn",
+      "https://facebook.com/tsogts.mn",
+      "https://instagram.com/tsogts.mn",
     ],
     contactPoint: {
       "@type": "ContactPoint",
@@ -47,8 +47,8 @@ interface WebsiteSchemaProps {
 }
 
 export function WebsiteSchema({
-  name = "Uilchilgee.mn",
-  url = "https://uilchilgee.mn",
+  name = "Tsogts.mn",
+  url = "https://tsogts.mn",
   description = "Монголын хамгийн том үйлчилгээний платформ",
 }: WebsiteSchemaProps) {
   const schema = {

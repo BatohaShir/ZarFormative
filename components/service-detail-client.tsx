@@ -174,9 +174,8 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
             </Button>
             <Link href="/" className="hidden sm:block">
               <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#c4272f]">Uilc</span>
-                <span className="text-[#015197]">hilge</span>
-                <span className="text-[#c4272f]">e.mn</span>
+                <span className="text-[#015197]">Tsogts</span>
+                <span className="text-[#c4272f]">.mn</span>
               </h1>
             </Link>
           </div>

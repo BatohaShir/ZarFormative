@@ -1,6 +1,6 @@
 import { MetadataRoute } from "next";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://uilchilgee.mn";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tsogts.mn";
 
 // Service categories for sitemap
 const categories = [

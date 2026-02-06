@@ -5,7 +5,7 @@ import {
   LocalBusinessSchema,
 } from "@/components/structured-data";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://uilchilgee.mn";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tsogts.mn";
 
 // Mock services data - in production, fetch from database
 const services: Record<
