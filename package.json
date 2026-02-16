@@ -68,7 +68,7 @@
     "react-hook-form": "^7.71.1",
     "react-leaflet": "^5.0.0",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0",
+    "tailwind-merge": "^3.4.1",
     "zenstack": "2.22.1",
     "zod": "^4.3.6"
   },
