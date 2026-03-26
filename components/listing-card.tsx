@@ -7,7 +7,15 @@ import dynamic from "next/dynamic";
 import { Heart, MapPin, Eye, User, Navigation } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
-import type { listings, profiles, categories, listings_images, aimags, districts, khoroos } from "@prisma/client";
+import type {
+  listings,
+  profiles,
+  categories,
+  listings_images,
+  aimags,
+  districts,
+  khoroos,
+} from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
@@ -20,7 +28,10 @@ const LocationMapModal = dynamic(
 
 // Тип объявления с включёнными связями
 export type ListingWithRelations = listings & {
-  user: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company">;
+  user: Pick<
+    profiles,
+    "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company"
+  >;
   category: Pick<categories, "id" | "name" | "slug">;
   images: Pick<listings_images, "id" | "url" | "sort_order">[];
   aimag?: Pick<aimags, "id" | "name" | "latitude" | "longitude"> | null;
@@ -53,7 +64,9 @@ export const ListingCard = React.memo(function ListingCard({
 
   // Используем ref для isToggling чтобы избежать пересоздания callback
   const isTogglingRef = React.useRef(isToggling);
-  isTogglingRef.current = isToggling;
+  React.useEffect(() => {
+    isTogglingRef.current = isToggling;
+  }, [isToggling]);
 
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
@@ -66,22 +79,16 @@ export const ListingCard = React.memo(function ListingCard({
     [toggleFavorite, listing.id]
   );
 
-  const handleShowMap = React.useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setShowMapModal(true);
-    },
-    []
-  );
+  const handleShowMap = React.useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowMapModal(true);
+  }, []);
 
   const providerName = getProviderName(listing.user);
 
   // Мемоизация URL изображения - избегаем сортировки на каждый рендер
-  const imageUrl = React.useMemo(
-    () => getFirstImageUrl(listing.images),
-    [listing.images]
-  );
+  const imageUrl = React.useMemo(() => getFirstImageUrl(listing.images), [listing.images]);
 
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
   const locationDisplay = formatLocation(listing);
@@ -131,9 +138,7 @@ export const ListingCard = React.memo(function ListingCard({
           >
             <Heart
               className={`w-4 h-4 md:w-5 md:h-5 transition-all ${
-                isLiked
-                  ? "fill-red-500 text-red-500 scale-110"
-                  : "text-gray-600 dark:text-gray-300"
+                isLiked ? "fill-red-500 text-red-500 scale-110" : "text-gray-600 dark:text-gray-300"
               }`}
             />
           </button>
@@ -141,9 +146,7 @@ export const ListingCard = React.memo(function ListingCard({
 
         {/* Price on image */}
         <div className="absolute bottom-2.5 left-2.5 right-2.5 md:bottom-3 md:left-3 md:right-3">
-          <p className="text-white font-bold text-lg md:text-xl drop-shadow-lg">
-            {priceDisplay}
-          </p>
+          <p className="text-white font-bold text-lg md:text-xl drop-shadow-lg">{priceDisplay}</p>
         </div>
       </div>
 
@@ -197,9 +200,7 @@ export const ListingCard = React.memo(function ListingCard({
         {/* Location */}
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <MapPin className="w-3.5 h-3.5 text-primary/70 shrink-0" />
-          <span className="text-xs md:text-sm truncate flex-1">
-            {locationDisplay}
-          </span>
+          <span className="text-xs md:text-sm truncate flex-1">{locationDisplay}</span>
           {hasCoordinates && (
             <button
               onClick={handleShowMap}
@@ -211,7 +212,6 @@ export const ListingCard = React.memo(function ListingCard({
             </button>
           )}
         </div>
-
       </div>
 
       {/* Map Modal */}

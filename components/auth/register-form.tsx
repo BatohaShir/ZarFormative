@@ -6,16 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import {
-  Phone,
-  Mail,
-  User,
-  Lock,
-  Eye,
-  EyeOff,
-  Building2,
-  Briefcase,
-} from "lucide-react";
+import { Phone, Mail, User, Lock, Eye, EyeOff, Building2, Briefcase } from "lucide-react";
 
 interface RegisterFormProps {
   onSuccess: () => void;
@@ -237,6 +228,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                     setRegFirstName(e.target.value);
                     clearRegError("firstName");
                   }}
+                  maxLength={100}
                   aria-invalid={!!regErrors.firstName}
                 />
               </div>
@@ -255,6 +247,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                     setRegLastName(e.target.value);
                     clearRegError("lastName");
                   }}
+                  maxLength={100}
                   aria-invalid={!!regErrors.lastName}
                 />
               </div>
@@ -279,6 +272,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                     setRegCompanyName(e.target.value);
                     clearRegError("companyName");
                   }}
+                  maxLength={100}
                   aria-invalid={!!regErrors.companyName}
                 />
               </div>
@@ -297,6 +291,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                     setRegRegistrationNumber(e.target.value);
                     clearRegError("registrationNumber");
                   }}
+                  maxLength={20}
                   aria-invalid={!!regErrors.registrationNumber}
                 />
               </div>
@@ -320,12 +315,11 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                 setRegPhone(e.target.value);
                 clearRegError("phone");
               }}
+              maxLength={8}
               aria-invalid={!!regErrors.phone}
             />
           </div>
-          {regErrors.phone && (
-            <p className="text-destructive text-xs pl-1">{regErrors.phone}</p>
-          )}
+          {regErrors.phone && <p className="text-destructive text-xs pl-1">{regErrors.phone}</p>}
         </div>
         <div className="space-y-1">
           <div className="relative">
@@ -342,9 +336,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               aria-invalid={!!regErrors.email}
             />
           </div>
-          {regErrors.email && (
-            <p className="text-destructive text-xs pl-1">{regErrors.email}</p>
-          )}
+          {regErrors.email && <p className="text-destructive text-xs pl-1">{regErrors.email}</p>}
         </div>
         <div className="space-y-1">
           <div className="relative">
@@ -433,9 +425,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               {t("agreeToTerms")}
             </Label>
           </div>
-          {regErrors.terms && (
-            <p className="text-destructive text-xs pl-1">{regErrors.terms}</p>
-          )}
+          {regErrors.terms && <p className="text-destructive text-xs pl-1">{regErrors.terms}</p>}
         </div>
 
         {regErrors.general && (

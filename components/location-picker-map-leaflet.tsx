@@ -9,6 +9,7 @@ import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/ui/base-map";
 
 // Custom marker icon (lazy load)
 const createMarkerIcon = () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Leaflet requires runtime import in non-SSR context
   const L = require("leaflet");
   return L.divIcon({
     className: "custom-marker",
@@ -60,7 +61,13 @@ function MapClickHandler({
 }
 
 // Component to fly to coordinates
-function FlyToCoordinates({ coordinates, zoom = 18 }: { coordinates: [number, number] | null; zoom?: number }) {
+function FlyToCoordinates({
+  coordinates,
+  zoom = 18,
+}: {
+  coordinates: [number, number] | null;
+  zoom?: number;
+}) {
   const map = useMap();
 
   React.useEffect(() => {
@@ -92,8 +99,8 @@ function FullscreenLocationPickerModal({
 
   const center = coordinates || DEFAULT_MAP_CENTER;
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 1, 19));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 1, 10));
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 1, 19));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 1, 10));
 
   const handleMyLocation = () => {
     if (!navigator.geolocation) return;
@@ -108,8 +115,15 @@ function FullscreenLocationPickerModal({
           mapRef.current.flyTo([latitude, longitude], 18, { duration: 0.5 });
         }
       },
-      () => {
+      (err: GeolocationPositionError) => {
         setIsLocating(false);
+        if (err.code === 1) {
+          alert("Байршил тодорхойлох зөвшөөрөл хэрэгтэй");
+        } else if (err.code === 2) {
+          alert("Байршил тодорхойлох боломжгүй байна");
+        } else {
+          alert("Байршил тодорхойлоход алдаа гарлаа");
+        }
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -162,9 +176,7 @@ function FullscreenLocationPickerModal({
             <MapClickHandler onCoordinatesChange={onCoordinatesChange} />
             <FlyToCoordinates coordinates={coordinates} zoom={zoom} />
 
-            {coordinates && (
-              <Marker position={coordinates} icon={markerIcon} />
-            )}
+            {coordinates && <Marker position={coordinates} icon={markerIcon} />}
           </MapContainer>
 
           {/* Controls */}
@@ -209,9 +221,19 @@ function FullscreenLocationPickerModal({
               title="Миний байршил"
             >
               {isLocating ? (
-                <Loader2 className={cn("h-5 w-5 animate-spin", coordinates ? "text-white" : "text-gray-700 dark:text-gray-300")} />
+                <Loader2
+                  className={cn(
+                    "h-5 w-5 animate-spin",
+                    coordinates ? "text-white" : "text-gray-700 dark:text-gray-300"
+                  )}
+                />
               ) : (
-                <Navigation2 className={cn("h-5 w-5 rotate-45", coordinates ? "text-white" : "text-gray-700 dark:text-gray-300")} />
+                <Navigation2
+                  className={cn(
+                    "h-5 w-5 rotate-45",
+                    coordinates ? "text-white" : "text-gray-700 dark:text-gray-300"
+                  )}
+                />
               )}
             </button>
           </div>
@@ -266,8 +288,15 @@ export function LocationPickerMapLeaflet({
           mapRef.current.flyTo([latitude, longitude], 18, { duration: 0.5 });
         }
       },
-      () => {
+      (err: GeolocationPositionError) => {
         setIsLocating(false);
+        if (err.code === 1) {
+          alert("Байршил тодорхойлох зөвшөөрөл хэрэгтэй");
+        } else if (err.code === 2) {
+          alert("Байршил тодорхойлох боломжгүй байна");
+        } else {
+          alert("Байршил тодорхойлоход алдаа гарлаа");
+        }
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -287,7 +316,10 @@ export function LocationPickerMapLeaflet({
 
   return (
     <>
-      <div className="relative w-full h-[250px] rounded-xl overflow-hidden border group" style={{ isolation: "isolate", contain: "layout paint" }}>
+      <div
+        className="relative w-full h-[250px] rounded-xl overflow-hidden border group"
+        style={{ isolation: "isolate", contain: "layout paint" }}
+      >
         <MapContainer
           center={center}
           zoom={coordinates ? 18 : 15}
@@ -301,9 +333,7 @@ export function LocationPickerMapLeaflet({
           <MapClickHandler onCoordinatesChange={onCoordinatesChange} />
           <FlyToCoordinates coordinates={coordinates} />
 
-          {coordinates && (
-            <Marker position={coordinates} icon={markerIcon} />
-          )}
+          {coordinates && <Marker position={coordinates} icon={markerIcon} />}
         </MapContainer>
 
         {/* Gradient overlay for better button visibility */}
@@ -347,9 +377,19 @@ export function LocationPickerMapLeaflet({
             title="Миний байршил"
           >
             {isLocating ? (
-              <Loader2 className={cn("h-4 w-4 animate-spin", coordinates ? "text-white" : "text-gray-700 dark:text-gray-300")} />
+              <Loader2
+                className={cn(
+                  "h-4 w-4 animate-spin",
+                  coordinates ? "text-white" : "text-gray-700 dark:text-gray-300"
+                )}
+              />
             ) : (
-              <Navigation2 className={cn("h-4 w-4 rotate-45", coordinates ? "text-white" : "text-gray-700 dark:text-gray-300")} />
+              <Navigation2
+                className={cn(
+                  "h-4 w-4 rotate-45",
+                  coordinates ? "text-white" : "text-gray-700 dark:text-gray-300"
+                )}
+              />
             )}
           </button>
         </div>

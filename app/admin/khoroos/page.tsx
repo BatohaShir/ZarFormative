@@ -23,6 +23,7 @@ import {
   Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Khoroo = {
   id: string;
@@ -95,12 +96,16 @@ export default function KhoroosPage() {
   });
 
   // Fetch khoroos
-  const { data: khoroos, isLoading, refetch } = useFindManykhoroos({
+  const {
+    data: khoroos,
+    isLoading,
+    refetch,
+  } = useFindManykhoroos({
     where: filterDistrictId
       ? { district_id: filterDistrictId }
       : filterAimagId
-      ? { district: { aimag_id: filterAimagId } }
-      : undefined,
+        ? { district: { aimag_id: filterAimagId } }
+        : undefined,
     orderBy: [
       { district: { aimag: { sort_order: "asc" } } },
       { district: { sort_order: "asc" } },
@@ -125,12 +130,13 @@ export default function KhoroosPage() {
   const deleteMutation = useDeletekhoroos();
 
   // Filter by search
-  const filteredKhoroos = khoroos?.filter(
-    (k) =>
-      k.name.toLowerCase().includes(search.toLowerCase()) ||
-      k.district?.name.toLowerCase().includes(search.toLowerCase()) ||
-      k.district?.aimag?.name.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  const filteredKhoroos =
+    khoroos?.filter(
+      (k) =>
+        k.name.toLowerCase().includes(search.toLowerCase()) ||
+        k.district?.name.toLowerCase().includes(search.toLowerCase()) ||
+        k.district?.aimag?.name.toLowerCase().includes(search.toLowerCase())
+    ) || [];
 
   // Open modal for create
   const openCreateModal = () => {
@@ -193,6 +199,7 @@ export default function KhoroosPage() {
       refetch();
     } catch (error) {
       console.error("Error saving khoroo:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -209,6 +216,7 @@ export default function KhoroosPage() {
       refetch();
     } catch (error) {
       console.error("Error deleting khoroo:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -222,6 +230,7 @@ export default function KhoroosPage() {
       refetch();
     } catch (error) {
       console.error("Error toggling active status:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -236,12 +245,8 @@ export default function KhoroosPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Хороо / Баг
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Хороо, багийн удирдлага
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Хороо / Баг</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Хороо, багийн удирдлага</p>
         </div>
         <button
           onClick={openCreateModal}
@@ -459,9 +464,7 @@ export default function KhoroosPage() {
                 </label>
                 <select
                   value={formData.district_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, district_id: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, district_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   required
                 >
@@ -482,9 +485,7 @@ export default function KhoroosPage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   required
                   placeholder="1-р хороо"
@@ -509,9 +510,7 @@ export default function KhoroosPage() {
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   placeholder="1"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Хорооны дугаар (жишээ: 1, 2, 3)
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Хорооны дугаар (жишээ: 1, 2, 3)</p>
               </div>
 
               {/* Sort order */}
@@ -531,18 +530,14 @@ export default function KhoroosPage() {
                   min={0}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Бага тоо эхэнд харагдана
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Бага тоо эхэнд харагдана</p>
               </div>
 
               {/* Is active */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <button
                   type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, is_active: !formData.is_active })
-                  }
+                  onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                   className={cn(
                     "w-5 h-5 rounded border flex items-center justify-center transition-colors",
                     formData.is_active
@@ -550,17 +545,13 @@ export default function KhoroosPage() {
                       : "border-gray-300 dark:border-gray-600"
                   )}
                 >
-                  {formData.is_active && (
-                    <Check className="h-3 w-3 text-white" />
-                  )}
+                  {formData.is_active && <Check className="h-3 w-3 text-white" />}
                 </button>
                 <div>
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     Идэвхтэй
                   </label>
-                  <p className="text-xs text-gray-500">
-                    Идэвхгүй хороо хэрэглэгчдэд харагдахгүй
-                  </p>
+                  <p className="text-xs text-gray-500">Идэвхгүй хороо хэрэглэгчдэд харагдахгүй</p>
                 </div>
               </div>
 

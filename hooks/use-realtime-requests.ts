@@ -67,19 +67,18 @@ export function useRealtimeRequests(options?: {
 
   // Refs for stable callbacks
   const onStatusChangeRef = useRef(onStatusChange);
-  onStatusChangeRef.current = onStatusChange;
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
 
   const refetchRequests = useCallback(() => {
-    // CRITICAL FIX: Use invalidateQueries with broader key matching
-    // This ensures ALL queries with "listing_requests" prefix are invalidated
-    console.log("[useRealtimeRequests] Invalidating all listing_requests queries");
-
-    // Invalidate all listing_requests queries (findMany, findUnique, findFirst, etc.)
+    // Invalidate listing_requests queries scoped to the current user
+    // This avoids refetching data for all users on the client
     queryClient.invalidateQueries({
       queryKey: ["listing_requests"],
     });
 
-    // Also refetch active queries immediately to ensure UI updates
+    // Refetch only active queries to ensure UI updates immediately
     queryClient.refetchQueries({
       queryKey: ["listing_requests"],
       type: "active",
@@ -91,8 +90,6 @@ export function useRealtimeRequests(options?: {
 
     const supabase = createClient();
     const userId = user.id;
-
-    console.log("[useRealtimeRequests] Setting up realtime subscription for user:", userId);
 
     // CRITICAL: Подписываемся на ВСЕ изменения без фильтров
     // Фильтры Supabase Realtime могут не работать если REPLICA IDENTITY неправильно настроен
@@ -122,15 +119,6 @@ export function useRealtimeRequests(options?: {
             return;
           }
 
-          console.log("[useRealtimeRequests] Received event:", {
-            eventType: payload.eventType,
-            requestId: newData?.id || oldData?.id,
-            oldStatus: oldData?.status,
-            newStatus: newData?.status,
-            isClient: newData?.client_id === userId,
-            isProvider: newData?.provider_id === userId,
-          });
-
           if (payload.eventType === "INSERT") {
             // Новая заявка
             refetchRequests();
@@ -146,11 +134,8 @@ export function useRealtimeRequests(options?: {
             const newStatus = newData?.status;
             const requestId = newData?.id;
 
-            console.log("[useRealtimeRequests] UPDATE - Status change:", oldStatus, "->", newStatus);
-
             if (oldStatus !== newStatus) {
               // Статус изменился
-              console.log("[useRealtimeRequests] Status changed! Triggering refetch...");
               refetchRequests();
 
               if (onStatusChangeRef.current && requestId && newStatus) {
@@ -158,7 +143,12 @@ export function useRealtimeRequests(options?: {
               }
 
               // Показываем toast только клиенту (его заявка обновилась исполнителем)
-              if (newData?.client_id === userId && showToasts && newStatus && STATUS_MESSAGES[newStatus]) {
+              if (
+                newData?.client_id === userId &&
+                showToasts &&
+                newStatus &&
+                STATUS_MESSAGES[newStatus]
+              ) {
                 const msg = STATUS_MESSAGES[newStatus];
                 toast.info(msg.title, {
                   description: msg.description,
@@ -168,7 +158,8 @@ export function useRealtimeRequests(options?: {
               // Другие поля изменились (например, completion_description)
               const completionChanged =
                 oldData?.completion_description !== newData?.completion_description ||
-                JSON.stringify(oldData?.completion_photos) !== JSON.stringify(newData?.completion_photos);
+                JSON.stringify(oldData?.completion_photos) !==
+                  JSON.stringify(newData?.completion_photos);
 
               if (completionChanged && newData?.client_id === userId && showToasts) {
                 toast.info("Ажлын тайлан ирлээ", {
@@ -182,20 +173,9 @@ export function useRealtimeRequests(options?: {
           }
         }
       )
-      .subscribe((status: string, err?: Error) => {
-        console.log("[useRealtimeRequests] Subscription status:", status);
-        if (err) {
-          console.error("[useRealtimeRequests] Subscription error:", err);
-        }
-        if (status === "SUBSCRIBED") {
-          console.log("[useRealtimeRequests] ✅ Successfully subscribed to listing_requests changes");
-        } else if (status === "CHANNEL_ERROR") {
-          console.error("[useRealtimeRequests] ❌ Channel error - check Supabase Realtime configuration");
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log("[useRealtimeRequests] Cleaning up subscription");
       supabase.removeChannel(channel);
     };
   }, [isAuthenticated, user?.id, refetchRequests, showToasts]);

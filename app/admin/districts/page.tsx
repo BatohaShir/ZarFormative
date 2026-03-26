@@ -23,6 +23,7 @@ import {
   Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import type { DistrictType } from "@prisma/client";
 
 type District = {
@@ -76,7 +77,11 @@ export default function DistrictsPage() {
   });
 
   // Fetch districts with aimag info
-  const { data: districts, isLoading, refetch } = useFindManydistricts({
+  const {
+    data: districts,
+    isLoading,
+    refetch,
+  } = useFindManydistricts({
     where: filterAimagId ? { aimag_id: filterAimagId } : undefined,
     orderBy: [{ aimag: { sort_order: "asc" } }, { sort_order: "asc" }],
     include: {
@@ -95,12 +100,13 @@ export default function DistrictsPage() {
   const deleteMutation = useDeletedistricts();
 
   // Filter by search
-  const filteredDistricts = districts?.filter(
-    (d) =>
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.name_en?.toLowerCase().includes(search.toLowerCase()) ||
-      d.aimag?.name.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  const filteredDistricts =
+    districts?.filter(
+      (d) =>
+        d.name.toLowerCase().includes(search.toLowerCase()) ||
+        d.name_en?.toLowerCase().includes(search.toLowerCase()) ||
+        d.aimag?.name.toLowerCase().includes(search.toLowerCase())
+    ) || [];
 
   // Open modal for create
   const openCreateModal = () => {
@@ -166,6 +172,7 @@ export default function DistrictsPage() {
       refetch();
     } catch (error) {
       console.error("Error saving district:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -182,6 +189,7 @@ export default function DistrictsPage() {
       refetch();
     } catch (error) {
       console.error("Error deleting district:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -195,6 +203,7 @@ export default function DistrictsPage() {
       refetch();
     } catch (error) {
       console.error("Error toggling active status:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -203,12 +212,8 @@ export default function DistrictsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Дүүрэг / Сум
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Дүүрэг, сумдын удирдлага
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Дүүрэг / Сум</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Дүүрэг, сумдын удирдлага</p>
         </div>
         <button
           onClick={openCreateModal}
@@ -435,9 +440,7 @@ export default function DistrictsPage() {
                 </label>
                 <select
                   value={formData.aimag_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, aimag_id: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, aimag_id: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   required
                 >
@@ -458,9 +461,7 @@ export default function DistrictsPage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   required
                   placeholder="Баянгол"
@@ -475,9 +476,7 @@ export default function DistrictsPage() {
                 <input
                   type="text"
                   value={formData.name_en}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name_en: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   placeholder="Bayangol"
                 />
@@ -520,18 +519,14 @@ export default function DistrictsPage() {
                   min={0}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Бага тоо эхэнд харагдана
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Бага тоо эхэнд харагдана</p>
               </div>
 
               {/* Is active */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <button
                   type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, is_active: !formData.is_active })
-                  }
+                  onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                   className={cn(
                     "w-5 h-5 rounded border flex items-center justify-center transition-colors",
                     formData.is_active
@@ -539,17 +534,13 @@ export default function DistrictsPage() {
                       : "border-gray-300 dark:border-gray-600"
                   )}
                 >
-                  {formData.is_active && (
-                    <Check className="h-3 w-3 text-white" />
-                  )}
+                  {formData.is_active && <Check className="h-3 w-3 text-white" />}
                 </button>
                 <div>
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
                     Идэвхтэй
                   </label>
-                  <p className="text-xs text-gray-500">
-                    Идэвхгүй дүүрэг хэрэглэгчдэд харагдахгүй
-                  </p>
+                  <p className="text-xs text-gray-500">Идэвхгүй дүүрэг хэрэглэгчдэд харагдахгүй</p>
                 </div>
               </div>
 

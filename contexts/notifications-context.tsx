@@ -25,7 +25,10 @@ export interface NotificationWithRelations {
   actor_id: string | null;
   created_at: Date;
   read_at: Date | null;
-  actor?: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company"> | null;
+  actor?: Pick<
+    profiles,
+    "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company"
+  > | null;
   request?: {
     id: string;
     listing: Pick<listings, "id" | "title" | "slug">;
@@ -59,9 +62,15 @@ interface NotificationsDataContextType {
   refetch: () => void;
 }
 
-const NotificationsCountContext = React.createContext<NotificationsCountContextType | undefined>(undefined);
-const NotificationsActionsContext = React.createContext<NotificationsActionsContextType | undefined>(undefined);
-const NotificationsDataContext = React.createContext<NotificationsDataContextType | undefined>(undefined);
+const NotificationsCountContext = React.createContext<NotificationsCountContextType | undefined>(
+  undefined
+);
+const NotificationsActionsContext = React.createContext<
+  NotificationsActionsContextType | undefined
+>(undefined);
+const NotificationsDataContext = React.createContext<NotificationsDataContextType | undefined>(
+  undefined
+);
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
@@ -134,6 +143,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     }
   );
 
+  // Stable ref for refetch to avoid subscription thrashing
+  // (refetch changes identity on every query result, causing useEffect to re-run)
+  const refetchRef = React.useRef(refetch);
+  React.useEffect(() => {
+    refetchRef.current = refetch;
+  }, [refetch]);
+
   // ========== SUPABASE REALTIME SUBSCRIPTION ==========
   // Подписка на новые уведомления для моментального обновления UI
   React.useEffect(() => {
@@ -154,13 +170,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             filter: `user_id=eq.${user.id}`,
           },
           (payload: { new: Record<string, unknown> }) => {
-            // Новое уведомление пришло - немедленно рефетчим для получения полных данных с relations
-
-            // Показываем анимацию нового уведомления
             setHasNewNotification(true);
 
-            // Пробуем показать браузерное уведомление если есть разрешение
-            if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            if (
+              typeof window !== "undefined" &&
+              "Notification" in window &&
+              Notification.permission === "granted"
+            ) {
               const data = payload.new as { title?: string; message?: string };
               new Notification(data.title || "Шинэ мэдэгдэл", {
                 body: data.message || "",
@@ -169,7 +185,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               });
             }
 
-            refetch();
+            refetchRef.current();
           }
         )
         .on(
@@ -181,8 +197,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            // Уведомление обновлено (например, прочитано с другого устройства)
-            refetch();
+            refetchRef.current();
           }
         )
         .subscribe();
@@ -195,7 +210,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         supabase.removeChannel(channel);
       }
     };
-  }, [isAuthenticated, user?.id, refetch]);
+  }, [isAuthenticated, user?.id]);
 
   // Сбрасываем флаг новых уведомлений через 3 секунды
   React.useEffect(() => {
@@ -205,6 +220,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       }, 3000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [hasNewNotification]);
 
   // Мутации
@@ -237,7 +253,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   // Ref для стабильных callbacks
   const notificationsRef = React.useRef(notifications);
-  notificationsRef.current = notifications;
+  React.useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
 
   // Mark single notification as read
   const markAsRead = React.useCallback(
@@ -258,6 +276,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   );
 
   // Mark all as read with useTransition for non-blocking UI
+
   const markAllAsRead = React.useCallback(() => {
     if (!user?.id) return;
 
@@ -288,7 +307,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         }
       );
     });
-  }, [user?.id, updateManyNotifications, optimisticReadIds]);
+  }, [user, updateManyNotifications, optimisticReadIds]);
 
   // ========== МЕМОИЗИРОВАННЫЕ ЗНАЧЕНИЯ ==========
 
@@ -308,7 +327,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       isMarking: updateNotification.isPending || updateManyNotifications.isPending,
       isMarkingAll: isPendingMarkAll || updateManyNotifications.isPending,
     }),
-    [markAsRead, markAllAsRead, updateNotification.isPending, updateManyNotifications.isPending, isPendingMarkAll]
+    [
+      markAsRead,
+      markAllAsRead,
+      updateNotification.isPending,
+      updateManyNotifications.isPending,
+      isPendingMarkAll,
+    ]
   );
 
   const dataValue = React.useMemo<NotificationsDataContextType>(

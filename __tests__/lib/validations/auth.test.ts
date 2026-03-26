@@ -5,7 +5,7 @@ describe("Auth Validations", () => {
     it("should validate correct login data", () => {
       const validData = {
         email: "test@example.com",
-        password: "password123",
+        password: "Password123",
       };
 
       const result = loginSchema.safeParse(validData);
@@ -15,7 +15,7 @@ describe("Auth Validations", () => {
     it("should reject invalid email", () => {
       const invalidData = {
         email: "invalid-email",
-        password: "password123",
+        password: "Password123",
       };
 
       const result = loginSchema.safeParse(invalidData);
@@ -38,8 +38,8 @@ describe("Auth Validations", () => {
       const validData = {
         name: "John Doe",
         email: "john@example.com",
-        password: "password123",
-        confirmPassword: "password123",
+        password: "Password123",
+        confirmPassword: "Password123",
       };
 
       const result = registerSchema.safeParse(validData);
@@ -50,7 +50,7 @@ describe("Auth Validations", () => {
       const invalidData = {
         name: "John Doe",
         email: "john@example.com",
-        password: "password123",
+        password: "Password123",
         confirmPassword: "different",
       };
 
@@ -62,8 +62,8 @@ describe("Auth Validations", () => {
       const invalidData = {
         name: "J",
         email: "john@example.com",
-        password: "password123",
-        confirmPassword: "password123",
+        password: "Password123",
+        confirmPassword: "Password123",
       };
 
       const result = registerSchema.safeParse(invalidData);

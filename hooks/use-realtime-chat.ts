@@ -76,14 +76,16 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
 
   // Refs for stable callbacks
   const onNewMessageRef = useRef(onNewMessage);
-  onNewMessageRef.current = onNewMessage;
+  useEffect(() => {
+    onNewMessageRef.current = onNewMessage;
+  }, [onNewMessage]);
 
   const onMessageReadRef = useRef(onMessageRead);
-  onMessageReadRef.current = onMessageRead;
+  useEffect(() => {
+    onMessageReadRef.current = onMessageRead;
+  }, [onMessageRead]);
 
   const invalidateMessages = useCallback(() => {
-    console.log("[useRealtimeChat] Invalidating chat_messages queries");
-
     // Invalidate all chat_messages queries
     queryClient.invalidateQueries({
       queryKey: ["chat_messages"],
@@ -137,7 +139,7 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
         (old) => {
           if (!old) return [optimisticMessage];
           // Only add to queries for this request
-          const hasOurRequest = old.some(m => m.request_id === requestId);
+          const hasOurRequest = old.some((m) => m.request_id === requestId);
           if (hasOurRequest || old.length === 0) {
             return [...old, optimisticMessage];
           }
@@ -188,8 +190,6 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
     const supabase = createClient();
     const userId = user.id;
 
-    console.log("[useRealtimeChat] Setting up realtime subscription for request:", requestId, "user:", userId);
-
     // CRITICAL: Подписываемся на ВСЕ изменения без фильтров
     // Фильтры Supabase Realtime могут не работать если REPLICA IDENTITY неправильно настроен
     // Фильтруем на клиенте для надёжности
@@ -208,26 +208,27 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
 
           // Проверяем что это событие относится к нашему request_id
           const isOurRequest =
-            newData?.request_id === requestId ||
-            oldData?.request_id === requestId;
+            newData?.request_id === requestId || oldData?.request_id === requestId;
 
           if (!isOurRequest) {
             // Это событие не для нас, игнорируем
             return;
           }
 
-          console.log("[useRealtimeChat] Received event:", {
-            eventType: payload.eventType,
-            messageId: newData?.id || oldData?.id,
-            senderId: newData?.sender_id,
-            isOwnMessage: newData?.sender_id === userId,
-            isRead: newData?.is_read,
-            wasRead: oldData?.is_read,
-          });
-
           if (payload.eventType === "INSERT") {
             // Новое сообщение
-            console.log("[useRealtimeChat] INSERT - New message received");
+
+            // DEDUPLICATION FIX: If this is our own message arriving via realtime,
+            // remove any optimistic messages first to prevent duplicates
+            if (newData?.sender_id === userId) {
+              queryClient.setQueriesData<ChatMessage[]>(
+                { queryKey: ["chat_messages", "findMany"] },
+                (old) => {
+                  if (!old) return old;
+                  return old.filter((m) => !m.$optimistic || m.request_id !== requestId);
+                }
+              );
+            }
 
             // Инвалидируем кэш для получения актуальных данных
             invalidateMessages();
@@ -240,11 +241,8 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
             const wasRead = oldData?.is_read === false;
             const nowRead = newData?.is_read === true;
 
-            console.log("[useRealtimeChat] UPDATE - wasRead:", wasRead, "nowRead:", nowRead);
-
             // Проверяем изменение статуса прочтения
             if (wasRead && nowRead) {
-              console.log("[useRealtimeChat] Message marked as read");
               invalidateMessages();
 
               if (onMessageReadRef.current && newData?.id) {
@@ -255,23 +253,14 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
               invalidateMessages();
             }
           } else if (payload.eventType === "DELETE") {
-            console.log("[useRealtimeChat] DELETE - Message deleted");
             invalidateMessages();
           }
         }
       )
-      .subscribe((status: string, err?: Error) => {
-        console.log("[useRealtimeChat] Subscription status:", status);
-        if (err) {
-          console.error("[useRealtimeChat] Subscription error:", err);
-        }
+      .subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
-          console.log("[useRealtimeChat] ✅ Successfully subscribed to chat_messages changes");
           setIsConnected(true);
         } else if (status === "CHANNEL_ERROR") {
-          console.error("[useRealtimeChat] ❌ Channel error - check Supabase Realtime configuration!");
-          console.error("[useRealtimeChat] Make sure chat_messages is added to supabase_realtime publication:");
-          console.error("[useRealtimeChat] ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;");
           setIsConnected(false);
         } else if (status === "CLOSED" || status === "TIMED_OUT") {
           setIsConnected(false);
@@ -279,7 +268,6 @@ export function useRealtimeChat(options: UseRealtimeChatOptions) {
       });
 
     return () => {
-      console.log("[useRealtimeChat] Cleaning up subscription for request:", requestId);
       setIsConnected(false);
       supabase.removeChannel(channel);
     };

@@ -228,7 +228,7 @@ model categories {
 
   // Иерархия
   parent_id   String?  @db.Uuid         // null = корневая категория
-  parent      categories? @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  parent      categories? @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
   children    categories[] @relation("CategoryHierarchy")
 
   // Сортировка и управление
@@ -274,7 +274,7 @@ model profiles {
   about               String?  // О себе / описание пользователя
   role                UserRole @default(user) // Роль пользователя
   created_at          DateTime @default(now())
-  updated_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
   company_name        String?
   registration_number String?
   is_deleted          Boolean  @default(false)
@@ -549,10 +549,10 @@ model listings {
 
   // Relations
   user          profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category      categories?   @relation(fields: [category_id], references: [id])
-  aimag         aimags?       @relation(fields: [aimag_id], references: [id])
-  district      districts?    @relation(fields: [district_id], references: [id])
-  khoroo        khoroos?      @relation(fields: [khoroo_id], references: [id])
+  category      categories?   @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  aimag         aimags?       @relation(fields: [aimag_id], references: [id], onDelete: SetNull)
+  district      districts?    @relation(fields: [district_id], references: [id], onDelete: SetNull)
+  khoroo        khoroos?      @relation(fields: [khoroo_id], references: [id], onDelete: SetNull)
   images        listings_images[]
   views         listings_views[]
   favorites     user_favorites[]
@@ -762,9 +762,9 @@ model listing_requests {
   listing      listings  @relation(fields: [listing_id], references: [id], onDelete: Cascade)
   client       profiles  @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
   provider     profiles  @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
-  aimag        aimags?   @relation(fields: [aimag_id], references: [id])
-  district     districts? @relation(fields: [district_id], references: [id])
-  khoroo       khoroos?  @relation(fields: [khoroo_id], references: [id])
+  aimag        aimags?   @relation(fields: [aimag_id], references: [id], onDelete: SetNull)
+  district     districts? @relation(fields: [district_id], references: [id], onDelete: SetNull)
+  khoroo       khoroos?  @relation(fields: [khoroo_id], references: [id], onDelete: SetNull)
   notifications notifications[]      // Уведомления, связанные с этой заявкой
   chat_messages chat_messages[]      // Сообщения чата
   review        reviews?             // Отзыв клиента об исполнителе
@@ -928,8 +928,8 @@ model reviews {
   // Все могут читать отзывы (публичная информация)
   @@allow('read', true)
 
-  // Клиент может создавать отзыв о своей заявке
-  @@allow('create', auth() != null && auth().id == client_id)
+  // Клиент может создавать отзыв только на завершённую заявку
+  @@allow('create', auth() != null && auth().id == client_id && request.status == completed)
 
   // Клиент может редактировать свой отзыв
   @@allow('update', auth() != null && auth().id == client_id)

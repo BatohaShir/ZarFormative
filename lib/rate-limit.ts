@@ -10,7 +10,9 @@ import { Redis } from "@upstash/redis";
 // ============================================
 
 // Проверяем наличие Redis credentials
-const hasRedisConfig = !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+const hasRedisConfig = !!(
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+);
 
 // Redis клиент (singleton)
 let redis: Redis | null = null;
@@ -141,21 +143,36 @@ export interface RateLimitResult {
 /**
  * Получить идентификатор для rate limiting
  * Использует userId если есть, иначе IP адрес
+ *
+ * SECURITY: x-real-ip is set by the trusted reverse proxy (Vercel/nginx)
+ * and cannot be spoofed by clients. We prefer it over x-forwarded-for.
+ * For x-forwarded-for, we take the LAST IP (rightmost), which is the one
+ * added by our trusted proxy, not the first one (which the client can fake).
  */
-export function getRateLimitIdentifier(
-  request: NextRequest,
-  userId?: string
-): string {
+export function getRateLimitIdentifier(request: NextRequest, userId?: string): string {
   if (userId) {
     return `user:${userId}`;
   }
 
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() ||
-             request.headers.get("x-real-ip") ||
-             "unknown";
+  // Priority: x-real-ip (set by trusted proxy) > x-forwarded-for (last entry) > fallback
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    return `ip:${realIp.trim()}`;
+  }
 
-  return `ip:${ip}`;
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    // Take the LAST IP — it's the one added by our trusted proxy
+    // Client can prepend fake IPs but cannot control the last one
+    const ips = forwarded
+      .split(",")
+      .map((ip) => ip.trim())
+      .filter(Boolean);
+    const trustedIp = ips[ips.length - 1] || "unknown";
+    return `ip:${trustedIp}`;
+  }
+
+  return `ip:unknown`;
 }
 
 /**
@@ -184,10 +201,10 @@ export async function checkRateLimit(
   }
 
   // In-memory fallback
-  return checkInMemoryRateLimit(
-    `${config.prefix}:${identifier}`,
-    { requests: config.requests, window: config.window }
-  );
+  return checkInMemoryRateLimit(`${config.prefix}:${identifier}`, {
+    requests: config.requests,
+    window: config.window,
+  });
 }
 
 /**
@@ -217,10 +234,7 @@ export function withRateLimitSync(
     ? { requests: config.limit, window: `${config.windowSeconds} s` }
     : RATE_LIMIT_CONFIGS.API;
 
-  return checkInMemoryRateLimit(
-    `ratelimit:sync:${identifier}`,
-    effectiveConfig
-  );
+  return checkInMemoryRateLimit(`ratelimit:sync:${identifier}`, effectiveConfig);
 }
 
 /**
@@ -249,10 +263,7 @@ export function rateLimitResponse(result: RateLimitResult): NextResponse {
 /**
  * Добавить rate limit headers к response
  */
-export function addRateLimitHeaders(
-  response: NextResponse,
-  result: RateLimitResult
-): NextResponse {
+export function addRateLimitHeaders(response: NextResponse, result: RateLimitResult): NextResponse {
   response.headers.set("X-RateLimit-Limit", result.limit.toString());
   response.headers.set("X-RateLimit-Remaining", result.remaining.toString());
   response.headers.set("X-RateLimit-Reset", result.reset.toString());

@@ -1,9 +1,21 @@
 import { prisma } from "@/lib/prisma";
 import { ServicesListClient } from "@/components/services-list-client";
 import type { ListingWithRelations } from "@/components/listing-card";
+import type { Metadata } from "next";
 
-// SSR на каждый запрос
-export const dynamic = 'force-dynamic';
+export const metadata: Metadata = {
+  title: "Бүх үйлчилгээ | Tsogts.mn",
+  description:
+    "Монголын хамгийн том үйлчилгээний платформ. Засвар, тээвэр, сургалт болон бусад үйлчилгээг олоорой.",
+  openGraph: {
+    title: "Бүх үйлчилгээ | Tsogts.mn",
+    description: "Монголын хамгийн том үйлчилгээний платформ",
+    type: "website",
+  },
+};
+
+// ISR: обновляем данные каждые 60 секунд
+export const revalidate = 60;
 
 // Загрузка данных на сервере
 // Оптимизация: параллельные запросы с Promise.all (вместо последовательных)
@@ -72,16 +84,20 @@ async function getServicesData() {
     price: listing.price ? Number(listing.price) : null,
     latitude: listing.latitude ? Number(listing.latitude) : null,
     longitude: listing.longitude ? Number(listing.longitude) : null,
-    aimag: listing.aimag ? {
-      ...listing.aimag,
-      latitude: listing.aimag.latitude ? Number(listing.aimag.latitude) : null,
-      longitude: listing.aimag.longitude ? Number(listing.aimag.longitude) : null,
-    } : null,
-    district: listing.district ? {
-      ...listing.district,
-      latitude: listing.district.latitude ? Number(listing.district.latitude) : null,
-      longitude: listing.district.longitude ? Number(listing.district.longitude) : null,
-    } : null,
+    aimag: listing.aimag
+      ? {
+          ...listing.aimag,
+          latitude: listing.aimag.latitude ? Number(listing.aimag.latitude) : null,
+          longitude: listing.aimag.longitude ? Number(listing.aimag.longitude) : null,
+        }
+      : null,
+    district: listing.district
+      ? {
+          ...listing.district,
+          latitude: listing.district.latitude ? Number(listing.district.latitude) : null,
+          longitude: listing.district.longitude ? Number(listing.district.longitude) : null,
+        }
+      : null,
   }));
 
   return {
@@ -93,10 +109,5 @@ async function getServicesData() {
 export default async function ServicesPage() {
   const { listings, totalCount } = await getServicesData();
 
-  return (
-    <ServicesListClient
-      initialListings={listings}
-      initialTotalCount={totalCount}
-    />
-  );
+  return <ServicesListClient initialListings={listings} initialTotalCount={totalCount} />;
 }

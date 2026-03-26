@@ -1,9 +1,9 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
-import { Decimal } from "@prisma/client/runtime/library"
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 /**
@@ -45,9 +45,7 @@ export function formatListingPrice(
   // Add currency symbol
   const currencySymbol = currency === "USD" ? "$" : "₮";
 
-  return currency === "USD"
-    ? `${currencySymbol}${formatted}`
-    : `${formatted}${currencySymbol}`;
+  return currency === "USD" ? `${currencySymbol}${formatted}` : `${formatted}${currencySymbol}`;
 }
 
 /**
@@ -56,10 +54,23 @@ export function formatListingPrice(
 export function formatMonthYear(dateStr: string): string {
   if (!dateStr) return "Одоог хүртэл";
   const [year, month] = dateStr.split("-");
+  const monthIndex = parseInt(month) - 1;
+  if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
+    return dateStr;
+  }
   const months = [
-    "1-р сар", "2-р сар", "3-р сар", "4-р сар",
-    "5-р сар", "6-р сар", "7-р сар", "8-р сар",
-    "9-р сар", "10-р сар", "11-р сар", "12-р сар",
+    "1-р сар",
+    "2-р сар",
+    "3-р сар",
+    "4-р сар",
+    "5-р сар",
+    "6-р сар",
+    "7-р сар",
+    "8-р сар",
+    "9-р сар",
+    "10-р сар",
+    "11-р сар",
+    "12-р сар",
   ];
-  return `${year} оны ${months[parseInt(month) - 1]}`;
+  return `${year} оны ${months[monthIndex]}`;
 }

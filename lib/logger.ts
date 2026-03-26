@@ -1,6 +1,7 @@
 /**
  * Production-safe logging utility
- * Only logs in development mode
+ * - error/warn: ALWAYS log (needed for debugging production issues)
+ * - log/info: development only (verbose, not needed in production)
  */
 
 const isDev = process.env.NODE_ENV === "development";
@@ -13,15 +14,13 @@ export const logger = {
   },
 
   error: (...args: unknown[]) => {
-    if (isDev) {
-      console.error(...args);
-    }
+    // Always log errors — critical for production debugging
+    console.error(...args);
   },
 
   warn: (...args: unknown[]) => {
-    if (isDev) {
-      console.warn(...args);
-    }
+    // Always log warnings — important for production monitoring
+    console.warn(...args);
   },
 
   info: (...args: unknown[]) => {

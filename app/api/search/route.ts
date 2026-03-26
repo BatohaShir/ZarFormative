@@ -38,8 +38,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Use plainto_tsquery for safer user input handling (auto-escapes special chars)
-    // We still create tsQuery for prefix matching but with sanitized input
+    // Build tsquery string for prefix matching with sanitized input
+    // Each word gets :* suffix for prefix matching, joined with & (AND)
+    // SECURITY NOTE: $queryRaw tagged template automatically parameterizes all ${} values,
+    // so tsQuery is passed as a SQL parameter, NOT interpolated into the query string.
     const tsQuery = sanitizedQuery
       .split(/\s+/)
       .filter(Boolean)
@@ -122,7 +124,8 @@ export async function GET(request: NextRequest) {
           id: r.id,
           title: r.title,
           slug: r.slug,
-          description: r.description?.substring(0, 150) + (r.description?.length > 150 ? "..." : ""),
+          description:
+            r.description?.substring(0, 150) + (r.description?.length > 150 ? "..." : ""),
           price: r.price,
           currency: r.currency,
           is_negotiable: r.is_negotiable,
@@ -154,9 +157,6 @@ export async function GET(request: NextRequest) {
     return addRateLimitHeaders(response, rateLimitResult);
   } catch (error) {
     console.error("Search error:", error);
-    return NextResponse.json(
-      { error: "Search failed", details: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Search failed" }, { status: 500 });
   }
 }

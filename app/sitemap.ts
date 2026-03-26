@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next";
+import { prisma } from "@/lib/prisma";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://tsogts.mn";
 
@@ -18,23 +19,22 @@ const categories = [
 // Cities
 const cities = ["Улаанбаатар", "Дархан", "Эрдэнэт"];
 
-// Mock service IDs - in production, fetch from database
-const serviceIds = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
-
-// Mock provider names - in production, fetch from database
-const providerNames = [
-  "болд-констракшн",
-  "цэвэр-гэр",
-  "техмастер",
-  "сараа-багш",
-  "хурд-логистик",
-  "гоо-студио",
-  "кодмастер",
-  "автопро-сервис",
-];
-
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+
+  // Fetch active listings from database
+  const listings = await prisma.listings.findMany({
+    where: { status: "active", is_active: true },
+    select: { slug: true, updated_at: true },
+    take: 5000,
+  });
+
+  // Fetch provider profiles from database
+  const profiles = await prisma.profiles.findMany({
+    where: { is_deleted: false },
+    select: { id: true, updated_at: true },
+    take: 5000,
+  });
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
@@ -64,10 +64,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
-  // Service detail pages
-  const servicePages: MetadataRoute.Sitemap = serviceIds.map((id) => ({
-    url: `${siteUrl}/services/${id}`,
-    lastModified: now,
+  // Listing detail pages from database
+  const listingPages: MetadataRoute.Sitemap = listings.map((listing) => ({
+    url: `${siteUrl}/services/${listing.slug}`,
+    lastModified: listing.updated_at || now,
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));
@@ -88,19 +88,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  // Provider profile pages
-  const providerPages: MetadataRoute.Sitemap = providerNames.map((name) => ({
-    url: `${siteUrl}/account/${encodeURIComponent(name)}`,
-    lastModified: now,
+  // Provider profile pages from database
+  const providerPages: MetadataRoute.Sitemap = profiles.map((profile) => ({
+    url: `${siteUrl}/account/${profile.id}`,
+    lastModified: profile.updated_at || now,
     changeFrequency: "weekly" as const,
     priority: 0.6,
   }));
 
-  return [
-    ...staticPages,
-    ...servicePages,
-    ...categoryPages,
-    ...cityPages,
-    ...providerPages,
-  ];
+  return [...staticPages, ...listingPages, ...categoryPages, ...cityPages, ...providerPages];
 }

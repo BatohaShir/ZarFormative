@@ -206,9 +206,9 @@ export function useAutoHideError(error: string | null, delay: number = 5000) {
       setVisible(true);
       const timer = setTimeout(() => setVisible(false), delay);
       return () => clearTimeout(timer);
-    } else {
-      setVisible(false);
     }
+    setVisible(false);
+    return undefined;
   }, [error, delay]);
 
   return visible ? error : null;

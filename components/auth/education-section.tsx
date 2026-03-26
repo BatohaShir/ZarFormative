@@ -131,6 +131,7 @@ export const EducationSection = React.memo(function EducationSection() {
         onChange={(value) => updateField("institution", value)}
         suggestions={SCHOOLS_DB}
         className="h-9 text-sm"
+        maxLength={200}
       />
       <AutocompleteInput
         placeholder="Мэргэжил, зэрэг"
@@ -138,12 +139,14 @@ export const EducationSection = React.memo(function EducationSection() {
         onChange={(value) => updateField("degree", value)}
         suggestions={DEGREES_DB}
         className="h-9 text-sm"
+        maxLength={200}
       />
       <Input
         placeholder="Чиглэл/Мэргэжил (заавал биш)"
         value={formData.field_of_study}
         onChange={(e) => updateField("field_of_study", e.target.value)}
         className="h-9 text-sm"
+        maxLength={200}
       />
       <div className="grid grid-cols-2 gap-2">
         <div>

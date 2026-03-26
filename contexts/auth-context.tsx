@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useCurrentUser, type Profile } from "@/hooks/use-current-user";
 import type { User } from "@supabase/supabase-js";
 import { LOCALE_COOKIE, isValidLocale } from "@/i18n/config";
@@ -28,7 +29,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   uploadAvatar: (file: File) => Promise<{ error: string | null; url: string | null }>;
-  updateProfile: (data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>) => Promise<{ error: string | null }>;
+  updateProfile: (
+    data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
+  ) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -43,6 +46,7 @@ function getCookie(name: string): string | null {
 const LOCALE_CHANGED_KEY = "locale_changed_by_user";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const {
     user,
     profile,
@@ -98,12 +102,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem(SYNC_KEY, currentUserId);
       document.cookie = `${LOCALE_COOKIE}=${preferredLang};path=/;max-age=31536000;SameSite=Lax`;
       localStorage.setItem("locale", preferredLang);
-      window.location.reload();
+      // Use router.refresh() instead of window.location.reload()
+      // to preserve unsaved form state and avoid full page reload
+      router.refresh();
     } else {
       // Язык уже совпадает - просто помечаем как синхронизированный
       sessionStorage.setItem(SYNC_KEY, currentUserId);
     }
-  }, [profile?.preferred_language, user?.id]);
+  }, [profile?.preferred_language, user?.id, router]);
 
   const contextValue = React.useMemo<AuthContextType>(
     () => ({
@@ -136,11 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ]
   );
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

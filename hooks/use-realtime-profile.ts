@@ -4,7 +4,6 @@ import { useEffect, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
 
 /**
  * Хук для real-time синхронизации данных профиля
@@ -31,8 +30,6 @@ export function useRealtimeProfile(userId?: string) {
   const refetchProfile = useCallback(() => {
     if (!targetUserId) return;
 
-    console.log("[useRealtimeProfile] Invalidating profile cache for user:", targetUserId);
-
     // Инвалидируем запрос профиля
     queryClient.invalidateQueries({
       queryKey: ["profiles", "findUnique", { where: { id: targetUserId } }],
@@ -49,8 +46,6 @@ export function useRealtimeProfile(userId?: string) {
   const refetchEducations = useCallback(() => {
     if (!targetUserId) return;
 
-    console.log("[useRealtimeProfile] Invalidating educations cache");
-
     queryClient.invalidateQueries({
       queryKey: ["profiles_educations"],
     });
@@ -59,8 +54,6 @@ export function useRealtimeProfile(userId?: string) {
   // Функция для инвалидации опыта работы
   const refetchWorkExperiences = useCallback(() => {
     if (!targetUserId) return;
-
-    console.log("[useRealtimeProfile] Invalidating work experiences cache");
 
     queryClient.invalidateQueries({
       queryKey: ["profiles_work_experiences"],
@@ -72,8 +65,6 @@ export function useRealtimeProfile(userId?: string) {
     if (!targetUserId) return;
 
     const supabase = createClient();
-
-    console.log("[useRealtimeProfile] Setting up realtime subscriptions for user:", targetUserId);
 
     // Создаём канал для подписки на изменения
     // Канал - это "комната" в которой мы получаем события
@@ -88,8 +79,7 @@ export function useRealtimeProfile(userId?: string) {
           table: "profiles",
           filter: `id=eq.${targetUserId}`, // Только для нашего пользователя
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log("[useRealtimeProfile] Profile changed:", payload.eventType);
+        () => {
           refetchProfile();
         }
       )
@@ -102,8 +92,7 @@ export function useRealtimeProfile(userId?: string) {
           table: "profiles_educations",
           filter: `user_id=eq.${targetUserId}`,
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log("[useRealtimeProfile] Education changed:", payload.eventType);
+        () => {
           refetchEducations();
         }
       )
@@ -116,25 +105,15 @@ export function useRealtimeProfile(userId?: string) {
           table: "profiles_work_experiences",
           filter: `user_id=eq.${targetUserId}`,
         },
-        (payload: RealtimePostgresChangesPayload<Record<string, unknown>>) => {
-          console.log("[useRealtimeProfile] Work experience changed:", payload.eventType);
+        () => {
           refetchWorkExperiences();
         }
       )
-      .subscribe((status: string, err?: Error) => {
-        console.log("[useRealtimeProfile] Subscription status:", status);
-        if (err) {
-          console.error("[useRealtimeProfile] Subscription error:", err);
-        }
-        if (status === "SUBSCRIBED") {
-          console.log("[useRealtimeProfile] Successfully subscribed to profile changes");
-        }
-      });
+      .subscribe();
 
     // Cleanup функция - вызывается когда компонент размонтируется
     // или когда userId меняется
     return () => {
-      console.log("[useRealtimeProfile] Cleaning up subscription");
       supabase.removeChannel(channel);
     };
   }, [targetUserId, refetchProfile, refetchEducations, refetchWorkExperiences]);

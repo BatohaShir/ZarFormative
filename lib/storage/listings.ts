@@ -4,6 +4,14 @@ const BUCKET_NAME = "listings";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
+// Whitelist of allowed file extensions mapped from MIME types
+const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
 /**
  * Структура бакета listings:
  * listings/
@@ -51,7 +59,9 @@ export async function uploadListingImage(
     return { url: null, error: validationError };
   }
 
-  const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  // SECURITY: Determine extension from MIME type, not from user-supplied filename
+  // This prevents uploading .exe/.js files disguised with image MIME headers
+  const fileExt = MIME_TO_EXTENSION[file.type] || "jpg";
   const filePath = `${userId}/${listingId}/${uuid}.${fileExt}`;
 
   const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
@@ -126,11 +136,7 @@ export async function deleteAllListingImages(
 /**
  * Получить публичный URL фото листинга
  */
-export function getListingImageUrl(
-  userId: string,
-  listingId: string,
-  fileName: string
-): string {
+export function getListingImageUrl(userId: string, listingId: string, fileName: string): string {
   const supabase = createClient();
   const { data } = supabase.storage
     .from(BUCKET_NAME)

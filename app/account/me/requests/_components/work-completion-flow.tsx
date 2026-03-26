@@ -65,9 +65,7 @@ export function ClientReviewForm({
             </div>
             <div>
               <h3 className="font-semibold">Ажил дуусгахыг баталгаажуулах</h3>
-              <p className="text-sm text-muted-foreground">
-                Үйлчилгээ үзүүлэгчид үнэлгээ өгнө үү
-              </p>
+              <p className="text-sm text-muted-foreground">Үйлчилгээ үзүүлэгчид үнэлгээ өгнө үү</p>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -99,9 +97,7 @@ export function ClientReviewForm({
                   />
                 </button>
               ))}
-              <span className="ml-2 text-sm text-muted-foreground">
-                {rating} / 5
-              </span>
+              <span className="ml-2 text-sm text-muted-foreground">{rating} / 5</span>
             </div>
           </div>
 
@@ -116,9 +112,7 @@ export function ClientReviewForm({
               rows={4}
               maxLength={500}
             />
-            <p className="text-xs text-muted-foreground text-right">
-              {comment.length} / 500
-            </p>
+            <p className="text-xs text-muted-foreground text-right">{comment.length} / 500</p>
           </div>
 
           {/* Actions */}
@@ -233,9 +227,7 @@ export function ProviderCompletionForm({
             </div>
             <div>
               <h3 className="font-semibold">Хийсэн ажлын тайлан</h3>
-              <p className="text-sm text-muted-foreground">
-                Ажлын тайлбар болон зураг оруулна уу
-              </p>
+              <p className="text-sm text-muted-foreground">Ажлын тайлбар болон зураг оруулна уу</p>
             </div>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -256,9 +248,7 @@ export function ProviderCompletionForm({
               rows={5}
               maxLength={1000}
             />
-            <p className="text-xs text-muted-foreground text-right">
-              {description.length} / 1000
-            </p>
+            <p className="text-xs text-muted-foreground text-right">{description.length} / 1000</p>
           </div>
 
           {/* Photos */}
@@ -268,16 +258,8 @@ export function ProviderCompletionForm({
             {/* Photo Grid */}
             <div className="grid grid-cols-3 gap-2">
               {photos.map((url) => (
-                <div
-                  key={url}
-                  className="relative aspect-square rounded-lg overflow-hidden group"
-                >
-                  <Image
-                    src={url}
-                    alt="Ажлын зураг"
-                    fill
-                    className="object-cover"
-                  />
+                <div key={url} className="relative aspect-square rounded-lg overflow-hidden group">
+                  <Image src={url} alt="Ажлын зураг" fill className="object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemovePhoto(url)}
@@ -375,16 +357,14 @@ export function QRPaymentModal({
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else {
-      setCanComplete(true);
     }
+    setCanComplete(true);
+    return undefined;
   }, [countdown]);
 
   // Format price - use proposed_price for negotiable listings, otherwise listing.price
   const price = request.proposed_price || request.listing.price;
-  const formattedPrice = price
-    ? new Intl.NumberFormat("mn-MN").format(Number(price))
-    : "—";
+  const formattedPrice = price ? new Intl.NumberFormat("mn-MN").format(Number(price)) : "—";
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
@@ -410,9 +390,7 @@ export function QRPaymentModal({
           {/* Price */}
           <div className="text-center">
             <p className="text-sm text-muted-foreground">Төлөх дүн</p>
-            <p className="text-3xl font-bold text-primary">
-              {formattedPrice}₮
-            </p>
+            <p className="text-3xl font-bold text-primary">{formattedPrice}₮</p>
           </div>
 
           {/* QR Code Placeholder */}
@@ -425,7 +403,7 @@ export function QRPaymentModal({
                   <div
                     key={i}
                     className={`aspect-square ${
-                      Math.random() > 0.5 ? "bg-white" : "bg-transparent"
+                      i % 3 === 0 || i % 7 === 0 ? "bg-white" : "bg-transparent"
                     }`}
                   />
                 ))}
@@ -442,17 +420,15 @@ export function QRPaymentModal({
           {/* Test mode indicator */}
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
             <p className="text-xs text-yellow-800 dark:text-yellow-200 text-center">
-              <span className="font-semibold">Туршилтын горим:</span> QR код нь
-              туршилтын зорилгоор хэрэглэгдэж байна
+              <span className="font-semibold">Туршилтын горим:</span> QR код нь туршилтын зорилгоор
+              хэрэглэгдэж байна
             </p>
           </div>
 
           {/* Countdown or complete button */}
           {!canComplete ? (
             <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">
-                Төлбөр хүлээж байна...
-              </p>
+              <p className="text-sm text-muted-foreground mb-2">Төлбөр хүлээж байна...</p>
               <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
                 <span className="text-2xl font-bold">{countdown}</span>
               </div>
@@ -487,10 +463,7 @@ interface CompletionSuccessModalProps {
   onClose: () => void;
 }
 
-export function CompletionSuccessModal({
-  isProvider,
-  onClose,
-}: CompletionSuccessModalProps) {
+export function CompletionSuccessModal({ isProvider, onClose }: CompletionSuccessModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4">
       <div className="bg-background w-full max-w-sm rounded-xl shadow-xl p-6 text-center">

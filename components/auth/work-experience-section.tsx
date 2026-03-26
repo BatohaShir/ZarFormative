@@ -126,6 +126,7 @@ export const WorkExperienceSection = React.memo(function WorkExperienceSection()
         onChange={(value) => updateField("company", value)}
         suggestions={COMPANIES_DB}
         className="h-9 text-sm"
+        maxLength={200}
       />
       <AutocompleteInput
         placeholder="Албан тушаал"
@@ -133,6 +134,7 @@ export const WorkExperienceSection = React.memo(function WorkExperienceSection()
         onChange={(value) => updateField("position", value)}
         suggestions={POSITIONS_DB}
         className="h-9 text-sm"
+        maxLength={200}
       />
       <div className="grid grid-cols-2 gap-2">
         <div>

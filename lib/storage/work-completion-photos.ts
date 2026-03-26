@@ -5,6 +5,13 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const MAX_PHOTOS = 3;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
+const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
 /**
  * Структура bucket:
  * work-completion-photos/
@@ -56,15 +63,13 @@ export async function uploadWorkCompletionPhoto(
   }
 
   const uuid = crypto.randomUUID();
-  const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const fileExt = MIME_TO_EXTENSION[file.type] || "jpg";
   const filePath = `${requestId}/${uuid}.${fileExt}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
 
   if (error) {
     console.error("[WorkCompletionPhotos] Upload error:", error);
@@ -72,9 +77,7 @@ export async function uploadWorkCompletionPhoto(
   }
 
   // Получаем публичный URL
-  const { data: urlData } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(filePath);
+  const { data: urlData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
 
   return { url: urlData.publicUrl, path: filePath, error: null };
 }
@@ -112,9 +115,7 @@ export async function uploadMultiplePhotos(
 /**
  * Удаление фотографии
  */
-export async function deleteWorkCompletionPhoto(
-  url: string
-): Promise<{ error: string | null }> {
+export async function deleteWorkCompletionPhoto(url: string): Promise<{ error: string | null }> {
   const supabase = createClient();
 
   // Извлекаем путь из URL
@@ -160,9 +161,7 @@ export async function deleteAllPhotosForRequest(
 
   // Удаляем все файлы
   const paths = files.map((f: { name: string }) => `${requestId}/${f.name}`);
-  const { error: deleteError } = await supabase.storage
-    .from(BUCKET_NAME)
-    .remove(paths);
+  const { error: deleteError } = await supabase.storage.from(BUCKET_NAME).remove(paths);
 
   if (deleteError) {
     console.error("[WorkCompletionPhotos] Delete error:", deleteError);

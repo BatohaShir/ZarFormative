@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
 import { NotificationsButton } from "@/components/notifications-button";
@@ -66,7 +67,9 @@ export default function NotificationSettingsPage() {
   const [settings, setSettings] = React.useState<NotificationSettings>(defaultSettings);
   const [isSaving, setIsSaving] = React.useState(false);
   const [pushSupported, setPushSupported] = React.useState(false);
-  const [pushPermission, setPushPermission] = React.useState<NotificationPermission | "unsupported">("default");
+  const [pushPermission, setPushPermission] = React.useState<
+    NotificationPermission | "unsupported"
+  >("default");
 
   // Check auth and push support
   React.useEffect(() => {
@@ -124,7 +127,7 @@ export default function NotificationSettingsPage() {
             });
           }
         }
-        setSettings(prev => ({ ...prev, pushEnabled: true }));
+        setSettings((prev) => ({ ...prev, pushEnabled: true }));
       }
     } else {
       // Unsubscribe
@@ -136,7 +139,7 @@ export default function NotificationSettingsPage() {
           body: JSON.stringify({ userId: user.id }),
         });
       }
-      setSettings(prev => ({ ...prev, pushEnabled: false }));
+      setSettings((prev) => ({ ...prev, pushEnabled: false }));
     }
   };
 
@@ -144,7 +147,7 @@ export default function NotificationSettingsPage() {
     key: K,
     value: NotificationSettings[K]
   ) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
@@ -166,10 +169,10 @@ export default function NotificationSettingsPage() {
       }
 
       // Show success feedback
-      alert("Тохиргоо хадгалагдлаа");
+      toast.success("Тохиргоо хадгалагдлаа");
     } catch (error) {
       console.error("Error saving settings:", error);
-      alert("Алдаа гарлаа");
+      toast.error("Алдаа гарлаа");
     } finally {
       setIsSaving(false);
     }
@@ -188,11 +191,7 @@ export default function NotificationSettingsPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="container mx-auto px-4 h-14 flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-          >
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="font-semibold flex-1">Мэдэгдлийн тохиргоо</h1>
@@ -226,8 +225,8 @@ export default function NotificationSettingsPage() {
                     {!pushSupported
                       ? "Таны браузер дэмжихгүй байна"
                       : pushPermission === "denied"
-                      ? "Браузерын тохиргооноос идэвхжүүлнэ үү"
-                      : "Браузерт шууд мэдэгдэл авах"}
+                        ? "Браузерын тохиргооноос идэвхжүүлнэ үү"
+                        : "Браузерт шууд мэдэгдэл авах"}
                   </p>
                 </div>
               </div>
@@ -288,9 +287,7 @@ export default function NotificationSettingsPage() {
             <div className="flex items-center justify-between p-4 bg-card border rounded-lg">
               <div>
                 <Label className="text-sm font-medium">Имэйл мэдэгдэл идэвхжүүлэх</Label>
-                <p className="text-xs text-muted-foreground">
-                  Имэйлээр мэдэгдэл авах
-                </p>
+                <p className="text-xs text-muted-foreground">Имэйлээр мэдэгдэл авах</p>
               </div>
               <Switch
                 checked={settings.emailEnabled}
@@ -337,7 +334,12 @@ export default function NotificationSettingsPage() {
                     <Label className="text-sm text-muted-foreground">Тоймын давтамж</Label>
                     <Select
                       value={settings.emailDigestFrequency}
-                      onValueChange={(v) => handleSettingChange("emailDigestFrequency", v as "daily" | "weekly" | "never")}
+                      onValueChange={(v) =>
+                        handleSettingChange(
+                          "emailDigestFrequency",
+                          v as "daily" | "weekly" | "never"
+                        )
+                      }
                     >
                       <SelectTrigger className="w-32">
                         <SelectValue />
@@ -366,9 +368,7 @@ export default function NotificationSettingsPage() {
             <div className="flex items-center justify-between p-4 bg-card border rounded-lg">
               <div>
                 <Label className="text-sm font-medium">Тайван цаг идэвхжүүлэх</Label>
-                <p className="text-xs text-muted-foreground">
-                  Тодорхой цагт мэдэгдэл хаах
-                </p>
+                <p className="text-xs text-muted-foreground">Тодорхой цагт мэдэгдэл хаах</p>
               </div>
               <Switch
                 checked={settings.quietHoursEnabled}
@@ -404,20 +404,13 @@ export default function NotificationSettingsPage() {
         </section>
 
         {/* Save Button */}
-        <Button
-          className="w-full"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
+        <Button className="w-full" onClick={handleSave} disabled={isSaving}>
           {isSaving ? "Хадгалж байна..." : "Хадгалах"}
         </Button>
       </div>
 
       {/* Login Modal */}
-      <LoginPromptModal
-        open={showLoginModal}
-        onOpenChange={handleLoginModalClose}
-      />
+      <LoginPromptModal open={showLoginModal} onOpenChange={handleLoginModalClose} />
     </div>
   );
 }

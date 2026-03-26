@@ -4,6 +4,13 @@ const BUCKET_NAME = "requests";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
+const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
 /**
  * Структура бакета requests:
  * requests/
@@ -47,7 +54,7 @@ export async function uploadRequestImage(
     return { url: null, error: validationError };
   }
 
-  const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const fileExt = MIME_TO_EXTENSION[file.type] || "jpg";
   const filePath = `${userId}/${uuid}.${fileExt}`;
 
   const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {

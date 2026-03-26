@@ -9,6 +9,7 @@ interface AutocompleteInputProps {
   suggestions: string[];
   placeholder: string;
   className?: string;
+  maxLength?: number;
 }
 
 export const AutocompleteInput = React.memo(function AutocompleteInput({
@@ -17,6 +18,7 @@ export const AutocompleteInput = React.memo(function AutocompleteInput({
   suggestions,
   placeholder,
   className,
+  maxLength,
 }: AutocompleteInputProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [filteredSuggestions, setFilteredSuggestions] = React.useState<string[]>([]);
@@ -62,6 +64,7 @@ export const AutocompleteInput = React.memo(function AutocompleteInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={className}
+        maxLength={maxLength}
         onFocus={() => {
           if (filteredSuggestions.length > 0 && !suggestions.includes(value)) {
             setIsOpen(true);

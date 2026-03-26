@@ -55,13 +55,12 @@ export function useRealtimeConnection(options: UseRealtimeConnectionOptions = {}
       config: { presence: { key: "connection-check" } },
     });
 
-    channel.subscribe((status: string, err?: Error) => {
+    channel.subscribe((status: string) => {
       if (status === "SUBSCRIBED") {
         setStatus("connected");
         setRetryCount(0);
         clearRetryTimeout();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-        console.warn("[RealtimeConnection] Error:", err);
         setStatus("disconnected");
 
         if (opts.autoReconnect && retryCount < opts.maxRetries) {
@@ -70,6 +69,7 @@ export function useRealtimeConnection(options: UseRealtimeConnectionOptions = {}
           setRetryCount((prev) => prev + 1);
 
           retryTimeoutRef.current = setTimeout(() => {
+            // eslint-disable-next-line react-hooks/immutability -- connect is defined below, recursive retry pattern
             connect();
           }, delay);
         }

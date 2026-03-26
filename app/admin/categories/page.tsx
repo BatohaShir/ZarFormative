@@ -31,6 +31,7 @@ import {
   ToggleRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Category = {
   id: string;
@@ -75,7 +76,11 @@ export default function CategoriesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch categories with parent info for subcategories
-  const { data: categories, isLoading, refetch } = useFindManycategories({
+  const {
+    data: categories,
+    isLoading,
+    refetch,
+  } = useFindManycategories({
     orderBy: { sort_order: "asc" },
     include: {
       children: {
@@ -167,13 +172,7 @@ export default function CategoriesPage() {
       if (!file) return;
 
       // Validate file type
-      const validTypes = [
-        "image/png",
-        "image/jpeg",
-        "image/webp",
-        "image/svg+xml",
-        "image/gif",
-      ];
+      const validTypes = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
       if (!validTypes.includes(file.type)) {
         setUploadError("Поддерживаются только PNG, JPG, WebP, SVG и GIF");
         return;
@@ -203,11 +202,7 @@ export default function CategoriesPage() {
   );
 
   // Upload file to storage
-  const uploadFile = async (
-    file: File,
-    slug: string,
-    parentId: string | null
-  ) => {
+  const uploadFile = async (file: File, slug: string, parentId: string | null) => {
     setIsUploading(true);
     setUploadError(null);
 
@@ -232,9 +227,7 @@ export default function CategoriesPage() {
         setPreviewUrl(result.url);
       }
     } catch (error) {
-      setUploadError(
-        error instanceof Error ? error.message : "Ошибка загрузки"
-      );
+      setUploadError(error instanceof Error ? error.message : "Ошибка загрузки");
     } finally {
       setIsUploading(false);
     }
@@ -247,11 +240,7 @@ export default function CategoriesPage() {
 
     // If we have a pending file and valid slug, upload it
     if (fileInputRef.current?.files?.[0] && formattedSlug) {
-      await uploadFile(
-        fileInputRef.current.files[0],
-        formattedSlug,
-        formData.parent_id
-      );
+      await uploadFile(fileInputRef.current.files[0], formattedSlug, formData.parent_id);
     }
   };
 
@@ -262,9 +251,7 @@ export default function CategoriesPage() {
     // If it's a URL (uploaded file), delete from storage
     if (formData.icon.startsWith("http") && formData.slug) {
       if (formData.parent_id) {
-        const parentCategory = categories?.find(
-          (c) => c.id === formData.parent_id
-        );
+        const parentCategory = categories?.find((c) => c.id === formData.parent_id);
         if (parentCategory) {
           await deleteSubcategoryIcon(parentCategory.slug, formData.slug);
         }
@@ -286,11 +273,7 @@ export default function CategoriesPage() {
 
     // Upload pending file if exists
     if (fileInputRef.current?.files?.[0] && formData.slug && !formData.icon) {
-      await uploadFile(
-        fileInputRef.current.files[0],
-        formData.slug,
-        formData.parent_id
-      );
+      await uploadFile(fileInputRef.current.files[0], formData.slug, formData.parent_id);
     }
 
     try {
@@ -322,6 +305,7 @@ export default function CategoriesPage() {
       refetch();
     } catch (error) {
       console.error("Error saving category:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -336,9 +320,7 @@ export default function CategoriesPage() {
       // Delete icon from storage if exists
       if (category.icon?.startsWith("http")) {
         if (category.parent_id) {
-          const parentCategory = categories?.find(
-            (c) => c.id === category.parent_id
-          );
+          const parentCategory = categories?.find((c) => c.id === category.parent_id);
           if (parentCategory) {
             await deleteSubcategoryIcon(parentCategory.slug, category.slug);
           }
@@ -352,6 +334,7 @@ export default function CategoriesPage() {
       refetch();
     } catch (error) {
       console.error("Error deleting category:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -365,6 +348,7 @@ export default function CategoriesPage() {
       refetch();
     } catch (error) {
       console.error("Error toggling active status:", error);
+      toast.error("Алдаа гарлаа");
     }
   };
 
@@ -385,19 +369,8 @@ export default function CategoriesPage() {
 
     // URL (uploaded image)
     return (
-      <div
-        className={cn(
-          size,
-          "rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden relative"
-        )}
-      >
-        <Image
-          src={icon}
-          alt=""
-          fill
-          className="object-cover"
-          unoptimized
-        />
+      <div className={cn(size, "rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden relative")}>
+        <Image src={icon} alt="" fill className="object-cover" unoptimized />
       </div>
     );
   };
@@ -427,10 +400,7 @@ export default function CategoriesPage() {
             )}
           >
             <ChevronRight
-              className={cn(
-                "h-4 w-4 transition-transform",
-                isExpanded && "rotate-90"
-              )}
+              className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-90")}
             />
           </button>
 
@@ -453,9 +423,7 @@ export default function CategoriesPage() {
           </div>
 
           {/* Sort order */}
-          <span className="text-sm text-gray-400 w-12 text-center">
-            #{category.sort_order}
-          </span>
+          <span className="text-sm text-gray-400 w-12 text-center">#{category.sort_order}</span>
 
           {/* Toggle active */}
           <button
@@ -512,9 +480,7 @@ export default function CategoriesPage() {
         {/* Children */}
         {hasChildren && isExpanded && (
           <div>
-            {category.children!.map((child) =>
-              renderCategory(child as Category, level + 1)
-            )}
+            {category.children!.map((child) => renderCategory(child as Category, level + 1))}
           </div>
         )}
       </div>
@@ -526,12 +492,8 @@ export default function CategoriesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Категории
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
-            Управление категориями услуг
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Категории</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Управление категориями услуг</p>
         </div>
         <button
           onClick={() => openCreateModal()}
@@ -594,9 +556,7 @@ export default function CategoriesPage() {
             </button>
           </div>
         ) : (
-          <div>
-            {filteredCategories.map((cat) => renderCategory(cat as Category))}
-          </div>
+          <div>{filteredCategories.map((cat) => renderCategory(cat as Category))}</div>
         )}
       </div>
 
@@ -674,13 +634,9 @@ export default function CategoriesPage() {
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      <span>
-                        {isUploading ? "Загрузка..." : "Загрузить изображение"}
-                      </span>
+                      <span>{isUploading ? "Загрузка..." : "Загрузить изображение"}</span>
                     </button>
-                    <p className="text-xs text-gray-500">
-                      PNG, JPG, WebP, SVG или GIF. Макс. 5MB
-                    </p>
+                    <p className="text-xs text-gray-500">PNG, JPG, WebP, SVG или GIF. Макс. 5MB</p>
                     {uploadError && (
                       <div className="flex items-center gap-2 text-sm text-red-600">
                         <AlertCircle className="h-4 w-4" />
@@ -699,9 +655,7 @@ export default function CategoriesPage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                   required
                   placeholder="Тээвэрлэлт, хүргэлт"
@@ -723,9 +677,7 @@ export default function CategoriesPage() {
                   title="Только латинские буквы, цифры и дефисы"
                   placeholder="transport"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Только латинские буквы, цифры и дефисы
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Только латинские буквы, цифры и дефисы</p>
               </div>
 
               {/* Parent category */}
@@ -773,18 +725,14 @@ export default function CategoriesPage() {
                   min={0}
                   className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-white"
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  Чем меньше число, тем выше в списке
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Чем меньше число, тем выше в списке</p>
               </div>
 
               {/* Is active */}
               <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                 <button
                   type="button"
-                  onClick={() =>
-                    setFormData({ ...formData, is_active: !formData.is_active })
-                  }
+                  onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                   className={cn(
                     "w-5 h-5 rounded border flex items-center justify-center transition-colors",
                     formData.is_active
@@ -792,9 +740,7 @@ export default function CategoriesPage() {
                       : "border-gray-300 dark:border-gray-600"
                   )}
                 >
-                  {formData.is_active && (
-                    <Check className="h-3 w-3 text-white" />
-                  )}
+                  {formData.is_active && <Check className="h-3 w-3 text-white" />}
                 </button>
                 <div>
                   <label className="text-sm font-medium text-gray-900 dark:text-white">
@@ -817,11 +763,7 @@ export default function CategoriesPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={
-                    createMutation.isPending ||
-                    updateMutation.isPending ||
-                    isUploading
-                  }
+                  disabled={createMutation.isPending || updateMutation.isPending || isUploading}
                   className="flex-1 px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 transition-colors disabled:opacity-50"
                 >
                   {createMutation.isPending || updateMutation.isPending ? (

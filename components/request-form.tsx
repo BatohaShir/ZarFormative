@@ -70,9 +70,18 @@ function generateCalendarDays(year: number, month: number) {
 }
 
 const monthNames = [
-  "1-р сар", "2-р сар", "3-р сар", "4-р сар",
-  "5-р сар", "6-р сар", "7-р сар", "8-р сар",
-  "9-р сар", "10-р сар", "11-р сар", "12-р сар"
+  "1-р сар",
+  "2-р сар",
+  "3-р сар",
+  "4-р сар",
+  "5-р сар",
+  "6-р сар",
+  "7-р сар",
+  "8-р сар",
+  "9-р сар",
+  "10-р сар",
+  "11-р сар",
+  "12-р сар",
 ];
 
 const weekDays = ["Ня", "Да", "Мя", "Лх", "Пү", "Ба", "Бя"];
@@ -85,7 +94,12 @@ interface TimeWheelPickerProps {
   onCancel: () => void;
 }
 
-function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }: TimeWheelPickerProps) {
+function TimeWheelPicker({
+  selectedDate,
+  selectedTime,
+  onTimeSelect,
+  onCancel,
+}: TimeWheelPickerProps) {
   const ITEM_HEIGHT = 40;
 
   // Проверяем, сегодня ли выбранная дата
@@ -103,7 +117,7 @@ function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }:
   const minTime = React.useMemo(() => {
     if (!isToday) return { hour: 0, minute: 0 };
     const now = new Date();
-    let minMinutes = now.getHours() * 60 + now.getMinutes() + 30;
+    const minMinutes = now.getHours() * 60 + now.getMinutes() + 30;
     // Округляем вверх до следующей минуты
     const minHour = Math.floor(minMinutes / 60);
     const minMinute = minMinutes % 60;
@@ -117,25 +131,31 @@ function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }:
   }, [isToday, minTime.hour]);
 
   // Получаем минимальную минуту для конкретного часа
-  const getMinMinuteForHour = React.useCallback((hour: number) => {
-    if (!isToday) return 0;
-    if (hour > minTime.hour) return 0;
-    if (hour === minTime.hour) return minTime.minute;
-    return 59; // Этот час уже прошел полностью
-  }, [isToday, minTime]);
+  const getMinMinuteForHour = React.useCallback(
+    (hour: number) => {
+      if (!isToday) return 0;
+      if (hour > minTime.hour) return 0;
+      if (hour === minTime.hour) return minTime.minute;
+      return 59; // Этот час уже прошел полностью
+    },
+    [isToday, minTime]
+  );
 
   // Генерируем доступные минуты для выбранного часа
-  const getAvailableMinutes = React.useCallback((hour: number) => {
-    const minMinute = getMinMinuteForHour(hour);
-    return Array.from({ length: 60 - minMinute }, (_, i) => i + minMinute);
-  }, [getMinMinuteForHour]);
+  const getAvailableMinutes = React.useCallback(
+    (hour: number) => {
+      const minMinute = getMinMinuteForHour(hour);
+      return Array.from({ length: 60 - minMinute }, (_, i) => i + minMinute);
+    },
+    [getMinMinuteForHour]
+  );
 
   // Parse initial time or default to first available time
   const getInitialTime = React.useCallback(() => {
     if (selectedTime) {
       const [h, m] = selectedTime.split(":").map(Number);
       // Проверяем что время валидно
-      if (!isToday || (h > minTime.hour || (h === minTime.hour && m >= minTime.minute))) {
+      if (!isToday || h > minTime.hour || (h === minTime.hour && m >= minTime.minute)) {
         return { hour: h, minute: m };
       }
     }
@@ -147,7 +167,10 @@ function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }:
   const [selectedMinute, setSelectedMinute] = React.useState(getInitialTime().minute);
 
   // Текущие доступные минуты для выбранного часа
-  const availableMinutes = React.useMemo(() => getAvailableMinutes(selectedHour), [getAvailableMinutes, selectedHour]);
+  const availableMinutes = React.useMemo(
+    () => getAvailableMinutes(selectedHour),
+    [getAvailableMinutes, selectedHour]
+  );
 
   const hourRef = React.useRef<HTMLDivElement>(null);
   const minuteRef = React.useRef<HTMLDivElement>(null);
@@ -255,9 +278,7 @@ function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }:
               key={hour}
               className={cn(
                 "h-10 flex items-center justify-center text-lg font-medium snap-center transition-all",
-                selectedHour === hour
-                  ? "text-primary scale-110"
-                  : "text-muted-foreground"
+                selectedHour === hour ? "text-primary scale-110" : "text-muted-foreground"
               )}
               style={{ scrollSnapAlign: "center" }}
             >
@@ -283,9 +304,7 @@ function TimeWheelPicker({ selectedDate, selectedTime, onTimeSelect, onCancel }:
               key={minute}
               className={cn(
                 "h-10 flex items-center justify-center text-lg font-medium snap-center transition-all",
-                selectedMinute === minute
-                  ? "text-primary scale-110"
-                  : "text-muted-foreground"
+                selectedMinute === minute ? "text-primary scale-110" : "text-muted-foreground"
               )}
               style={{ scrollSnapAlign: "center" }}
             >
@@ -376,7 +395,9 @@ export function RequestForm({
   const [isSuccess, setIsSuccess] = React.useState(false);
 
   // Location state (только для услуг с выездом - on_site)
-  const [locationCoordinates, setLocationCoordinates] = React.useState<[number, number] | null>(null);
+  const [locationCoordinates, setLocationCoordinates] = React.useState<[number, number] | null>(
+    null
+  );
   const [locationAddress, setLocationAddress] = React.useState<string | null>(null);
 
   // Phone state (для всех типов услуг)
@@ -567,8 +588,10 @@ export function RequestForm({
     const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
 
     // Check if next month is after max date
-    if (nextYear > maxDate.getFullYear() ||
-        (nextYear === maxDate.getFullYear() && nextMonth > maxDate.getMonth())) {
+    if (
+      nextYear > maxDate.getFullYear() ||
+      (nextYear === maxDate.getFullYear() && nextMonth > maxDate.getMonth())
+    ) {
       return; // Don't go beyond 2 months
     }
 
@@ -596,13 +619,19 @@ export function RequestForm({
   const canGoPrev = React.useMemo(() => {
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    return !(prevYear < today.getFullYear() || (prevYear === today.getFullYear() && prevMonth < today.getMonth()));
+    return !(
+      prevYear < today.getFullYear() ||
+      (prevYear === today.getFullYear() && prevMonth < today.getMonth())
+    );
   }, [currentMonth, currentYear, today]);
 
   const canGoNext = React.useMemo(() => {
     const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
     const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-    return !(nextYear > maxDate.getFullYear() || (nextYear === maxDate.getFullYear() && nextMonth > maxDate.getMonth()));
+    return !(
+      nextYear > maxDate.getFullYear() ||
+      (nextYear === maxDate.getFullYear() && nextMonth > maxDate.getMonth())
+    );
   }, [currentMonth, currentYear, maxDate]);
 
   const isDateSelected = (day: number) => {
@@ -711,10 +740,15 @@ export function RequestForm({
             actor_id: user.id,
           },
         });
-        // Invalidate caches - triggers immediate refetch for all subscribers
-        // listing_requests invalidation ensures provider sees new request immediately
-        // (backup for realtime - works even if Supabase Realtime is not configured)
-        queryClient.invalidateQueries({ queryKey: ["listing_requests"] });
+        // Invalidate only the current user's request queries + provider's
+        // Scoped invalidation avoids refetching data for all users
+        queryClient.invalidateQueries({
+          queryKey: ["listing_requests"],
+          predicate: (query) => {
+            const key = JSON.stringify(query.queryKey);
+            return key.includes(user.id) || key.includes(providerId);
+          },
+        });
         queryClient.invalidateQueries({ queryKey: ["notifications"] });
       }
 
@@ -771,20 +805,22 @@ export function RequestForm({
     const message = statusMessages[status] || statusMessages.pending;
 
     const colorClasses = {
-      amber: "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400",
-      green: "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
+      amber:
+        "bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400",
+      green:
+        "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400",
       blue: "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400",
     };
 
     return (
-      <div className={`p-4 border rounded-lg ${colorClasses[message.color as keyof typeof colorClasses]}`}>
+      <div
+        className={`p-4 border rounded-lg ${colorClasses[message.color as keyof typeof colorClasses]}`}
+      >
         <div className="flex items-center gap-2 mb-2">
           <CheckCircle className="h-5 w-5" />
           <span className="font-medium">{message.title}</span>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {message.description}
-        </p>
+        <p className="text-sm text-muted-foreground">{message.description}</p>
       </div>
     );
   }
@@ -816,7 +852,8 @@ export function RequestForm({
                 <DialogHeader className="space-y-1">
                   <DialogTitle className="text-lg">Хүсэлт илгээх</DialogTitle>
                   <p className="text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{providerName}</span> руу &quot;{listingTitle}&quot; үйлчилгээний талаар
+                    <span className="font-medium text-foreground">{providerName}</span> руу &quot;
+                    {listingTitle}&quot; үйлчилгээний талаар
                   </p>
                 </DialogHeader>
               </div>
@@ -853,15 +890,22 @@ export function RequestForm({
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                        selectedDate
-                          ? "bg-primary/10 text-primary"
-                          : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                      )}>
+                      <div
+                        className={cn(
+                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                          selectedDate
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                        )}
+                      >
                         <Calendar className="h-5 w-5" />
                       </div>
-                      <span className={cn("text-sm", selectedDate ? "font-medium" : "text-muted-foreground")}>
+                      <span
+                        className={cn(
+                          "text-sm",
+                          selectedDate ? "font-medium" : "text-muted-foreground"
+                        )}
+                      >
                         {selectedDate ? formatSelectedDate() : "Огноо сонгох"}
                       </span>
                     </div>
@@ -933,10 +977,20 @@ export function RequestForm({
                             className={cn(
                               "h-10 w-full rounded-lg text-sm font-medium transition-all",
                               day === null && "invisible",
-                              day && isDateDisabled(day) && "text-muted-foreground/30 cursor-not-allowed",
-                              day && !isDateDisabled(day) && !isDateSelected(day) && "hover:bg-primary/10 hover:text-primary",
-                              day && isDateSelected(day) && "bg-primary text-primary-foreground shadow-md",
-                              day && isToday(day) && !isDateSelected(day) && "ring-2 ring-primary/50 ring-inset font-bold text-primary"
+                              day &&
+                                isDateDisabled(day) &&
+                                "text-muted-foreground/30 cursor-not-allowed",
+                              day &&
+                                !isDateDisabled(day) &&
+                                !isDateSelected(day) &&
+                                "hover:bg-primary/10 hover:text-primary",
+                              day &&
+                                isDateSelected(day) &&
+                                "bg-primary text-primary-foreground shadow-md",
+                              day &&
+                                isToday(day) &&
+                                !isDateSelected(day) &&
+                                "ring-2 ring-primary/50 ring-inset font-bold text-primary"
                             )}
                           >
                             {day}
@@ -965,15 +1019,22 @@ export function RequestForm({
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
-                          selectedTime
-                            ? "bg-primary/10 text-primary"
-                            : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                        )}>
+                        <div
+                          className={cn(
+                            "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                            selectedTime
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                          )}
+                        >
                           <Clock className="h-5 w-5" />
                         </div>
-                        <span className={cn("text-sm", selectedTime ? "font-medium" : "text-muted-foreground")}>
+                        <span
+                          className={cn(
+                            "text-sm",
+                            selectedTime ? "font-medium" : "text-muted-foreground"
+                          )}
+                        >
                           {selectedTime || "Цаг сонгох"}
                         </span>
                       </div>
@@ -1026,12 +1087,7 @@ export function RequestForm({
                     </div>
                   ) : imagePreview ? (
                     <div className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-primary/30 bg-muted">
-                      <Image
-                        src={imagePreview}
-                        alt="Preview"
-                        fill
-                        className="object-cover"
-                      />
+                      <Image src={imagePreview} alt="Preview" fill className="object-cover" />
                       <button
                         type="button"
                         onClick={handleRemoveImage}
@@ -1054,7 +1110,9 @@ export function RequestForm({
                         <ImageIcon className="h-6 w-6" />
                       </div>
                       <div className="text-left">
-                        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Зураг оруулах</p>
+                        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground">
+                          Зураг оруулах
+                        </p>
                         <p className="text-xs text-muted-foreground">JPG, PNG, WebP • 5MB хүртэл</p>
                       </div>
                     </button>
@@ -1085,9 +1143,7 @@ export function RequestForm({
                   {messageTouched && !message.trim() && (
                     <p className="text-xs text-destructive">Мессеж заавал бичнэ үү</p>
                   )}
-                  <p className="text-xs text-muted-foreground text-right">
-                    {message.length}/2000
-                  </p>
+                  <p className="text-xs text-muted-foreground text-right">{message.length}/2000</p>
                 </div>
 
                 {/* Phone Number */}
@@ -1122,7 +1178,9 @@ export function RequestForm({
                     disabled={createRequest.isPending || isUploadingImage}
                     className={cn(
                       "rounded-xl border-2 transition-colors",
-                      phoneError ? "border-destructive focus:border-destructive" : "focus:border-primary/50"
+                      phoneError
+                        ? "border-destructive focus:border-destructive"
+                        : "focus:border-primary/50"
                     )}
                     maxLength={15}
                   />
@@ -1150,7 +1208,13 @@ export function RequestForm({
                   <Button
                     type="submit"
                     className="flex-1 h-12 rounded-xl"
-                    disabled={createRequest.isPending || isUploadingImage || isCompressingImage || !message.trim() || getPhoneDigits(clientPhone).length !== 8}
+                    disabled={
+                      createRequest.isPending ||
+                      isUploadingImage ||
+                      isCompressingImage ||
+                      !message.trim() ||
+                      getPhoneDigits(clientPhone).length !== 8
+                    }
                   >
                     {isUploadingImage ? (
                       <>

@@ -53,10 +53,11 @@ export function generateSlug(text: string): string {
 }
 
 /**
- * Добавляет случайный суффикс к slug для уникальности
+ * Добавляет криптографически безопасный суффикс к slug для уникальности.
+ * Использует crypto.randomUUID() вместо Math.random() для предотвращения коллизий.
  */
 export function generateUniqueSlug(text: string): string {
   const baseSlug = generateSlug(text);
-  const randomSuffix = Math.random().toString(36).substring(2, 8);
+  const randomSuffix = crypto.randomUUID().split("-")[0]; // 8 hex chars
   return `${baseSlug}-${randomSuffix}`;
 }

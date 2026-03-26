@@ -45,19 +45,34 @@ import type { CategoryData } from "@/components/category-select-modal";
 
 // Lazy load modals - not loaded until opened (~30KB saved)
 const AddressSelectModal = dynamic(
-  () => import("@/components/address-select-modal").then((mod) => ({ default: mod.AddressSelectModal })),
+  () =>
+    import("@/components/address-select-modal").then((mod) => ({
+      default: mod.AddressSelectModal,
+    })),
   { ssr: false }
 );
 const CategorySelectModal = dynamic(
-  () => import("@/components/category-select-modal").then((mod) => ({ default: mod.CategorySelectModal })),
+  () =>
+    import("@/components/category-select-modal").then((mod) => ({
+      default: mod.CategorySelectModal,
+    })),
   { ssr: false }
 );
 const LocationPickerMap = dynamic(
-  () => import("@/components/location-picker-map").then((mod) => ({ default: mod.LocationPickerMap })),
-  { ssr: false, loading: () => <div className="w-full h-15 bg-muted/50 rounded-xl animate-pulse" /> }
+  () =>
+    import("@/components/location-picker-map").then((mod) => ({ default: mod.LocationPickerMap })),
+  {
+    ssr: false,
+    loading: () => <div className="w-full h-15 bg-muted/50 rounded-xl animate-pulse" />,
+  }
 );
 
-import { useCreatelistings, useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
+import {
+  useCreatelistings,
+  useFindManylistings,
+  useUpdatelistings,
+  useDeletelistings,
+} from "@/lib/hooks/listings";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { uploadListingImage, deleteAllListingImages } from "@/lib/storage/listings";
 import { generateUniqueSlug } from "@/lib/utils/slug";
@@ -109,22 +124,24 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
   // Fetch user's draft listings
   // OPTIMIZATION: Добавлен staleTime - черновики не меняются часто извне
   const { data: drafts, refetch: refetchDrafts } = useFindManylistings(
-    user?.id ? {
-      where: {
-        user_id: user.id,
-        status: "draft",
-      },
-      include: {
-        category: true,
-        images: true,
-      },
-      orderBy: { updated_at: "desc" },
-      take: 10, // OPTIMIZATION: Лимит на черновики
-    } : undefined,
+    user?.id
+      ? {
+          where: {
+            user_id: user.id,
+            status: "draft",
+          },
+          include: {
+            category: true,
+            images: true,
+          },
+          orderBy: { updated_at: "desc" },
+          take: 10, // OPTIMIZATION: Лимит на черновики
+        }
+      : undefined,
     {
       enabled: !!user?.id,
       staleTime: 2 * 60 * 1000, // 2 минуты - черновики редко меняются извне
-      gcTime: 10 * 60 * 1000,   // 10 минут в кэше
+      gcTime: 10 * 60 * 1000, // 10 минут в кэше
     }
   );
 
@@ -158,11 +175,14 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     return Number(numericValue).toLocaleString("mn-MN");
   }, []);
 
-  const handlePriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const rawValue = e.target.value.replace(/\D/g, "");
-    setDisplayPrice(formatPriceDisplay(rawValue));
-    setValue("price", rawValue);
-  }, [formatPriceDisplay, setValue]);
+  const handlePriceChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const rawValue = e.target.value.replace(/\D/g, "");
+      setDisplayPrice(formatPriceDisplay(rawValue));
+      setValue("price", rawValue);
+    },
+    [formatPriceDisplay, setValue]
+  );
 
   // Phone formatting: +976 XXXX-XXXX
   const [displayPhone, setDisplayPhone] = useState("");
@@ -191,14 +211,17 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     return `+976 ${limited.slice(0, 4)}-${limited.slice(4)}`;
   }, []);
 
-  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhoneDisplay(e.target.value);
-    setDisplayPhone(formatted);
-    // Сохраняем только 8 цифр без кода страны
-    const digits = e.target.value.replace(/\D/g, "");
-    const rawValue = digits.startsWith("976") ? digits.slice(3).slice(0, 8) : digits.slice(0, 8);
-    setValue("phone", rawValue);
-  }, [formatPhoneDisplay, setValue]);
+  const handlePhoneChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const formatted = formatPhoneDisplay(e.target.value);
+      setDisplayPhone(formatted);
+      // Сохраняем только 8 цифр без кода страны
+      const digits = e.target.value.replace(/\D/g, "");
+      const rawValue = digits.startsWith("976") ? digits.slice(3).slice(0, 8) : digits.slice(0, 8);
+      setValue("phone", rawValue);
+    },
+    [formatPhoneDisplay, setValue]
+  );
 
   // Show login modal if not authenticated
   useEffect(() => {
@@ -212,19 +235,25 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     window.location.reload();
   }, []);
 
-  const handleLoginModalClose = useCallback((open: boolean) => {
-    if (!open && !user) {
-      router.push("/");
-    } else {
-      setShowLoginModal(open);
-    }
-  }, [router, user]);
+  const handleLoginModalClose = useCallback(
+    (open: boolean) => {
+      if (!open && !user) {
+        router.push("/");
+      } else {
+        setShowLoginModal(open);
+      }
+    },
+    [router, user]
+  );
 
   // Category selection handler
-  const handleCategorySelect = useCallback((category: CategoryData) => {
-    setSelectedCategory(category);
-    setValue("category_id", category.id);
-  }, [setValue]);
+  const handleCategorySelect = useCallback(
+    (category: CategoryData) => {
+      setSelectedCategory(category);
+      setValue("category_id", category.id);
+    },
+    [setValue]
+  );
 
   // Format address for display
   const formatAddress = useCallback((address: AddressData | null) => {
@@ -233,85 +262,93 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
   }, []);
 
   // Load draft for editing
-  const loadDraft = useCallback((draft: NonNullable<typeof drafts>[0]) => {
-    if (!draft) return;
+  const loadDraft = useCallback(
+    (draft: NonNullable<typeof drafts>[0]) => {
+      if (!draft) return;
 
-    setEditingDraftId(draft.id);
-    setShowDraftBanner(false);
+      setEditingDraftId(draft.id);
+      setShowDraftBanner(false);
 
-    const priceValue = draft.price ? String(draft.price) : "";
-    const phoneValue = draft.phone || "";
-    reset({
-      title: draft.title || "",
-      description: draft.description || "",
-      category_id: draft.category_id || "",
-      price: priceValue,
-      is_negotiable: draft.is_negotiable || false,
-      duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
-      service_type: (draft.service_type as "on_site" | "remote") || "on_site",
-      phone: phoneValue,
-      address_detail: draft.address || "",
-      work_hours_start: draft.work_hours_start || "09:00",
-      work_hours_end: draft.work_hours_end || "18:00",
-    });
-    setDisplayPrice(formatPriceDisplay(priceValue));
-    setDisplayPhone(formatPhoneDisplay(phoneValue));
-
-    if (draft.category) {
-      const cat = draft.category as Category;
-      setSelectedCategory({
-        id: cat.id,
-        name: cat.name,
-        parentName: cat.parent_id ? categories.find(c => c.id === cat.parent_id)?.name : undefined,
+      const priceValue = draft.price ? String(draft.price) : "";
+      const phoneValue = draft.phone || "";
+      reset({
+        title: draft.title || "",
+        description: draft.description || "",
+        category_id: draft.category_id || "",
+        price: priceValue,
+        is_negotiable: draft.is_negotiable || false,
+        duration_minutes: draft.duration_minutes ? String(draft.duration_minutes) : "",
+        service_type: (draft.service_type as "on_site" | "remote") || "on_site",
+        phone: phoneValue,
+        address_detail: draft.address || "",
+        work_hours_start: draft.work_hours_start || "09:00",
+        work_hours_end: draft.work_hours_end || "18:00",
       });
-    }
+      setDisplayPrice(formatPriceDisplay(priceValue));
+      setDisplayPhone(formatPhoneDisplay(phoneValue));
 
-    if (draft.aimag_id && draft.district_id && draft.khoroo_id) {
-      setSelectedAddress({
-        city: draft.address?.split(", ")[0] || "",
-        cityId: draft.aimag_id,
-        district: draft.address?.split(", ")[1] || "",
-        districtId: draft.district_id,
-        khoroo: draft.address?.split(", ")[2] || "",
-        khorooId: draft.khoroo_id,
-      });
-    }
+      if (draft.category) {
+        const cat = draft.category as Category;
+        setSelectedCategory({
+          id: cat.id,
+          name: cat.name,
+          parentName: cat.parent_id
+            ? categories.find((c) => c.id === cat.parent_id)?.name
+            : undefined,
+        });
+      }
 
-    // Load coordinates if available
-    if (draft.latitude && draft.longitude) {
-      setLocationCoordinates([Number(draft.latitude), Number(draft.longitude)]);
-    } else {
-      setLocationCoordinates(null);
-    }
-  }, [categories, formatPriceDisplay, formatPhoneDisplay, reset]);
+      if (draft.aimag_id && draft.district_id && draft.khoroo_id) {
+        setSelectedAddress({
+          city: draft.address?.split(", ")[0] || "",
+          cityId: draft.aimag_id,
+          district: draft.address?.split(", ")[1] || "",
+          districtId: draft.district_id,
+          khoroo: draft.address?.split(", ")[2] || "",
+          khorooId: draft.khoroo_id,
+        });
+      }
+
+      // Load coordinates if available
+      if (draft.latitude && draft.longitude) {
+        setLocationCoordinates([Number(draft.latitude), Number(draft.longitude)]);
+      } else {
+        setLocationCoordinates(null);
+      }
+    },
+    [categories, formatPriceDisplay, formatPhoneDisplay, reset]
+  );
 
   // Delete draft
-  const handleDeleteDraft = useCallback(async (draftId: string) => {
-    try {
-      setDeletingDraftId(draftId);
+  const handleDeleteDraft = useCallback(
+    async (draftId: string) => {
+      try {
+        setDeletingDraftId(draftId);
 
-      const draftToDelete = drafts?.find(d => d.id === draftId);
-      if (draftToDelete?.images && user?.id) {
-        await deleteAllListingImages(user.id, draftId);
+        const draftToDelete = drafts?.find((d) => d.id === draftId);
+        if (draftToDelete?.images && user?.id) {
+          await deleteAllListingImages(user.id, draftId);
+        }
+
+        await deleteListing.mutateAsync({ where: { id: draftId } });
+        refetchDrafts();
+
+        if (editingDraftId === draftId) {
+          setEditingDraftId(null);
+          reset(listingFormDefaults);
+          setSelectedCategory(null);
+          setSelectedAddress(null);
+          setImages([]);
+          setDisplayPrice("");
+        }
+      } catch {
+        toast.error("Ноорог устгахад алдаа гарлаа");
+      } finally {
+        setDeletingDraftId(null);
       }
-
-      await deleteListing.mutateAsync({ where: { id: draftId } });
-      refetchDrafts();
-
-      if (editingDraftId === draftId) {
-        setEditingDraftId(null);
-        reset(listingFormDefaults);
-        setSelectedCategory(null);
-        setSelectedAddress(null);
-        setImages([]);
-        setDisplayPrice("");
-      }
-    } catch {
-      // Draft deletion failed silently - drafts will be cleaned up later
-    } finally {
-      setDeletingDraftId(null);
-    }
-  }, [drafts, user?.id, deleteListing, refetchDrafts, editingDraftId, reset]);
+    },
+    [drafts, user?.id, deleteListing, refetchDrafts, editingDraftId, reset]
+  );
 
   // Auto-save draft with debounce
   const autoSaveDraft = useCallback(async () => {
@@ -362,9 +399,20 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
         id: "auto-save", // Prevent duplicate toasts
       });
     } catch {
-      // Auto-save failed silently - will retry on next change
+      toast.error("Автоматаар хадгалахад алдаа гарлаа", {
+        duration: 3000,
+        id: "auto-save-error",
+      });
     }
-  }, [user?.id, editingDraftId, getValues, formatAddress, selectedAddress, locationCoordinates, updateListing]);
+  }, [
+    user?.id,
+    editingDraftId,
+    getValues,
+    formatAddress,
+    selectedAddress,
+    locationCoordinates,
+    updateListing,
+  ]);
 
   // Watch form changes for auto-save
   useEffect(() => {
@@ -439,13 +487,20 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           const uploadResults = await Promise.all(
             images.map(async (image, i) => {
               const uuid = crypto.randomUUID();
-              const { url, error } = await uploadListingImage(user.id, editingDraftId, image.file, uuid);
+              const { url, error } = await uploadListingImage(
+                user.id,
+                editingDraftId,
+                image.file,
+                uuid
+              );
               if (error || !url) return null;
               return { url, sort_order: i, is_cover: i === 0 };
             })
           );
 
-          const validImages = uploadResults.filter((r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null);
+          const validImages = uploadResults.filter(
+            (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
+          );
           if (validImages.length > 0) {
             await batchCreateImages.mutateAsync({
               listing_id: editingDraftId,
@@ -484,13 +539,20 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           const uploadResults = await Promise.all(
             images.map(async (image, i) => {
               const uuid = crypto.randomUUID();
-              const { url, error } = await uploadListingImage(user.id, listing.id, image.file, uuid);
+              const { url, error } = await uploadListingImage(
+                user.id,
+                listing.id,
+                image.file,
+                uuid
+              );
               if (error || !url) return null;
               return { url, sort_order: i, is_cover: i === 0 };
             })
           );
 
-          const validImages = uploadResults.filter((r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null);
+          const validImages = uploadResults.filter(
+            (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
+          );
           if (validImages.length > 0) {
             await batchCreateImages.mutateAsync({
               listing_id: listing.id,
@@ -510,149 +572,193 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     } finally {
       setIsSavingDraft(false);
     }
-  }, [user?.id, getValues, formatAddress, selectedAddress, editingDraftId, updateListing, createListing, images, batchCreateImages, refetchDrafts]);
+  }, [
+    user?.id,
+    getValues,
+    formatAddress,
+    selectedAddress,
+    editingDraftId,
+    updateListing,
+    createListing,
+    images,
+    batchCreateImages,
+    refetchDrafts,
+  ]);
 
-  const onSubmit = useCallback(async (data: ListingFormData) => {
-    if (!user?.id) {
-      toast.error("Нэвтрэх шаардлагатай");
-      return;
-    }
-
-    // Rate limit check
-    const rateLimitResult = checkRateLimit(user.id, RATE_LIMITS.listingCreate);
-    if (!rateLimitResult.allowed) {
-      const resetInSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
-      toast.error(`Хэт олон зар үүсгэсэн байна. ${resetInSeconds} секунд хүлээнэ үү.`);
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-
-      const slug = generateUniqueSlug(data.title);
-      const addressStr = formatAddress(selectedAddress);
-
-      let listingId: string;
-      let listingSlug: string;
-
-      if (editingDraftId) {
-        const updated = await updateListing.mutateAsync({
-          where: { id: editingDraftId },
-          data: {
-            title: data.title,
-            slug,
-            description: data.description,
-            category_id: data.category_id,
-            // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя, для "Зочны газар" - адрес из модалки
-            address: data.service_type === "remote" ? data.address_detail : addressStr,
-            aimag_id: selectedAddress?.cityId || null,
-            district_id: selectedAddress?.districtId || null,
-            khoroo_id: selectedAddress?.khorooId || null,
-            price: data.price ? parseFloat(data.price) : null,
-            is_negotiable: data.is_negotiable || false,
-            duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
-            service_type: data.service_type,
-            phone: data.phone || null,
-            latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
-            longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
-            work_hours_start: data.work_hours_start || "09:00",
-            work_hours_end: data.work_hours_end || "18:00",
-            status: "active",
-            is_active: true,
-            published_at: new Date(),
-          },
-        });
-
-        listingId = editingDraftId;
-        listingSlug = updated?.slug || slug;
-
-        if (images.length > 0) {
-          const existingImages = drafts?.find(d => d.id === editingDraftId)?.images?.length || 0;
-
-          const uploadResults = await Promise.all(
-            images.map(async (image, i) => {
-              const uuid = crypto.randomUUID();
-              const { url, error } = await uploadListingImage(user.id, listingId, image.file, uuid);
-              if (error || !url) return null;
-              return { url, sort_order: existingImages + i, is_cover: existingImages === 0 && i === 0 };
-            })
-          );
-
-          const validImages = uploadResults.filter((r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null);
-          if (validImages.length > 0) {
-            await batchCreateImages.mutateAsync({
-              listing_id: listingId,
-              images: validImages,
-            });
-          }
-        }
-      } else {
-        const listing = await createListing.mutateAsync({
-          data: {
-            title: data.title,
-            slug,
-            description: data.description,
-            category_id: data.category_id,
-            user_id: user.id,
-            // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя, для "Зочны газар" - адрес из модалки
-            address: data.service_type === "remote" ? data.address_detail : addressStr,
-            aimag_id: selectedAddress?.cityId || null,
-            district_id: selectedAddress?.districtId || null,
-            khoroo_id: selectedAddress?.khorooId || null,
-            price: data.price ? parseFloat(data.price) : null,
-            is_negotiable: data.is_negotiable || false,
-            duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
-            service_type: data.service_type,
-            phone: data.phone || null,
-            latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
-            longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
-            work_hours_start: data.work_hours_start || "09:00",
-            work_hours_end: data.work_hours_end || "18:00",
-            status: "active",
-            is_active: true,
-            published_at: new Date(),
-          },
-        });
-
-        if (!listing) {
-          throw new Error("Зар үүсгэж чадсангүй");
-        }
-
-        listingId = listing.id;
-        listingSlug = listing.slug;
-
-        if (images.length > 0) {
-          const uploadResults = await Promise.all(
-            images.map(async (image, i) => {
-              const uuid = crypto.randomUUID();
-              const { url, error } = await uploadListingImage(user.id, listingId, image.file, uuid);
-              if (error || !url) return null;
-              return { url, sort_order: i, is_cover: i === 0 };
-            })
-          );
-
-          const validImages = uploadResults.filter((r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null);
-
-          if (validImages.length === 0 && images.length > 0) {
-            throw new Error("Зураг оруулахад алдаа гарлаа! Storage-д хандах эрх шалгана уу.");
-          }
-
-          if (validImages.length > 0) {
-            await batchCreateImages.mutateAsync({
-              listing_id: listingId,
-              images: validImages,
-            });
-          }
-        }
+  const onSubmit = useCallback(
+    async (data: ListingFormData) => {
+      if (!user?.id) {
+        toast.error("Нэвтрэх шаардлагатай");
+        return;
       }
 
-      router.push(`/services/${listingSlug}`);
-    } catch {
-      toast.error("Зар үүсгэхэд алдаа гарлаа");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [user?.id, formatAddress, selectedAddress, editingDraftId, updateListing, createListing, images, drafts, batchCreateImages, router]);
+      // Rate limit check
+      const rateLimitResult = checkRateLimit(user.id, RATE_LIMITS.listingCreate);
+      if (!rateLimitResult.allowed) {
+        const resetInSeconds = Math.ceil(rateLimitResult.resetIn / 1000);
+        toast.error(`Хэт олон зар үүсгэсэн байна. ${resetInSeconds} секунд хүлээнэ үү.`);
+        return;
+      }
+
+      try {
+        setIsSubmitting(true);
+
+        const slug = generateUniqueSlug(data.title);
+        const addressStr = formatAddress(selectedAddress);
+
+        let listingId: string;
+        let listingSlug: string;
+
+        if (editingDraftId) {
+          const updated = await updateListing.mutateAsync({
+            where: { id: editingDraftId },
+            data: {
+              title: data.title,
+              slug,
+              description: data.description,
+              category_id: data.category_id,
+              // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя, для "Зочны газар" - адрес из модалки
+              address: data.service_type === "remote" ? data.address_detail : addressStr,
+              aimag_id: selectedAddress?.cityId || null,
+              district_id: selectedAddress?.districtId || null,
+              khoroo_id: selectedAddress?.khorooId || null,
+              price: data.price ? parseFloat(data.price) : null,
+              is_negotiable: data.is_negotiable || false,
+              duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+              service_type: data.service_type,
+              phone: data.phone || null,
+              latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+              longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
+              work_hours_start: data.work_hours_start || "09:00",
+              work_hours_end: data.work_hours_end || "18:00",
+              status: "active",
+              is_active: true,
+              published_at: new Date(),
+            },
+          });
+
+          listingId = editingDraftId;
+          listingSlug = updated?.slug || slug;
+
+          if (images.length > 0) {
+            const existingImages =
+              drafts?.find((d) => d.id === editingDraftId)?.images?.length || 0;
+
+            const uploadResults = await Promise.all(
+              images.map(async (image, i) => {
+                const uuid = crypto.randomUUID();
+                const { url, error } = await uploadListingImage(
+                  user.id,
+                  listingId,
+                  image.file,
+                  uuid
+                );
+                if (error || !url) return null;
+                return {
+                  url,
+                  sort_order: existingImages + i,
+                  is_cover: existingImages === 0 && i === 0,
+                };
+              })
+            );
+
+            const validImages = uploadResults.filter(
+              (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
+            );
+            if (validImages.length > 0) {
+              await batchCreateImages.mutateAsync({
+                listing_id: listingId,
+                images: validImages,
+              });
+            }
+          }
+        } else {
+          const listing = await createListing.mutateAsync({
+            data: {
+              title: data.title,
+              slug,
+              description: data.description,
+              category_id: data.category_id,
+              user_id: user.id,
+              // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя, для "Зочны газар" - адрес из модалки
+              address: data.service_type === "remote" ? data.address_detail : addressStr,
+              aimag_id: selectedAddress?.cityId || null,
+              district_id: selectedAddress?.districtId || null,
+              khoroo_id: selectedAddress?.khorooId || null,
+              price: data.price ? parseFloat(data.price) : null,
+              is_negotiable: data.is_negotiable || false,
+              duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+              service_type: data.service_type,
+              phone: data.phone || null,
+              latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+              longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
+              work_hours_start: data.work_hours_start || "09:00",
+              work_hours_end: data.work_hours_end || "18:00",
+              status: "active",
+              is_active: true,
+              published_at: new Date(),
+            },
+          });
+
+          if (!listing) {
+            throw new Error("Зар үүсгэж чадсангүй");
+          }
+
+          listingId = listing.id;
+          listingSlug = listing.slug;
+
+          if (images.length > 0) {
+            const uploadResults = await Promise.all(
+              images.map(async (image, i) => {
+                const uuid = crypto.randomUUID();
+                const { url, error } = await uploadListingImage(
+                  user.id,
+                  listingId,
+                  image.file,
+                  uuid
+                );
+                if (error || !url) return null;
+                return { url, sort_order: i, is_cover: i === 0 };
+              })
+            );
+
+            const validImages = uploadResults.filter(
+              (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
+            );
+
+            if (validImages.length === 0 && images.length > 0) {
+              throw new Error("Зураг оруулахад алдаа гарлаа! Storage-д хандах эрх шалгана уу.");
+            }
+
+            if (validImages.length > 0) {
+              await batchCreateImages.mutateAsync({
+                listing_id: listingId,
+                images: validImages,
+              });
+            }
+          }
+        }
+
+        router.push(`/services/${listingSlug}`);
+      } catch {
+        toast.error("Зар үүсгэхэд алдаа гарлаа");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      user?.id,
+      formatAddress,
+      selectedAddress,
+      editingDraftId,
+      updateListing,
+      createListing,
+      images,
+      drafts,
+      batchCreateImages,
+      router,
+    ]
+  );
 
   const resetForm = useCallback(() => {
     setEditingDraftId(null);
@@ -674,9 +780,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
               <Plus className="h-10 w-10 text-white" />
             </div>
             <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
-            <p className="text-muted-foreground text-sm">
-              Зар нэмэхийн тулд нэвтрэх шаардлагатай
-            </p>
+            <p className="text-muted-foreground text-sm">Зар нэмэхийн тулд нэвтрэх шаардлагатай</p>
           </div>
         </div>
         <LoginPromptModal
@@ -914,7 +1018,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                   <Tag className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                 </div>
                 <div className="min-h-10 flex flex-col justify-center">
-                  <h3 className="font-semibold text-sm leading-tight">Ангилал <span className="text-destructive">*</span></h3>
+                  <h3 className="font-semibold text-sm leading-tight">
+                    Ангилал <span className="text-destructive">*</span>
+                  </h3>
                   <p className="text-xs text-muted-foreground leading-tight">Төрөл сонгох</p>
                 </div>
               </div>
@@ -928,9 +1034,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                   {selectedCategory ? (
                     <span className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="w-2 h-2 rounded-full bg-violet-500 shrink-0" />
-                      <span className="truncate font-medium">
-                        {selectedCategory.name}
-                      </span>
+                      <span className="truncate font-medium">{selectedCategory.name}</span>
                     </span>
                   ) : (
                     <span className="text-muted-foreground">Сонгоно уу...</span>
@@ -969,9 +1073,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                   {selectedAddress ? (
                     <span className="flex items-center gap-2 min-w-0 flex-1">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                      <span className="truncate font-medium">
-                        {selectedAddress.district}
-                      </span>
+                      <span className="truncate font-medium">{selectedAddress.district}</span>
                     </span>
                   ) : (
                     <span className="text-muted-foreground">Сонгоно уу...</span>
@@ -990,7 +1092,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
                   <span className="text-amber-600 dark:text-amber-400 font-bold text-lg">₮</span>
                 </div>
                 <div className="min-h-10 flex flex-col justify-center">
-                  <h3 className="font-semibold text-sm leading-tight">Үнэ {!watchIsNegotiable && <span className="text-destructive">*</span>}</h3>
+                  <h3 className="font-semibold text-sm leading-tight">
+                    Үнэ {!watchIsNegotiable && <span className="text-destructive">*</span>}
+                  </h3>
                   <p className="text-xs text-muted-foreground leading-tight">Төгрөгөөр</p>
                 </div>
               </div>
@@ -1077,48 +1181,66 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <label className={cn(
-                "flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all",
-                watchServiceType === "on_site"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/30"
-              )}>
+              <label
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                  watchServiceType === "on_site"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
+                )}
+              >
                 <input
                   type="radio"
                   value="on_site"
                   {...register("service_type")}
                   className="sr-only"
                 />
-                <MapPin className={cn(
-                  "h-6 w-6",
-                  watchServiceType === "on_site" ? "text-primary" : "text-muted-foreground"
-                )} />
-                <span className={cn(
-                  "text-sm font-medium text-center",
-                  watchServiceType === "on_site" ? "text-primary" : "text-muted-foreground"
-                )}>Зочны газар</span>
-                <span className="text-xs text-muted-foreground text-center">Үйлчлүүлэгч дээр очно</span>
+                <MapPin
+                  className={cn(
+                    "h-6 w-6",
+                    watchServiceType === "on_site" ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-sm font-medium text-center",
+                    watchServiceType === "on_site" ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  Зочны газар
+                </span>
+                <span className="text-xs text-muted-foreground text-center">
+                  Үйлчлүүлэгч дээр очно
+                </span>
               </label>
-              <label className={cn(
-                "flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all",
-                watchServiceType === "remote"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/30"
-              )}>
+              <label
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                  watchServiceType === "remote"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/30"
+                )}
+              >
                 <input
                   type="radio"
                   value="remote"
                   {...register("service_type")}
                   className="sr-only"
                 />
-                <Building2 className={cn(
-                  "h-6 w-6",
-                  watchServiceType === "remote" ? "text-primary" : "text-muted-foreground"
-                )} />
-                <span className={cn(
-                  "text-sm font-medium text-center",
-                  watchServiceType === "remote" ? "text-primary" : "text-muted-foreground"
-                )}>Миний газар</span>
+                <Building2
+                  className={cn(
+                    "h-6 w-6",
+                    watchServiceType === "remote" ? "text-primary" : "text-muted-foreground"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-sm font-medium text-center",
+                    watchServiceType === "remote" ? "text-primary" : "text-muted-foreground"
+                  )}
+                >
+                  Миний газар
+                </span>
                 <span className="text-xs text-muted-foreground text-center">Үйлчлүүлэгч ирнэ</span>
               </label>
             </div>
@@ -1128,7 +1250,10 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             {watchServiceType === "remote" && (
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="address_detail" className="text-sm font-medium flex items-center gap-2">
+                  <Label
+                    htmlFor="address_detail"
+                    className="text-sm font-medium flex items-center gap-2"
+                  >
                     <MapPin className="h-4 w-4 text-purple-500" />
                     Дэлгэрэнгүй хаяг
                   </Label>

@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, Building2, Pencil, Plus, Trash2, Check } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { toast } from "sonner";
 
 interface AboutSectionProps {
   isCompany?: boolean;
 }
 
-export const AboutSection = React.memo(function AboutSection({ isCompany = false }: AboutSectionProps) {
+export const AboutSection = React.memo(function AboutSection({
+  isCompany = false,
+}: AboutSectionProps) {
   const { profile, updateProfile } = useAuth();
 
   const [isEditing, setIsEditing] = React.useState(false);
@@ -32,6 +35,8 @@ export const AboutSection = React.memo(function AboutSection({ isCompany = false
       const { error } = await updateProfile({ about: aboutText.trim() || null });
       if (!error) {
         setIsEditing(false);
+      } else {
+        toast.error("Хадгалахад алдаа гарлаа");
       }
     } finally {
       setIsSaving(false);
@@ -58,9 +63,7 @@ export const AboutSection = React.memo(function AboutSection({ isCompany = false
 
   const Icon = isCompany ? Building2 : FileText;
   const title = isCompany ? "О компании" : "О себе";
-  const placeholder = isCompany
-    ? "Компанийнхаа тухай бичнэ үү..."
-    : "Өөрийнхөө тухай бичнэ үү...";
+  const placeholder = isCompany ? "Компанийнхаа тухай бичнэ үү..." : "Өөрийнхөө тухай бичнэ үү...";
   const emptyMessage = isCompany
     ? "Компанийн тухай мэдээлэл нэмээгүй байна"
     : "Өөрийнхөө тухай мэдээлэл нэмээгүй байна";
@@ -73,12 +76,7 @@ export const AboutSection = React.memo(function AboutSection({ isCompany = false
           {title}
         </h3>
         {!isEditing && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1"
-            onClick={() => setIsEditing(true)}
-          >
+          <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditing(true)}>
             {profile?.about ? (
               <>
                 <Pencil className="h-4 w-4" />
@@ -120,19 +118,10 @@ export const AboutSection = React.memo(function AboutSection({ isCompany = false
                   Устгах
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCancel}
-                disabled={isSaving}
-              >
+              <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
                 Болих
               </Button>
-              <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving || !aboutText.trim()}
-              >
+              <Button size="sm" onClick={handleSave} disabled={isSaving || !aboutText.trim()}>
                 {isSaving ? (
                   "Хадгалж байна..."
                 ) : (
@@ -146,9 +135,7 @@ export const AboutSection = React.memo(function AboutSection({ isCompany = false
           </div>
         </div>
       ) : profile?.about ? (
-        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-          {profile.about}
-        </p>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{profile.about}</p>
       ) : (
         <p className={`text-sm text-muted-foreground text-center ${isCompany ? "py-8" : "py-4"}`}>
           {emptyMessage}

@@ -21,17 +21,13 @@ export function RecommendedListingsSSR({ listings }: RecommendedListingsSSRProps
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Image
             src="/icons/7486744.png"
-            alt="Пустая коробка"
+            alt="Хоосон хайрцаг"
             width={80}
             height={80}
             className="mb-4 opacity-70"
           />
-          <p className="text-muted-foreground text-sm md:text-base">
-            Одоогоор зар байхгүй байна
-          </p>
-          <p className="text-muted-foreground/70 text-xs md:text-sm mt-1">
-            Эхний зараа нэмээрэй!
-          </p>
+          <p className="text-muted-foreground text-sm md:text-base">Одоогоор зар байхгүй байна</p>
+          <p className="text-muted-foreground/70 text-xs md:text-sm mt-1">Эхний зараа нэмээрэй!</p>
           <Link href="/services/create" className="mt-4">
             <Button>Зар нэмэх</Button>
           </Link>

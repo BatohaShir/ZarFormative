@@ -3,6 +3,14 @@ import { createClient } from "@/lib/supabase/client";
 const BUCKET_NAME = "chat-attachments";
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+// SECURITY: Determine extension from MIME type, not user-supplied filename
+const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
 // Bucket is now public, no need for signed URLs
 
 /**
@@ -48,15 +56,13 @@ export async function uploadChatAttachment(
   }
 
   const uuid = crypto.randomUUID();
-  const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const fileExt = MIME_TO_EXTENSION[file.type] || "jpg";
   const filePath = `${requestId}/${senderId}/${uuid}.${fileExt}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: false,
+  });
 
   if (error) {
     console.error("[ChatStorage] Upload error:", error);
@@ -64,9 +70,7 @@ export async function uploadChatAttachment(
   }
 
   // Get public URL (bucket is public)
-  const { data: publicData } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(filePath);
+  const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(filePath);
 
   return { publicUrl: publicData.publicUrl, path: filePath, error: null };
 }
@@ -76,9 +80,7 @@ export async function uploadChatAttachment(
  */
 export function getPublicUrl(path: string): string {
   const supabase = createClient();
-  const { data } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(path);
+  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(path);
   return data.publicUrl;
 }
 

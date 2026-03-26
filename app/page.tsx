@@ -16,94 +16,104 @@ import { buildCategoryTree, fallbackCategories, type CategoryWithChildren } from
 import type { ListingWithRelations } from "@/components/listing-card";
 import { getTranslations } from "next-intl/server";
 
-// Принудительно динамический рендеринг - SSR на каждый запрос
-export const dynamic = 'force-dynamic';
+// ISR: обновляем данные каждые 60 секунд вместо force-dynamic
+// Это кэширует страницу и снижает нагрузку на БД
+export const revalidate = 60;
 
 // Функция загрузки данных на сервере
 async function getHomePageData() {
-  // Параллельно загружаем категории и объявления
-  const [categoriesData, listingsData] = await Promise.all([
-    prisma.categories.findMany({
-      where: { is_active: true },
-      orderBy: [
-        { parent_id: "asc" }, // Родительские категории (null) идут первыми
-        { sort_order: "asc" },
-      ],
-    }),
-    prisma.listings.findMany({
-      where: {
-        status: "active",
-        is_active: true,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            avatar_url: true,
-            company_name: true,
-            is_company: true,
+  try {
+    // Параллельно загружаем категории и объявления
+    const [categoriesData, listingsData] = await Promise.all([
+      prisma.categories.findMany({
+        where: { is_active: true },
+        orderBy: [
+          { parent_id: "asc" }, // Родительские категории (null) идут первыми
+          { sort_order: "asc" },
+        ],
+      }),
+      prisma.listings.findMany({
+        where: {
+          status: "active",
+          is_active: true,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              avatar_url: true,
+              company_name: true,
+              is_company: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          images: {
+            where: {
+              is_cover: true,
+            },
+            select: {
+              id: true,
+              url: true,
+              sort_order: true,
+            },
+            take: 1,
+          },
+          aimag: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          district: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
+        orderBy: {
+          created_at: "desc",
         },
-        images: {
-          where: {
-            is_cover: true,
-          },
-          select: {
-            id: true,
-            url: true,
-            sort_order: true,
-            // OPTIMIZED: is_cover не нужен - уже фильтруем по нему в where
-          },
-          take: 1,
-        },
-        aimag: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        district: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        // OPTIMIZED: khoroo не нужен на главной странице - показывается только на детальной
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-      take: 8,
-    }),
-  ]);
+        take: 8,
+      }),
+    ]);
 
-  // Строим дерево категорий
-  const categoryTree = categoriesData.length > 0
-    ? buildCategoryTree(categoriesData)
-    : fallbackCategories as unknown as CategoryWithChildren[];
+    // Строим дерево категорий
+    const categoryTree =
+      categoriesData.length > 0
+        ? buildCategoryTree(categoriesData)
+        : (fallbackCategories as unknown as CategoryWithChildren[]);
 
-  // Сериализуем Decimal в number для Client Components
-  const serializedListings = listingsData.map((listing) => ({
-    ...listing,
-    price: listing.price ? Number(listing.price) : null,
-    latitude: listing.latitude ? Number(listing.latitude) : null,
-    longitude: listing.longitude ? Number(listing.longitude) : null,
-  }));
+    // Сериализуем Decimal в number для Client Components
+    const serializedListings = listingsData.map((listing) => ({
+      ...listing,
+      price: listing.price ? Number(listing.price) : null,
+      latitude: listing.latitude ? Number(listing.latitude) : null,
+      longitude: listing.longitude ? Number(listing.longitude) : null,
+    }));
 
-  return {
-    categories: categoryTree,
-    allCategories: categoriesData,
-    listings: serializedListings as ListingWithRelations[],
-  };
+    return {
+      categories: categoryTree,
+      allCategories: categoriesData,
+      listings: serializedListings as ListingWithRelations[],
+    };
+  } catch (error) {
+    console.error("Failed to load home page data:", error);
+    // Возвращаем fallback данные при ошибке вместо белого экрана
+    return {
+      categories: fallbackCategories as unknown as CategoryWithChildren[],
+      allCategories: [],
+      listings: [] as ListingWithRelations[],
+    };
+  }
 }
 
 export default async function Home() {
@@ -117,10 +127,10 @@ export default async function Home() {
       {/* Header */}
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
         <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <h1 className="text-lg md:text-2xl font-bold">
+          <span className="text-lg md:text-2xl font-bold" aria-label="Tsogts.mn">
             <span className="text-[#015197]">Tsogts</span>
             <span className="text-[#c4272f]">.mn</span>
-          </h1>
+          </span>
           {/* Mobile Nav - theme toggle + notifications bell */}
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle />
@@ -139,7 +149,9 @@ export default async function Home() {
 
       {/* Hero */}
       <section className="container mx-auto px-4 py-8 md:py-12 text-center">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">{t("home.title")}</h2>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">
+          {t("home.title")}
+        </h1>
         <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8 max-w-md mx-auto">
           {t("home.subtitle")}
         </p>
@@ -151,10 +163,7 @@ export default async function Home() {
       </section>
 
       {/* Categories - SSR с предзагруженными данными */}
-      <CategoriesSectionSSR
-        categories={categories}
-        allCategories={allCategories}
-      />
+      <CategoriesSectionSSR categories={categories} allCategories={allCategories} />
 
       {/* Recommendations - SSR с предзагруженными данными */}
       <RecommendedListingsSSR listings={listings} />
@@ -165,7 +174,10 @@ export default async function Home() {
       </div>
 
       {/* Create Service FAB - Desktop only */}
-      <Link href="/services/create" className="hidden md:flex fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 group">
+      <Link
+        href="/services/create"
+        className="hidden md:flex fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 group"
+      >
         <div className="relative">
           {/* Tooltip - Desktop only */}
           <div className="hidden md:block absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-foreground text-background text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">

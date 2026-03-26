@@ -53,7 +53,9 @@ interface FavoritesDataContextType {
 }
 
 const FavoritesIdsContext = React.createContext<FavoritesIdsContextType | undefined>(undefined);
-const FavoritesActionsContext = React.createContext<FavoritesActionsContextType | undefined>(undefined);
+const FavoritesActionsContext = React.createContext<FavoritesActionsContextType | undefined>(
+  undefined
+);
 const FavoritesDataContext = React.createContext<FavoritesDataContextType | undefined>(undefined);
 
 // Кэш для localStorage - избегаем JSON.parse на каждый вызов
@@ -105,10 +107,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   // OPTIMIZATION: Сначала загружаем ТОЛЬКО IDs для быстрой проверки isFavorite
   // Полные данные загружаются отдельно только на странице /favorites
-  const {
-    data: dbFavoritesRaw = [],
-    isLoading,
-  } = useFindManyuser_favorites(
+  const { data: dbFavoritesRaw = [], isLoading } = useFindManyuser_favorites(
     {
       where: {
         user_id: user?.id,
@@ -135,7 +134,10 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   // Используем строковый ключ для стабильных зависимостей
   const dbFavoriteIdsString = React.useMemo(() => {
     if (!dbFavorites || !isAuthenticated) return "";
-    return dbFavorites.map((f) => f.listing_id).sort().join(",");
+    return dbFavorites
+      .map((f) => f.listing_id)
+      .sort()
+      .join(",");
   }, [dbFavorites, isAuthenticated]);
 
   React.useEffect(() => {
@@ -144,14 +146,31 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     }
   }, [dbFavoriteIdsString, isAuthenticated]);
 
-  // Мутации - фоновая синхронизация
+  // Мутации - фоновая синхронизация с rollback на ошибку
   const createFavorite = useCreateuser_favorites({
+    onError: (_error, variables) => {
+      // Rollback: убираем из optimistic state при ошибке
+      const listingId = (variables as { data: { listing_id: string } })?.data?.listing_id;
+      if (listingId) {
+        setOptimisticIds((prev) => {
+          const next = new Set(prev);
+          next.delete(listingId);
+          return next;
+        });
+      }
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["user_favorites"] });
     },
   });
 
   const deleteFavorite = useDeleteuser_favorites({
+    onError: () => {
+      // Rollback: восстанавливаем из БД при ошибке удаления
+      if (dbFavoriteIdsString) {
+        setOptimisticIds(new Set(dbFavoriteIdsString.split(",")));
+      }
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["user_favorites"] });
     },
@@ -175,13 +194,18 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   // Ref для dbFavorites чтобы toggleFavorite не пересоздавался при изменении данных
   const dbFavoritesRef = React.useRef(dbFavorites);
-  dbFavoritesRef.current = dbFavorites;
+  React.useEffect(() => {
+    dbFavoritesRef.current = dbFavorites;
+  }, [dbFavorites]);
 
   const optimisticIdsRef = React.useRef(optimisticIds);
-  optimisticIdsRef.current = optimisticIds;
+  React.useEffect(() => {
+    optimisticIdsRef.current = optimisticIds;
+  }, [optimisticIds]);
 
   // Добавить/удалить из избранного - МГНОВЕННО обновляет UI
   // Используем useRef для стабильной ссылки на функцию
+
   const toggleFavorite = React.useCallback(
     (listingId: string) => {
       if (!isAuthenticated || !user?.id) {
@@ -215,9 +239,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       // Фоновая синхронизация с сервером (без await)
       if (isCurrentlyFavorite) {
         // Удаляем - ищем в dbFavorites (теперь только id и listing_id)
-        const existingFavorite = dbFavoritesRef.current.find(
-          (f) => f.listing_id === listingId
-        );
+        const existingFavorite = dbFavoritesRef.current.find((f) => f.listing_id === listingId);
         if (existingFavorite) {
           deleteFavorite.mutate({
             where: { id: existingFavorite.id },
@@ -233,7 +255,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [isAuthenticated, user?.id, createFavorite, deleteFavorite]
+    [isAuthenticated, user, createFavorite, deleteFavorite]
   );
 
   // Количество избранных
@@ -280,9 +302,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   return (
     <FavoritesIdsContext.Provider value={idsValue}>
       <FavoritesActionsContext.Provider value={actionsValue}>
-        <FavoritesDataContext.Provider value={dataValue}>
-          {children}
-        </FavoritesDataContext.Provider>
+        <FavoritesDataContext.Provider value={dataValue}>{children}</FavoritesDataContext.Provider>
       </FavoritesActionsContext.Provider>
     </FavoritesIdsContext.Provider>
   );
@@ -351,10 +371,7 @@ export function useFavoritesFullData() {
   const { user, isAuthenticated } = useAuth();
   const { favoriteListingIds } = useFavoriteIds();
 
-  const {
-    data: fullFavorites = [],
-    isLoading,
-  } = useFindManyuser_favorites(
+  const { data: fullFavorites = [], isLoading } = useFindManyuser_favorites(
     {
       where: {
         user_id: user?.id,
@@ -410,8 +427,8 @@ export function useFavoritesFullData() {
   // Применяем optimistic filtering
   const optimisticFavorites = React.useMemo(() => {
     if (!isAuthenticated) return [];
-    return (fullFavorites as FavoriteWithListing[]).filter(
-      (f) => favoriteListingIds.has(f.listing_id)
+    return (fullFavorites as FavoriteWithListing[]).filter((f) =>
+      favoriteListingIds.has(f.listing_id)
     );
   }, [fullFavorites, favoriteListingIds, isAuthenticated]);
 

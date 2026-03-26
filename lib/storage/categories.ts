@@ -11,6 +11,14 @@ interface StorageFile {
 
 const BUCKET_NAME = "categories";
 
+const MIME_TO_EXTENSION: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+};
+
 /**
  * Структура бакета categories:
  * categories/
@@ -34,19 +42,14 @@ export type CategoryIconType = "icon" | "subcategory";
  */
 export function getCategoryIconUrl(slug: string): string {
   const supabase = createClient();
-  const { data } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(`icons/${slug}.png`);
+  const { data } = supabase.storage.from(BUCKET_NAME).getPublicUrl(`icons/${slug}.png`);
   return data.publicUrl;
 }
 
 /**
  * Получить публичный URL иконки подкатегории
  */
-export function getSubcategoryIconUrl(
-  parentSlug: string,
-  subcategorySlug: string
-): string {
+export function getSubcategoryIconUrl(parentSlug: string, subcategorySlug: string): string {
   const supabase = createClient();
   const { data } = supabase.storage
     .from(BUCKET_NAME)
@@ -63,15 +66,13 @@ export async function uploadCategoryIcon(
 ): Promise<{ url: string | null; error: string | null }> {
   const supabase = createClient();
 
-  const fileExt = file.name.split(".").pop()?.toLowerCase() || "png";
+  const fileExt = MIME_TO_EXTENSION[file.type] || "png";
   const filePath = `icons/${slug}.${fileExt}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: true, // Перезаписать если существует
-    });
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: true, // Перезаписать если существует
+  });
 
   if (error) {
     return { url: null, error: error.message };
@@ -91,15 +92,13 @@ export async function uploadSubcategoryIcon(
 ): Promise<{ url: string | null; error: string | null }> {
   const supabase = createClient();
 
-  const fileExt = file.name.split(".").pop()?.toLowerCase() || "png";
+  const fileExt = MIME_TO_EXTENSION[file.type] || "png";
   const filePath = `subcategories/${parentSlug}/${subcategorySlug}.${fileExt}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: true,
-    });
+  const { error } = await supabase.storage.from(BUCKET_NAME).upload(filePath, file, {
+    cacheControl: "3600",
+    upsert: true,
+  });
 
   if (error) {
     return { url: null, error: error.message };
@@ -112,9 +111,7 @@ export async function uploadSubcategoryIcon(
 /**
  * Удалить иконку категории
  */
-export async function deleteCategoryIcon(
-  slug: string
-): Promise<{ error: string | null }> {
+export async function deleteCategoryIcon(slug: string): Promise<{ error: string | null }> {
   const supabase = createClient();
 
   // Попробуем удалить с разными расширениями
@@ -162,12 +159,10 @@ export async function listCategoryIcons(): Promise<{
 }> {
   const supabase = createClient();
 
-  const { data, error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .list("icons", {
-      limit: 100,
-      sortBy: { column: "name", order: "asc" },
-    });
+  const { data, error } = await supabase.storage.from(BUCKET_NAME).list("icons", {
+    limit: 100,
+    sortBy: { column: "name", order: "asc" },
+  });
 
   if (error) {
     return { files: [], error: error.message };

@@ -17,7 +17,7 @@ interface RequestLocationMapLeafletProps {
 
 // Создаём кастомную иконку маркера (ленивая загрузка)
 const createMarkerIcon = () => {
-  // Импортируем L только на клиенте
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- Leaflet requires runtime import in non-SSR context
   const L = require("leaflet");
   return L.divIcon({
     className: "custom-marker",
@@ -49,13 +49,7 @@ const createMarkerIcon = () => {
 };
 
 // Компонент для управления картой
-function MapController({
-  coordinates,
-  zoom
-}: {
-  coordinates: [number, number];
-  zoom: number;
-}) {
+function MapController({ coordinates, zoom }: { coordinates: [number, number]; zoom: number }) {
   const map = useMap();
 
   React.useEffect(() => {
@@ -101,10 +95,11 @@ function FullscreenMapModal({
       const timer = setTimeout(() => setLocationError(null), 5000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [locationError]);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 1, 18));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 1, 10));
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 1, 18));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 1, 10));
   const handleCenter = () => {
     if (mapRef.current) {
       mapRef.current.setView(coordinates, zoom);
@@ -271,9 +266,19 @@ function FullscreenMapModal({
               title="Миний байршил"
             >
               {isLocating ? (
-                <Loader2 className={cn("h-5 w-5 animate-spin", userLocation ? "text-white" : "text-gray-700 dark:text-gray-300")} />
+                <Loader2
+                  className={cn(
+                    "h-5 w-5 animate-spin",
+                    userLocation ? "text-white" : "text-gray-700 dark:text-gray-300"
+                  )}
+                />
               ) : (
-                <Navigation2 className={cn("h-5 w-5 rotate-45", userLocation ? "text-white" : "text-gray-700 dark:text-gray-300")} />
+                <Navigation2
+                  className={cn(
+                    "h-5 w-5 rotate-45",
+                    userLocation ? "text-white" : "text-gray-700 dark:text-gray-300"
+                  )}
+                />
               )}
             </button>
           </div>
@@ -297,19 +302,25 @@ function FullscreenMapModal({
               {showExactMarker ? (
                 <>
                   <span className="w-3.5 h-3.5 rounded-full bg-red-500 shadow-sm shadow-red-500/50" />
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Яг байршил</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    Яг байршил
+                  </span>
                 </>
               ) : (
                 <>
                   <span className="w-3.5 h-3.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50 border-2 border-dashed border-amber-600" />
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Ойролцоо байршил (~500м)</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                    Ойролцоо байршил (~500м)
+                  </span>
                 </>
               )}
             </div>
             {userLocation && (
               <div className="flex items-center gap-2.5 bg-white dark:bg-gray-800 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-gray-100 dark:border-gray-700">
                 <span className="w-3.5 h-3.5 rounded-full bg-green-500 shadow-sm shadow-green-500/50" />
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Миний байршил</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Миний байршил
+                </span>
               </div>
             )}
           </div>
@@ -332,10 +343,12 @@ export function RequestLocationMapLeaflet({
   // Проверка валидности координат
   if (!coordinates || coordinates[0] == null || coordinates[1] == null) {
     return (
-      <div className={cn(
-        "w-full h-50 rounded-xl overflow-hidden relative z-0 bg-muted flex items-center justify-center",
-        className
-      )}>
+      <div
+        className={cn(
+          "w-full h-50 rounded-xl overflow-hidden relative z-0 bg-muted flex items-center justify-center",
+          className
+        )}
+      >
         <span className="text-sm text-muted-foreground">Байршил олдсонгүй</span>
       </div>
     );

@@ -46,12 +46,37 @@ function getCachedProfile(userId: string): Profile | null {
   }
 }
 
+// SECURITY: Only cache non-sensitive fields for UI display.
+// phone_number, registration_number are excluded to prevent data leakage via XSS.
+const SAFE_CACHE_FIELDS = [
+  "id",
+  "first_name",
+  "last_name",
+  "is_company",
+  "avatar_url",
+  "about",
+  "company_name",
+  "is_deleted",
+  "preferred_language",
+  "avg_rating",
+  "reviews_count",
+  "completed_jobs_count",
+] as const;
+
 function setCachedProfile(userId: string, profile: Profile) {
   if (typeof window === "undefined") return;
   try {
+    const safeProfile: Record<string, unknown> = {};
+    for (const key of SAFE_CACHE_FIELDS) {
+      safeProfile[key] = profile[key];
+    }
+    // Explicitly null out sensitive fields so getCachedProfile returns correct type
+    safeProfile.phone_number = null;
+    safeProfile.registration_number = null;
+
     localStorage.setItem(
       PROFILE_CACHE_KEY,
-      JSON.stringify({ profile, timestamp: Date.now(), id: userId })
+      JSON.stringify({ profile: safeProfile, timestamp: Date.now(), id: userId })
     );
   } catch {
     // Ignore localStorage errors
@@ -73,10 +98,8 @@ export function useCurrentUser() {
   const supabase = createClient();
 
   // Get cached profile for instant display
-  const cachedProfile = React.useMemo(
-    () => (user?.id ? getCachedProfile(user.id) : null),
-    [user?.id]
-  );
+
+  const cachedProfile = React.useMemo(() => (user?.id ? getCachedProfile(user.id) : null), [user]);
 
   // ВАЖНО: Мутационный хук должен вызываться ДО условного запроса,
   // чтобы порядок хуков был стабильным независимо от состояния user
@@ -129,7 +152,9 @@ export function useCurrentUser() {
     }
   }, [fetchedProfile, user?.id]);
 
-  const updateProfile = async (data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>) => {
+  const updateProfile = async (
+    data: Partial<Omit<Profile, "id" | "created_at" | "updated_at">>
+  ) => {
     if (!user?.id) return { error: "Not authenticated" };
 
     try {
@@ -160,9 +185,7 @@ export function useCurrentUser() {
       return { error: uploadError.message, url: null };
     }
 
-    const { data: urlData } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(fileName);
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(fileName);
 
     const avatarUrl = urlData.publicUrl;
 
@@ -229,8 +252,10 @@ export function useCurrentUser() {
 
   // Мемоизированный avatar URL
   const avatarUrl = React.useMemo(() => {
-    return profile?.avatar_url ||
-      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+    return (
+      profile?.avatar_url ||
+      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`
+    );
   }, [profile?.avatar_url, displayName]);
 
   return {
