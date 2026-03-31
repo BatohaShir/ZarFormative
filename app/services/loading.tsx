@@ -100,6 +100,9 @@ export default function ServicesLoading() {
 
           {/* Main Content */}
           <div className="flex-1">
+            {/* Billboard Skeleton */}
+            <Skeleton className="aspect-[2.5/1] sm:aspect-3/1 md:aspect-[3.5/1] w-full rounded-2xl md:rounded-3xl mb-4" />
+
             {/* Map Section */}
             <Skeleton className="h-50 md:h-70 w-full rounded-xl mb-4" />
 

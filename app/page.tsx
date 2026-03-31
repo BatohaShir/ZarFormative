@@ -9,6 +9,7 @@ import { CitySelect } from "@/components/city-select";
 import { Footer } from "@/components/footer";
 import { CategoriesSectionSSR } from "@/components/categories-section-ssr";
 import { RecommendedListingsSSR } from "@/components/recommended-listings-ssr";
+import { AdStories } from "@/components/billboard";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -161,6 +162,9 @@ export default async function Home() {
           <CitySelect />
         </div>
       </section>
+
+      {/* Ad Stories — Instagram-style */}
+      <AdStories />
 
       {/* Categories - SSR с предзагруженными данными */}
       <CategoriesSectionSSR categories={categories} allCategories={allCategories} />

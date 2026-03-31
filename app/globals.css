@@ -171,6 +171,13 @@ html:not(.dark) {
   animation: shimmer 2s infinite;
 }
 
+/* Billboard carousel progress bar */
+@keyframes billboard-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+
 
 /* Leaflet map modal rounded corners fix */
 .leaflet-map-modal {

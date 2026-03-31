@@ -212,7 +212,27 @@
     "aboutPlaceholder": "Өөрийнхөө тухай бичнэ үү...",
     "aboutCompanyPlaceholder": "Компанийнхаа тухай бичнэ үү...",
     "myServices": "Миний үйлчилгээнүүд",
-    "appSettings": "Апп тохиргоо"
+    "appSettings": "Апп тохиргоо",
+    "statistics": "Статистик"
+  },
+  "stats": {
+    "title": "Статистик",
+    "subtitle": "Таны үйл ажиллагааны тойм",
+    "verifiedTitle": "Баталгаажсан хуудас авах",
+    "verifiedDesc": "20 үйлчилгээ амжилттай дуусгаж баталгаажсан хуудас аваарай",
+    "remaining": "Дутуу {count}",
+    "goalReached": "Зорилгод хүрсэн!",
+    "requests": "Хүсэлтүүд",
+    "sent": "Илгээсэн",
+    "received": "Ирсэн",
+    "active": "Идэвхтэй",
+    "reviews": "Сэтгэгдэл",
+    "reviewCount": "сэтгэгдэл",
+    "noReviews": "Одоогоор сэтгэгдэл алга",
+    "income": "Орлого",
+    "today": "Өнөөдөр",
+    "thisWeek": "Энэ долоо хоног",
+    "thisMonth": "Энэ сар"
   },
   "notifications": {
     "title": "Мэдэгдэл",
@@ -281,6 +301,12 @@
     "subtitle": "Мянга мянган мэргэжилтнүүд танд туслахад бэлэн байна",
     "addService": "Үйлчилгээ нэмэх",
     "postAd": "Зар оруулах"
+  },
+  "billboard": {
+    "adLabel": "Реклам",
+    "sponsoredLabel": "Сурталчилгаа",
+    "sponsoredContent": "Сурталчилгааны агуулга",
+    "learnMore": "Дэлгэрэнгүй"
   },
   "nav": {
     "home": "Нүүр",

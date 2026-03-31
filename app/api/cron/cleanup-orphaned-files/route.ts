@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
 
         for (const file of files || []) {
           // Skip files newer than 24 hours (might still be processing)
-          const fileDate = new Date(file.created_at);
+          const fileDate = new Date(file.created_at ?? Date.now());
           if (fileDate > ONE_DAY_AGO) continue;
 
           // Check if this file is referenced by any message

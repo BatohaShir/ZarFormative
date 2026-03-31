@@ -14,6 +14,9 @@ import { RequestsButton } from "@/components/requests-button";
 import { NotificationsButton } from "@/components/notifications-button";
 import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
 import { ListingCardSkeletonGrid } from "@/components/listing-card-skeleton";
+import { BillboardSlot } from "@/components/billboard";
+import { BillboardCard } from "@/components/billboard/billboard-card";
+import { getMockBillboards } from "@/components/billboard/mock-data";
 import { SearchInput } from "@/components/search-input";
 import { CitySelect } from "@/components/city-select";
 import { ServicesFilters, type ProviderType } from "@/components/services-filters";
@@ -34,11 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useInfiniteFindManylistings } from "@/lib/hooks/listings";
 
 type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
@@ -66,7 +65,9 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
   // Use lazy initializers to read URL params only once
   const [selectedCategories, setSelectedCategories] = React.useState<string[]>(() => {
     const initialCategory = searchParams.get("category") || "";
-    return initialCategory ? [initialCategory] : (searchParams.get("categories")?.split(",").filter(Boolean) || []);
+    return initialCategory
+      ? [initialCategory]
+      : searchParams.get("categories")?.split(",").filter(Boolean) || [];
   });
 
   // Локальное состояние для визуального отображения слайдера (без debounce)
@@ -76,21 +77,22 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
   ]);
 
   // Состояние для запросов (с debounce через onValueCommit)
-  const [committedPriceRange, setCommittedPriceRange] = React.useState<[number, number]>(localPriceRange);
+  const [committedPriceRange, setCommittedPriceRange] =
+    React.useState<[number, number]>(localPriceRange);
 
-  const [sortBy, setSortBy] = React.useState<SortOption>(() =>
-    (searchParams.get("sort") as SortOption) || "newest"
+  const [sortBy, setSortBy] = React.useState<SortOption>(
+    () => (searchParams.get("sort") as SortOption) || "newest"
   );
-  const [selectedAimagId, setSelectedAimagId] = React.useState(() =>
-    searchParams.get("aimag") || ""
+  const [selectedAimagId, setSelectedAimagId] = React.useState(
+    () => searchParams.get("aimag") || ""
   );
   const [selectedAimagName, setSelectedAimagName] = React.useState("");
-  const [selectedDistrictId, setSelectedDistrictId] = React.useState(() =>
-    searchParams.get("district") || ""
+  const [selectedDistrictId, setSelectedDistrictId] = React.useState(
+    () => searchParams.get("district") || ""
   );
   const [selectedDistrictName, setSelectedDistrictName] = React.useState("");
-  const [providerType, setProviderType] = React.useState<ProviderType>(() =>
-    (searchParams.get("provider") as ProviderType) || "all"
+  const [providerType, setProviderType] = React.useState<ProviderType>(
+    () => (searchParams.get("provider") as ProviderType) || "all"
   );
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   // Filter by specific listing IDs (from map cluster click)
@@ -140,7 +142,14 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     }
 
     return conditions;
-  }, [selectedCategories, committedPriceRange, selectedAimagId, selectedDistrictId, providerType, selectedListingIds]);
+  }, [
+    selectedCategories,
+    committedPriceRange,
+    selectedAimagId,
+    selectedDistrictId,
+    providerType,
+    selectedListingIds,
+  ]);
 
   // Строим orderBy для сортировки
   const orderByCondition = React.useMemo(() => {
@@ -160,7 +169,8 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
   const PAGE_SIZE = 12;
 
   // Проверяем нужно ли делать запрос (есть ли фильтры отличные от дефолтных)
-  const hasFilters = selectedCategories.length > 0 ||
+  const hasFilters =
+    selectedCategories.length > 0 ||
     committedPriceRange[0] > 0 ||
     committedPriceRange[1] < 1000000 ||
     selectedAimagId ||
@@ -170,82 +180,79 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     selectedListingIds.length > 0;
 
   // Загружаем объявления с cursor-based пагинацией
-  const {
-    data,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteFindManylistings(
-    {
-      where: whereCondition,
-      include: {
-        user: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            avatar_url: true,
-            company_name: true,
-            is_company: true,
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteFindManylistings(
+      {
+        where: whereCondition,
+        include: {
+          user: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              avatar_url: true,
+              company_name: true,
+              is_company: true,
+            },
           },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          images: {
+            where: {
+              is_cover: true,
+            },
+            select: {
+              id: true,
+              url: true,
+              sort_order: true,
+              is_cover: true,
+            },
+            take: 1,
+          },
+          aimag: {
+            select: {
+              id: true,
+              name: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
+          district: {
+            select: {
+              id: true,
+              name: true,
+              latitude: true,
+              longitude: true,
+            },
+          },
+          // OPTIMIZED: khoroo не нужен для списка - показывается только на детальной странице
+          // Экономит ~5% payload на каждой карточке
         },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-          },
-        },
-        images: {
-          where: {
-            is_cover: true,
-          },
-          select: {
-            id: true,
-            url: true,
-            sort_order: true,
-            is_cover: true,
-          },
-          take: 1,
-        },
-        aimag: {
-          select: {
-            id: true,
-            name: true,
-            latitude: true,
-            longitude: true,
-          },
-        },
-        district: {
-          select: {
-            id: true,
-            name: true,
-            latitude: true,
-            longitude: true,
-          },
-        },
-        // OPTIMIZED: khoroo не нужен для списка - показывается только на детальной странице
-        // Экономит ~5% payload на каждой карточке
+        orderBy: orderByCondition,
+        take: PAGE_SIZE,
       },
-      orderBy: orderByCondition,
-      take: PAGE_SIZE,
-    },
-    {
-      getNextPageParam: (lastPage) => {
-        if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
-        const lastItem = lastPage[lastPage.length - 1];
-        return { cursor: { id: lastItem.id }, skip: 1 };
-      },
-      staleTime: 2 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      // Используем initial data только если нет фильтров
-      initialData: !hasFilters ? {
-        pages: [initialListings],
-        pageParams: [undefined],
-      } : undefined,
-    }
-  );
+      {
+        getNextPageParam: (lastPage) => {
+          if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
+          const lastItem = lastPage[lastPage.length - 1];
+          return { cursor: { id: lastItem.id }, skip: 1 };
+        },
+        staleTime: 2 * 60 * 1000,
+        gcTime: 10 * 60 * 1000,
+        // Используем initial data только если нет фильтров
+        initialData: !hasFilters
+          ? {
+              pages: [initialListings],
+              pageParams: [undefined],
+            }
+          : undefined,
+      }
+    );
 
   // Собираем все объявления из всех страниц
   const listings = React.useMemo(() => {
@@ -333,33 +340,47 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoriesKey, priceMin, priceMax, sortBy, selectedAimagId, selectedDistrictId, providerType]);
+  }, [
+    categoriesKey,
+    priceMin,
+    priceMax,
+    sortBy,
+    selectedAimagId,
+    selectedDistrictId,
+    providerType,
+  ]);
 
   // Callback for CitySelect
-  const handleLocationSelect = React.useCallback((aimagId: string, aimagName: string, districtId: string, districtName: string) => {
-    setSelectedAimagId(aimagId);
-    setSelectedAimagName(aimagName);
-    setSelectedDistrictId(districtId);
-    setSelectedDistrictName(districtName);
-  }, []);
+  const handleLocationSelect = React.useCallback(
+    (aimagId: string, aimagName: string, districtId: string, districtName: string) => {
+      setSelectedAimagId(aimagId);
+      setSelectedAimagName(aimagName);
+      setSelectedDistrictId(districtId);
+      setSelectedDistrictName(districtName);
+    },
+    []
+  );
 
   // Handle location selection from map - filter by district/aimag
-  const handleLocationSelectFromMap = React.useCallback((districtId: string | null, aimagId: string | null) => {
-    // Clear listing IDs filter when using location filter
-    setSelectedListingIds([]);
-    // Set location filters
-    if (districtId) {
-      setSelectedDistrictId(districtId);
-    } else {
-      setSelectedDistrictId("");
-    }
+  const handleLocationSelectFromMap = React.useCallback(
+    (districtId: string | null, aimagId: string | null) => {
+      // Clear listing IDs filter when using location filter
+      setSelectedListingIds([]);
+      // Set location filters
+      if (districtId) {
+        setSelectedDistrictId(districtId);
+      } else {
+        setSelectedDistrictId("");
+      }
 
-    if (aimagId) {
-      setSelectedAimagId(aimagId);
-    } else if (!districtId) {
-      setSelectedAimagId("");
-    }
-  }, []);
+      if (aimagId) {
+        setSelectedAimagId(aimagId);
+      } else if (!districtId) {
+        setSelectedAimagId("");
+      }
+    },
+    []
+  );
 
   // Handle cluster selection from map - filter by listing IDs
   const handleClusterSelectFromMap = React.useCallback((listingIds: string[]) => {
@@ -536,6 +557,9 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
 
           {/* Services Grid */}
           <div className="flex-1">
+            {/* Billboard — before map */}
+            <BillboardSlot placement="services_top" className="px-0 mb-4" />
+
             {/* Map Section */}
             <ServicesMap
               listings={listingsData}
@@ -568,9 +592,21 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
             ) : listingsData.length > 0 ? (
               <>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-                  {listingsData.map((listing, index) => (
-                    <ListingCard key={listing.id} listing={listing} priority={index < 6} />
-                  ))}
+                  {listingsData.map((listing, index) => {
+                    const items = [
+                      <ListingCard key={listing.id} listing={listing} priority={index < 6} />,
+                    ];
+                    // Insert inline billboard card after every 8th listing
+                    if ((index + 1) % 8 === 0) {
+                      const inlineBillboards = getMockBillboards("services_inline");
+                      const bbIndex = Math.floor(index / 8) % Math.max(inlineBillboards.length, 1);
+                      const bb = inlineBillboards[bbIndex];
+                      if (bb) {
+                        items.push(<BillboardCard key={`bb-inline-${index}`} billboard={bb} />);
+                      }
+                    }
+                    return items;
+                  })}
                 </div>
 
                 {/* Skeleton при загрузке следующей страницы */}
@@ -605,9 +641,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
                   className="mb-4 opacity-70"
                 />
                 <p className="text-muted-foreground mb-2">{t("noResults")}</p>
-                <p className="text-muted-foreground/70 text-sm mb-4">
-                  {t("noResultsHint")}
-                </p>
+                <p className="text-muted-foreground/70 text-sm mb-4">{t("noResultsHint")}</p>
                 <div className="flex gap-2">
                   {activeFiltersCount > 0 && (
                     <Button variant="outline" onClick={resetFilters}>

@@ -212,7 +212,27 @@
     "aboutPlaceholder": "Write about yourself...",
     "aboutCompanyPlaceholder": "Write about your company...",
     "myServices": "My Services",
-    "appSettings": "App Settings"
+    "appSettings": "App Settings",
+    "statistics": "Statistics"
+  },
+  "stats": {
+    "title": "Statistics",
+    "subtitle": "Overview of your activity",
+    "verifiedTitle": "Get a Verified Page",
+    "verifiedDesc": "Complete 20 services to earn your verified badge",
+    "remaining": "{count} remaining",
+    "goalReached": "Goal reached!",
+    "requests": "Requests",
+    "sent": "Sent",
+    "received": "Received",
+    "active": "Active",
+    "reviews": "Reviews",
+    "reviewCount": "reviews",
+    "noReviews": "No reviews yet",
+    "income": "Income",
+    "today": "Today",
+    "thisWeek": "This week",
+    "thisMonth": "This month"
   },
   "notifications": {
     "title": "Notifications",
@@ -281,6 +301,12 @@
     "subtitle": "Thousands of professionals are ready to help you",
     "addService": "Add Service",
     "postAd": "Post Ad"
+  },
+  "billboard": {
+    "adLabel": "Ad",
+    "sponsoredLabel": "Sponsored",
+    "sponsoredContent": "Sponsored content",
+    "learnMore": "Learn more"
   },
   "nav": {
     "home": "Home",

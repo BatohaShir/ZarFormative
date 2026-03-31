@@ -212,7 +212,27 @@
     "aboutPlaceholder": "Расскажите о себе...",
     "aboutCompanyPlaceholder": "Расскажите о компании...",
     "myServices": "Мои услуги",
-    "appSettings": "Настройки"
+    "appSettings": "Настройки",
+    "statistics": "Статистика"
+  },
+  "stats": {
+    "title": "Статистика",
+    "subtitle": "Обзор вашей активности",
+    "verifiedTitle": "Получить подтверждённую страницу",
+    "verifiedDesc": "Завершите 20 услуг, чтобы получить значок подтверждения",
+    "remaining": "Осталось {count}",
+    "goalReached": "Цель достигнута!",
+    "requests": "Заявки",
+    "sent": "Отправлено",
+    "received": "Получено",
+    "active": "Активные",
+    "reviews": "Отзывы",
+    "reviewCount": "отзывов",
+    "noReviews": "Пока нет отзывов",
+    "income": "Доход",
+    "today": "Сегодня",
+    "thisWeek": "Эта неделя",
+    "thisMonth": "Этот месяц"
   },
   "notifications": {
     "title": "Уведомления",
@@ -281,6 +301,12 @@
     "subtitle": "Тысячи специалистов готовы вам помочь",
     "addService": "Добавить услугу",
     "postAd": "Разместить объявление"
+  },
+  "billboard": {
+    "adLabel": "Реклама",
+    "sponsoredLabel": "Спонсировано",
+    "sponsoredContent": "Рекламный контент",
+    "learnMore": "Подробнее"
   },
   "nav": {
     "home": "Главная",

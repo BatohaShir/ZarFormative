@@ -35,6 +35,7 @@ import {
   Hash,
   Settings,
   Package,
+  BarChart3,
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/auth-context";
@@ -43,7 +44,11 @@ import { useWorkExperiences, type WorkExperience } from "@/hooks/use-work-experi
 // Realtime хук для автоматического обновления данных без перезагрузки страницы
 import { useRealtimeProfile } from "@/hooks/use-realtime-profile";
 // Skeleton компоненты для красивой загрузки
-import { ProfileSkeleton, EducationSkeleton, WorkExperienceSkeleton } from "@/components/profile-skeleton";
+import {
+  ProfileSkeleton,
+  EducationSkeleton,
+  WorkExperienceSkeleton,
+} from "@/components/profile-skeleton";
 // REMOVED: useFindManylisting_requests, useFindManyreviews - используем денормализованные данные из профиля
 import {
   SCHOOLS_DB,
@@ -55,7 +60,8 @@ import {
 
 // Lazy load EditProfileModal - not loaded until opened
 const EditProfileModal = dynamic(
-  () => import("@/components/edit-profile-modal").then((mod) => ({ default: mod.EditProfileModal })),
+  () =>
+    import("@/components/edit-profile-modal").then((mod) => ({ default: mod.EditProfileModal })),
   { ssr: false }
 );
 
@@ -96,7 +102,17 @@ const initialWorkForm: NewWorkExperienceForm = {
 export function MyProfileClient() {
   const router = useRouter();
   const t = useTranslations();
-  const { isAuthenticated, isLoading, user, profile, signOut, uploadAvatar, displayName, avatarUrl, updateProfile } = useAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    user,
+    profile,
+    signOut,
+    uploadAvatar,
+    displayName,
+    avatarUrl,
+    updateProfile,
+  } = useAuth();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
 
@@ -168,14 +184,14 @@ export function MyProfileClient() {
 
   // Memoized sorted lists
   const sortedEducations = React.useMemo(() => {
-    return [...educations].sort((a, b) =>
-      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    return [...educations].sort(
+      (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     );
   }, [educations]);
 
   const sortedWorkExperiences = React.useMemo(() => {
-    return [...workExperiences].sort((a, b) =>
-      new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
+    return [...workExperiences].sort(
+      (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
     );
   }, [workExperiences]);
 
@@ -184,18 +200,21 @@ export function MyProfileClient() {
     router.push("/");
   }, [signOut, router]);
 
-  const handleAvatarChange = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setIsUploadingAvatar(true);
-      try {
-        await uploadAvatar(file);
-        // Errors are handled by the uploadAvatar function (shows toast)
-      } finally {
-        setIsUploadingAvatar(false);
+  const handleAvatarChange = React.useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        setIsUploadingAvatar(true);
+        try {
+          await uploadAvatar(file);
+          // Errors are handled by the uploadAvatar function (shows toast)
+        } finally {
+          setIsUploadingAvatar(false);
+        }
       }
-    }
-  }, [uploadAvatar]);
+    },
+    [uploadAvatar]
+  );
 
   // Education handlers
   const resetEducationForm = React.useCallback(() => {
@@ -256,9 +275,12 @@ export function MyProfileClient() {
     resetEducationForm();
   }, [resetEducationForm]);
 
-  const handleDeleteEducation = React.useCallback(async (id: string) => {
-    await deleteEducation(id);
-  }, [deleteEducation]);
+  const handleDeleteEducation = React.useCallback(
+    async (id: string) => {
+      await deleteEducation(id);
+    },
+    [deleteEducation]
+  );
 
   // Work experience handlers
   const resetWorkForm = React.useCallback(() => {
@@ -316,9 +338,12 @@ export function MyProfileClient() {
     resetWorkForm();
   }, [resetWorkForm]);
 
-  const handleDeleteWork = React.useCallback(async (id: string) => {
-    await deleteWorkExperience(id);
-  }, [deleteWorkExperience]);
+  const handleDeleteWork = React.useCallback(
+    async (id: string) => {
+      await deleteWorkExperience(id);
+    },
+    [deleteWorkExperience]
+  );
 
   // About handlers
   const handleSaveAbout = React.useCallback(async () => {
@@ -389,16 +414,6 @@ export function MyProfileClient() {
           <div className="flex md:hidden items-center gap-2">
             <ThemeToggle />
             <NotificationsButton />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              asChild
-            >
-              <Link href="/account/me/settings">
-                <Settings className="h-4 w-4" />
-              </Link>
-            </Button>
           </div>
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-4">
@@ -451,22 +466,27 @@ export function MyProfileClient() {
 
             {/* User Info */}
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                {displayName}
-              </h2>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">{displayName}</h2>
               <p className="text-muted-foreground mb-4">{user?.email}</p>
 
               {/* Stats - Horizontal on all screens */}
               <div className="flex flex-wrap justify-center md:justify-start gap-4 md:gap-6">
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  <span className="font-bold text-lg">{averageRating > 0 ? averageRating : "-"}</span>
-                  <span className="text-sm text-muted-foreground">{t("profile.rating")}{reviewCount > 0 ? ` (${reviewCount})` : ""}</span>
+                  <span className="font-bold text-lg">
+                    {averageRating > 0 ? averageRating : "-"}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("profile.rating")}
+                    {reviewCount > 0 ? ` (${reviewCount})` : ""}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsUp className="h-5 w-5 text-green-500" />
                   <span className="font-bold text-lg">{completedCount}</span>
-                  <span className="text-sm text-muted-foreground">{t("profile.completedJobs")}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t("profile.completedJobs")}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsDown className="h-5 w-5 text-red-500" />
@@ -490,12 +510,48 @@ export function MyProfileClient() {
                   {t("profile.appSettings")}
                 </Link>
               </Button>
-              <Button variant="outline" onClick={() => setShowEditProfileModal(true)} className="gap-2">
+              <Button variant="outline" className="gap-2" asChild>
+                <Link href="/account/me/stats">
+                  <BarChart3 className="h-4 w-4" />
+                  {t("profile.statistics")}
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowEditProfileModal(true)}
+                className="gap-2"
+              >
                 <Pencil className="h-4 w-4" />
                 {t("common.edit")}
               </Button>
             </div>
           </div>
+        </div>
+
+        {/* Mobile Action Buttons — under profile header */}
+        <div className="lg:hidden grid grid-cols-2 gap-2 mb-6 md:mb-8">
+          <Button className="gap-2" asChild>
+            <Link href="/account/me/services">
+              <Package className="h-4 w-4" />
+              {t("profile.myServices")}
+            </Link>
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={() => setShowEditProfileModal(true)}>
+            <Pencil className="h-4 w-4" />
+            {t("common.edit")}
+          </Button>
+          <Button variant="outline" className="gap-2" asChild>
+            <Link href="/account/me/settings">
+              <Settings className="h-4 w-4" />
+              {t("profile.appSettings")}
+            </Link>
+          </Button>
+          <Button variant="outline" className="gap-2" asChild>
+            <Link href="/account/me/requests">
+              <BarChart3 className="h-4 w-4" />
+              {t("profile.statistics")}
+            </Link>
+          </Button>
         </div>
 
         {/* Main Content Grid */}
@@ -526,8 +582,12 @@ export function MyProfileClient() {
                     <div className="flex items-start gap-3">
                       <Hash className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground">{t("profile.registrationNumber")}</p>
-                        <p className="font-medium truncate">{profile?.registration_number || "-"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("profile.registrationNumber")}
+                        </p>
+                        <p className="font-medium truncate">
+                          {profile?.registration_number || "-"}
+                        </p>
                       </div>
                     </div>
                   </>
@@ -609,9 +669,7 @@ export function MyProfileClient() {
                       maxLength={500}
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {aboutText.length}/500
-                      </span>
+                      <span className="text-xs text-muted-foreground">{aboutText.length}/500</span>
                       <div className="flex gap-2">
                         {profile?.about && (
                           <Button
@@ -661,37 +719,6 @@ export function MyProfileClient() {
                 )}
               </div>
             )}
-
-            {/* Mobile Action Buttons */}
-            <div className="lg:hidden space-y-2">
-              <Button
-                className="w-full gap-2"
-                asChild
-              >
-                <Link href="/account/me/services">
-                  <Package className="h-4 w-4" />
-                  {t("profile.myServices")}
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={() => setShowEditProfileModal(true)}
-              >
-                <Pencil className="h-4 w-4" />
-                {t("common.edit")}
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                asChild
-              >
-                <Link href="/account/me/settings">
-                  <Settings className="h-4 w-4" />
-                  {t("profile.appSettings")}
-                </Link>
-              </Button>
-            </div>
           </div>
 
           {/* Right Column - Education & Work (for individuals) OR About Company (for companies) */}
@@ -736,9 +763,7 @@ export function MyProfileClient() {
                       maxLength={1000}
                     />
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {aboutText.length}/1000
-                      </span>
+                      <span className="text-xs text-muted-foreground">{aboutText.length}/1000</span>
                       <div className="flex gap-2">
                         {profile?.about && (
                           <Button
@@ -839,9 +864,7 @@ export function MyProfileClient() {
                       <AutocompleteInput
                         placeholder={t("profile.degree")}
                         value={newEducation.degree}
-                        onChange={(value) =>
-                          setNewEducation({ ...newEducation, degree: value })
-                        }
+                        onChange={(value) => setNewEducation({ ...newEducation, degree: value })}
                         suggestions={DEGREES_DB}
                         className="h-10"
                       />
@@ -928,148 +951,145 @@ export function MyProfileClient() {
                   ) : (
                     <div className="grid gap-3">
                       {sortedEducations.map((edu) =>
-                          editingEducationId === edu.id ? (
-                            <div
-                              key={edu.id}
-                              className="p-4 border rounded-lg space-y-3 bg-muted/20"
-                            >
-                              <AutocompleteInput
-                                placeholder={t("profile.schoolName")}
-                                value={newEducation.institution}
-                                onChange={(value) =>
-                                  setNewEducation({ ...newEducation, institution: value })
-                                }
-                                suggestions={SCHOOLS_DB}
-                                className="h-10"
-                              />
-                              <AutocompleteInput
-                                placeholder={t("profile.degree")}
-                                value={newEducation.degree}
-                                onChange={(value) =>
-                                  setNewEducation({ ...newEducation, degree: value })
-                                }
-                                suggestions={DEGREES_DB}
-                                className="h-10"
-                              />
-                              <Input
-                                placeholder={t("profile.fieldOfStudy")}
-                                value={newEducation.field_of_study}
-                                onChange={(e) =>
-                                  setNewEducation({ ...newEducation, field_of_study: e.target.value })
-                                }
-                                className="h-10"
-                              />
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="text-xs text-muted-foreground mb-1 block">
-                                    {t("profile.startDate")}
-                                  </label>
-                                  <Input
-                                    type="month"
-                                    value={newEducation.start_date}
-                                    onChange={(e) =>
-                                      setNewEducation({
-                                        ...newEducation,
-                                        start_date: e.target.value,
-                                      })
-                                    }
-                                    className="h-10"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted-foreground mb-1 block">
-                                    {t("profile.endDate")}
-                                  </label>
-                                  <Input
-                                    type="month"
-                                    value={newEducation.end_date}
-                                    onChange={(e) =>
-                                      setNewEducation({
-                                        ...newEducation,
-                                        end_date: e.target.value,
-                                      })
-                                    }
-                                    disabled={newEducation.is_current}
-                                    className="h-10"
-                                  />
-                                </div>
-                              </div>
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={newEducation.is_current}
+                        editingEducationId === edu.id ? (
+                          <div key={edu.id} className="p-4 border rounded-lg space-y-3 bg-muted/20">
+                            <AutocompleteInput
+                              placeholder={t("profile.schoolName")}
+                              value={newEducation.institution}
+                              onChange={(value) =>
+                                setNewEducation({ ...newEducation, institution: value })
+                              }
+                              suggestions={SCHOOLS_DB}
+                              className="h-10"
+                            />
+                            <AutocompleteInput
+                              placeholder={t("profile.degree")}
+                              value={newEducation.degree}
+                              onChange={(value) =>
+                                setNewEducation({ ...newEducation, degree: value })
+                              }
+                              suggestions={DEGREES_DB}
+                              className="h-10"
+                            />
+                            <Input
+                              placeholder={t("profile.fieldOfStudy")}
+                              value={newEducation.field_of_study}
+                              onChange={(e) =>
+                                setNewEducation({ ...newEducation, field_of_study: e.target.value })
+                              }
+                              className="h-10"
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">
+                                  {t("profile.startDate")}
+                                </label>
+                                <Input
+                                  type="month"
+                                  value={newEducation.start_date}
                                   onChange={(e) =>
                                     setNewEducation({
                                       ...newEducation,
-                                      is_current: e.target.checked,
-                                      end_date: "",
+                                      start_date: e.target.value,
                                     })
                                   }
-                                  className="rounded"
+                                  className="h-10"
                                 />
-                                <span className="text-sm">{t("profile.currentlyStudying")}</span>
-                              </label>
-                              <div className="flex gap-2">
-                                <Button
-                                  className="flex-1"
-                                  onClick={handleSaveEducation}
-                                  disabled={
-                                    isUpdatingEducation ||
-                                    !newEducation.institution ||
-                                    !newEducation.degree ||
-                                    !newEducation.start_date
+                              </div>
+                              <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">
+                                  {t("profile.endDate")}
+                                </label>
+                                <Input
+                                  type="month"
+                                  value={newEducation.end_date}
+                                  onChange={(e) =>
+                                    setNewEducation({
+                                      ...newEducation,
+                                      end_date: e.target.value,
+                                    })
                                   }
-                                >
-                                  {isUpdatingEducation ? t("common.saving") : t("common.save")}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={handleCancelEditEducation}
-                                >
-                                  {t("common.cancel")}
-                                </Button>
+                                  disabled={newEducation.is_current}
+                                  className="h-10"
+                                />
                               </div>
                             </div>
-                          ) : (
-                            <div
-                              key={edu.id}
-                              className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="pr-20">
-                                <p className="font-medium">{edu.degree}</p>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={newEducation.is_current}
+                                onChange={(e) =>
+                                  setNewEducation({
+                                    ...newEducation,
+                                    is_current: e.target.checked,
+                                    end_date: "",
+                                  })
+                                }
+                                className="rounded"
+                              />
+                              <span className="text-sm">{t("profile.currentlyStudying")}</span>
+                            </label>
+                            <div className="flex gap-2">
+                              <Button
+                                className="flex-1"
+                                onClick={handleSaveEducation}
+                                disabled={
+                                  isUpdatingEducation ||
+                                  !newEducation.institution ||
+                                  !newEducation.degree ||
+                                  !newEducation.start_date
+                                }
+                              >
+                                {isUpdatingEducation ? t("common.saving") : t("common.save")}
+                              </Button>
+                              <Button variant="outline" onClick={handleCancelEditEducation}>
+                                {t("common.cancel")}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            key={edu.id}
+                            className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="pr-20">
+                              <p className="font-medium">{edu.degree}</p>
+                              <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                              {edu.field_of_study && (
                                 <p className="text-sm text-muted-foreground">
-                                  {edu.institution}
+                                  {edu.field_of_study}
                                 </p>
-                                {edu.field_of_study && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {edu.field_of_study}
-                                  </p>
-                                )}
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))} -{" "}
-                                  {edu.is_current
-                                    ? t("common.present")
-                                    : edu.end_date ? formatWorkDate(new Date(edu.end_date).toISOString().slice(0, 7)) : ""}
-                                </p>
-                              </div>
-                              <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => handleEditEducation(edu)}
-                                  className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteEducation(edu.id)}
-                                  disabled={isDeletingEducation}
-                                  className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                              )}
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))}{" "}
+                                -{" "}
+                                {edu.is_current
+                                  ? t("common.present")
+                                  : edu.end_date
+                                    ? formatWorkDate(
+                                        new Date(edu.end_date).toISOString().slice(0, 7)
+                                      )
+                                    : ""}
+                              </p>
                             </div>
-                          )
-                        )}
+                            <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleEditEducation(edu)}
+                                className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteEducation(edu.id)}
+                                disabled={isDeletingEducation}
+                                className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
                     </div>
                   )}
                 </div>
@@ -1121,9 +1141,7 @@ export function MyProfileClient() {
                       <AutocompleteInput
                         placeholder={t("profile.position")}
                         value={newWork.position}
-                        onChange={(value) =>
-                          setNewWork({ ...newWork, position: value })
-                        }
+                        onChange={(value) => setNewWork({ ...newWork, position: value })}
                         suggestions={POSITIONS_DB}
                         className="h-10"
                       />
@@ -1135,9 +1153,7 @@ export function MyProfileClient() {
                           <Input
                             type="month"
                             value={newWork.start_date}
-                            onChange={(e) =>
-                              setNewWork({ ...newWork, start_date: e.target.value })
-                            }
+                            onChange={(e) => setNewWork({ ...newWork, start_date: e.target.value })}
                             className="h-10"
                           />
                         </div>
@@ -1148,9 +1164,7 @@ export function MyProfileClient() {
                           <Input
                             type="month"
                             value={newWork.end_date}
-                            onChange={(e) =>
-                              setNewWork({ ...newWork, end_date: e.target.value })
-                            }
+                            onChange={(e) => setNewWork({ ...newWork, end_date: e.target.value })}
                             disabled={newWork.is_current}
                             className="h-10"
                           />
@@ -1196,135 +1210,133 @@ export function MyProfileClient() {
                   ) : (
                     <div className="grid gap-3">
                       {sortedWorkExperiences.map((work) =>
-                          editingWorkId === work.id ? (
-                            <div
-                              key={work.id}
-                              className="p-4 border rounded-lg space-y-3 bg-muted/20"
-                            >
-                              <AutocompleteInput
-                                placeholder={t("profile.companyNamePlaceholder")}
-                                value={newWork.company}
-                                onChange={(value) =>
-                                  setNewWork({ ...newWork, company: value })
-                                }
-                                suggestions={COMPANIES_DB}
-                                className="h-10"
-                              />
-                              <AutocompleteInput
-                                placeholder={t("profile.position")}
-                                value={newWork.position}
-                                onChange={(value) =>
-                                  setNewWork({ ...newWork, position: value })
-                                }
-                                suggestions={POSITIONS_DB}
-                                className="h-10"
-                              />
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="text-xs text-muted-foreground mb-1 block">
-                                    {t("profile.startDate")}
-                                  </label>
-                                  <Input
-                                    type="month"
-                                    value={newWork.start_date}
-                                    onChange={(e) =>
-                                      setNewWork({
-                                        ...newWork,
-                                        start_date: e.target.value,
-                                      })
-                                    }
-                                    className="h-10"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-muted-foreground mb-1 block">
-                                    {t("profile.endDate")}
-                                  </label>
-                                  <Input
-                                    type="month"
-                                    value={newWork.end_date}
-                                    onChange={(e) =>
-                                      setNewWork({
-                                        ...newWork,
-                                        end_date: e.target.value,
-                                      })
-                                    }
-                                    disabled={newWork.is_current}
-                                    className="h-10"
-                                  />
-                                </div>
-                              </div>
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={newWork.is_current}
+                        editingWorkId === work.id ? (
+                          <div
+                            key={work.id}
+                            className="p-4 border rounded-lg space-y-3 bg-muted/20"
+                          >
+                            <AutocompleteInput
+                              placeholder={t("profile.companyNamePlaceholder")}
+                              value={newWork.company}
+                              onChange={(value) => setNewWork({ ...newWork, company: value })}
+                              suggestions={COMPANIES_DB}
+                              className="h-10"
+                            />
+                            <AutocompleteInput
+                              placeholder={t("profile.position")}
+                              value={newWork.position}
+                              onChange={(value) => setNewWork({ ...newWork, position: value })}
+                              suggestions={POSITIONS_DB}
+                              className="h-10"
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">
+                                  {t("profile.startDate")}
+                                </label>
+                                <Input
+                                  type="month"
+                                  value={newWork.start_date}
                                   onChange={(e) =>
                                     setNewWork({
                                       ...newWork,
-                                      is_current: e.target.checked,
-                                      end_date: "",
+                                      start_date: e.target.value,
                                     })
                                   }
-                                  className="rounded"
+                                  className="h-10"
                                 />
-                                <span className="text-sm">{t("profile.currentlyWorking")}</span>
-                              </label>
-                              <div className="flex gap-2">
-                                <Button
-                                  className="flex-1"
-                                  onClick={handleSaveWork}
-                                  disabled={
-                                    isUpdatingWork ||
-                                    !newWork.company ||
-                                    !newWork.position ||
-                                    !newWork.start_date
+                              </div>
+                              <div>
+                                <label className="text-xs text-muted-foreground mb-1 block">
+                                  {t("profile.endDate")}
+                                </label>
+                                <Input
+                                  type="month"
+                                  value={newWork.end_date}
+                                  onChange={(e) =>
+                                    setNewWork({
+                                      ...newWork,
+                                      end_date: e.target.value,
+                                    })
                                   }
-                                >
-                                  {isUpdatingWork ? t("common.saving") : t("common.save")}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={handleCancelEditWork}
-                                >
-                                  {t("common.cancel")}
-                                </Button>
+                                  disabled={newWork.is_current}
+                                  className="h-10"
+                                />
                               </div>
                             </div>
-                          ) : (
-                            <div
-                              key={work.id}
-                              className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="pr-20">
-                                <p className="font-medium">{work.position}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {work.company}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  {formatWorkDate(new Date(work.start_date).toISOString().slice(0, 7))} -{" "}
-                                  {work.is_current
-                                    ? t("common.present")
-                                    : work.end_date ? formatWorkDate(new Date(work.end_date).toISOString().slice(0, 7)) : ""}
-                                </p>
-                              </div>
-                              <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                  onClick={() => handleEditWork(work)}
-                                  className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteWork(work.id)}
-                                  disabled={isDeletingWork}
-                                  className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={newWork.is_current}
+                                onChange={(e) =>
+                                  setNewWork({
+                                    ...newWork,
+                                    is_current: e.target.checked,
+                                    end_date: "",
+                                  })
+                                }
+                                className="rounded"
+                              />
+                              <span className="text-sm">{t("profile.currentlyWorking")}</span>
+                            </label>
+                            <div className="flex gap-2">
+                              <Button
+                                className="flex-1"
+                                onClick={handleSaveWork}
+                                disabled={
+                                  isUpdatingWork ||
+                                  !newWork.company ||
+                                  !newWork.position ||
+                                  !newWork.start_date
+                                }
+                              >
+                                {isUpdatingWork ? t("common.saving") : t("common.save")}
+                              </Button>
+                              <Button variant="outline" onClick={handleCancelEditWork}>
+                                {t("common.cancel")}
+                              </Button>
                             </div>
-                          )
-                        )}
+                          </div>
+                        ) : (
+                          <div
+                            key={work.id}
+                            className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="pr-20">
+                              <p className="font-medium">{work.position}</p>
+                              <p className="text-sm text-muted-foreground">{work.company}</p>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {formatWorkDate(
+                                  new Date(work.start_date).toISOString().slice(0, 7)
+                                )}{" "}
+                                -{" "}
+                                {work.is_current
+                                  ? t("common.present")
+                                  : work.end_date
+                                    ? formatWorkDate(
+                                        new Date(work.end_date).toISOString().slice(0, 7)
+                                      )
+                                    : ""}
+                              </p>
+                            </div>
+                            <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                onClick={() => handleEditWork(work)}
+                                className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteWork(work.id)}
+                                disabled={isDeletingWork}
+                                className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      )}
                     </div>
                   )}
                 </div>
@@ -1336,10 +1348,7 @@ export function MyProfileClient() {
 
       {/* Edit Profile Modal - Lazy loaded */}
       {showEditProfileModal && (
-        <EditProfileModal
-          open={showEditProfileModal}
-          onOpenChange={setShowEditProfileModal}
-        />
+        <EditProfileModal open={showEditProfileModal} onOpenChange={setShowEditProfileModal} />
       )}
     </div>
   );
