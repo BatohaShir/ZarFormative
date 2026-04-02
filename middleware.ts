@@ -65,7 +65,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     "default-src 'self'",
     scriptSrc,
     `style-src 'self' 'unsafe-inline'`, // Tailwind uses inline styles
-    `img-src 'self' data: blob: ${supabaseUrl} https://api.dicebear.com https://*.supabase.co`,
+    `img-src 'self' data: blob: ${supabaseUrl} https://api.dicebear.com https://*.supabase.co https://*.tile.openstreetmap.org`,
     `font-src 'self'`,
     `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org`,
     `frame-ancestors 'none'`,

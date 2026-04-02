@@ -5,8 +5,8 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, X, Loader2, MapPin } from "lucide-react";
 import type { ListingWithRelations } from "@/components/listing-card";
-// OPTIMIZATION: Импортируем функцию для вычисления координат
-import { getListingsWithCoords, type ListingWithCoords } from "./services-map-leaflet";
+// OPTIMIZATION: Импортируем функцию для вычисления координат (отдельный файл без Leaflet)
+import { getListingsWithCoords, type ListingWithCoords } from "./services-map-utils";
 
 interface ServicesMapProps {
   listings: ListingWithRelations[];
@@ -29,27 +29,39 @@ const ServicesMapLeaflet = dynamic(
 );
 
 // Re-export для использования в других компонентах
-export { getListingsWithCoords, type ListingWithCoords };
+export { type ListingWithCoords } from "./services-map-utils";
+export { getListingsWithCoords } from "./services-map-utils";
 
-export function ServicesMap({ listings, className, onLocationSelect, onClusterSelect }: ServicesMapProps) {
+export function ServicesMap({
+  listings,
+  className,
+  onLocationSelect,
+  onClusterSelect,
+}: ServicesMapProps) {
   const [isMapActive, setIsMapActive] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
 
   // Handle location selection from map - filter by location but keep map active
-  const handleLocationSelect = React.useCallback((districtId: string | null, aimagId: string | null) => {
-    // Close fullscreen mode but keep map active
-    setIsFullscreen(false);
-    // Don't close the map - just filter results
-    onLocationSelect?.(districtId, aimagId);
-  }, [onLocationSelect]);
+  const handleLocationSelect = React.useCallback(
+    (districtId: string | null, aimagId: string | null) => {
+      // Close fullscreen mode but keep map active
+      setIsFullscreen(false);
+      // Don't close the map - just filter results
+      onLocationSelect?.(districtId, aimagId);
+    },
+    [onLocationSelect]
+  );
 
   // Handle cluster selection from map - filter by listing IDs
-  const handleClusterSelect = React.useCallback((listingIds: string[]) => {
-    // Close fullscreen mode but keep map active
-    setIsFullscreen(false);
-    // Filter by listing IDs
-    onClusterSelect?.(listingIds);
-  }, [onClusterSelect]);
+  const handleClusterSelect = React.useCallback(
+    (listingIds: string[]) => {
+      // Close fullscreen mode but keep map active
+      setIsFullscreen(false);
+      // Filter by listing IDs
+      onClusterSelect?.(listingIds);
+    },
+    [onClusterSelect]
+  );
 
   // OPTIMIZATION: Используем общую функцию для вычисления координат
   // Результат передаётся в Leaflet компонент, избегая дублирования вычислений

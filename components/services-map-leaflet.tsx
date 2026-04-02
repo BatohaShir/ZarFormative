@@ -42,35 +42,9 @@ function FlyToController({ position }: { position: [number, number] | null }) {
   return null;
 }
 
-// OPTIMIZATION: Тип для листинга с предвычисленными координатами
-export type ListingWithCoords = ListingWithRelations & { lat: number; lng: number };
-
-// OPTIMIZATION: Вынесенная функция для вычисления координат - используется в services-map.tsx
-export function getListingsWithCoords(listings: ListingWithRelations[]): ListingWithCoords[] {
-  return listings.filter((listing) => {
-    if (listing.service_type === "remote") {
-      const lat = listing.latitude ? Number(listing.latitude) : null;
-      const lng = listing.longitude ? Number(listing.longitude) : null;
-      return lat && lng;
-    }
-    const lat = listing.district?.latitude || listing.aimag?.latitude;
-    const lng = listing.district?.longitude || listing.aimag?.longitude;
-    return lat && lng;
-  }).map((listing) => {
-    let lat: number;
-    let lng: number;
-
-    if (listing.service_type === "remote") {
-      lat = listing.latitude ? Number(listing.latitude) : 0;
-      lng = listing.longitude ? Number(listing.longitude) : 0;
-    } else {
-      lat = listing.district?.latitude || listing.aimag?.latitude || 0;
-      lng = listing.district?.longitude || listing.aimag?.longitude || 0;
-    }
-
-    return { ...listing, lat, lng };
-  });
-}
+// OPTIMIZATION: Типы и утилиты вынесены в отдельный файл без зависимости от Leaflet
+import { getListingsWithCoords, type ListingWithCoords } from "./services-map-utils";
+export { getListingsWithCoords, type ListingWithCoords };
 
 interface ServicesMapLeafletProps {
   listings: ListingWithRelations[];
@@ -83,7 +57,14 @@ interface ServicesMapLeafletProps {
 
 // OPTIMIZATION: Убрана двойная загрузка - leaflet импортируется статически
 // Компонент уже загружается через dynamic() в services-map.tsx
-export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsWithCoords, isFullscreen, onFullscreen, onLocationSelect, onClusterSelect }: ServicesMapLeafletProps) {
+export function ServicesMapLeaflet({
+  listings,
+  listingsWithCoords: propListingsWithCoords,
+  isFullscreen,
+  onFullscreen,
+  onLocationSelect,
+  onClusterSelect,
+}: ServicesMapLeafletProps) {
   const [myLocation, setMyLocation] = React.useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = React.useState(false);
   const [flyToPosition, setFlyToPosition] = React.useState<[number, number] | null>(null);
@@ -143,7 +124,7 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
       onClusterSelect(listingIds);
     } else if (onLocationSelect) {
       // Fallback to old behavior
-      const firstListing = listingsWithCoords.find(l => l.id === listingIds[0]);
+      const firstListing = listingsWithCoords.find((l) => l.id === listingIds[0]);
       if (firstListing) {
         onLocationSelect(firstListing.district?.id || null, firstListing.aimag?.id || null);
       }
@@ -191,8 +172,8 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
         {/* OSM tile layer - dark theme via CSS */}
         <TileLayer url={TILE_URL} maxZoom={19} />
 
-      {/* Gradient overlay for better button visibility */}
-      <div className="absolute top-0 left-0 right-0 h-16 bg-linear-to-b from-black/30 to-transparent z-400 pointer-events-none" />
+        {/* Gradient overlay for better button visibility */}
+        <div className="absolute top-0 left-0 right-0 h-16 bg-linear-to-b from-black/30 to-transparent z-400 pointer-events-none" />
 
         {/* My location marker */}
         {myLocation && (
@@ -214,7 +195,7 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
         {/* Listing markers - show count only, click to filter */}
         {groupedListings.map((group, groupIndex) => {
           const firstListing = group[0];
-          const listingIds = group.map(l => l.id);
+          const listingIds = group.map((l) => l.id);
 
           return (
             <Marker
@@ -243,9 +224,13 @@ export function ServicesMapLeaflet({ listings, listingsWithCoords: propListingsW
         title="Миний байршил"
       >
         {isLocating ? (
-          <Loader2 className={`h-5 w-5 animate-spin ${myLocation ? "text-white" : "text-gray-700 dark:text-gray-300"}`} />
+          <Loader2
+            className={`h-5 w-5 animate-spin ${myLocation ? "text-white" : "text-gray-700 dark:text-gray-300"}`}
+          />
         ) : (
-          <Navigation2 className={`h-5 w-5 rotate-45 ${myLocation ? "text-white" : "text-gray-700 dark:text-gray-300"}`} />
+          <Navigation2
+            className={`h-5 w-5 rotate-45 ${myLocation ? "text-white" : "text-gray-700 dark:text-gray-300"}`}
+          />
         )}
       </button>
 
