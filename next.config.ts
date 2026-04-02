@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withSentryConfig } from "@sentry/nextjs";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 
@@ -92,9 +93,15 @@ const sentryWebpackPluginOptions = {
   automaticVercelMonitors: true,
 };
 
-// Apply Sentry only if DSN is configured
+// Apply plugins
 const configWithIntl = withNextIntl(nextConfig);
 
+const analyzeBundles = withBundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
+
+const configWithAnalyzer = analyzeBundles(configWithIntl);
+
 export default process.env.NEXT_PUBLIC_SENTRY_DSN
-  ? withSentryConfig(configWithIntl, sentryWebpackPluginOptions)
-  : configWithIntl;
+  ? withSentryConfig(configWithAnalyzer, sentryWebpackPluginOptions)
+  : configWithAnalyzer;

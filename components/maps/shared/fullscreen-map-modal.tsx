@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { MapContainer, TileLayer, Circle } from "react-leaflet";
-import { TILE_URL } from "@/components/ui/base-map";
+import { TILE_URL } from "@/components/map-constants";
 import { cn } from "@/lib/utils";
 import {
   MapControlsContainer,
@@ -53,7 +53,13 @@ export function FullscreenMapModal({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mapRef = React.useRef<any>(null);
   const [zoom, setZoom] = React.useState(initialZoom);
-  const { location: userLocation, isLocating, error, requestLocation, clearError } = useGeolocation();
+  const {
+    location: userLocation,
+    isLocating,
+    error,
+    requestLocation,
+    clearError,
+  } = useGeolocation();
   const visibleError = useAutoHideError(error);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 1, 18));
@@ -97,9 +103,7 @@ export function FullscreenMapModal({
               {subtitle && (
                 <p className="text-sm text-white/90 mt-0.5 drop-shadow-md">{subtitle}</p>
               )}
-              {warning && (
-                <p className="text-xs text-amber-300 mt-1">{warning}</p>
-              )}
+              {warning && <p className="text-xs text-amber-300 mt-1">{warning}</p>}
             </div>
             <CloseButton onClick={onClose} />
           </div>
@@ -166,11 +170,7 @@ export function FullscreenMapModal({
           )}
 
           {/* Legend */}
-          {legend && (
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              {legend}
-            </div>
-          )}
+          {legend && <div className="flex flex-wrap items-center gap-2 mb-2">{legend}</div>}
 
           {/* Custom footer content */}
           {footer}
@@ -194,19 +194,14 @@ export function LegendItem({ color, label, dashed }: LegendItemProps) {
   return (
     <div className="flex items-center gap-2.5 bg-white dark:bg-gray-800 backdrop-blur-sm rounded-xl px-4 py-2 shadow-lg border border-gray-100 dark:border-gray-700">
       <span
-        className={cn(
-          "w-3.5 h-3.5 rounded-full shadow-sm",
-          dashed && "border-2 border-dashed"
-        )}
+        className={cn("w-3.5 h-3.5 rounded-full shadow-sm", dashed && "border-2 border-dashed")}
         style={{
           backgroundColor: color,
           boxShadow: `0 1px 2px ${color}80`,
           borderColor: dashed ? color : undefined,
         }}
       />
-      <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
-        {label}
-      </span>
+      <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{label}</span>
     </div>
   );
 }
@@ -249,7 +244,13 @@ export function PreviewMapWrapper({
       {/* Hover overlay */}
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center z-20">
         <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-full p-3 shadow-lg">
-          <svg className="h-5 w-5 text-gray-700 dark:text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            className="h-5 w-5 text-gray-700 dark:text-gray-300"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <polyline points="15 3 21 3 21 9" />
             <polyline points="9 21 3 21 3 15" />
             <line x1="21" y1="3" x2="14" y2="10" />
@@ -259,11 +260,7 @@ export function PreviewMapWrapper({
       </div>
 
       {/* Badge */}
-      {badge && (
-        <div className="absolute top-2 left-2 z-30">
-          {badge}
-        </div>
-      )}
+      {badge && <div className="absolute top-2 left-2 z-30">{badge}</div>}
 
       {/* Click hint */}
       <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-30">

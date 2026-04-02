@@ -3,22 +3,12 @@
 import * as React from "react";
 import { MapContainer, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-
-// OpenStreetMap - полная детализация (адреса, организации, POI)
-// Тёмная тема реализована через CSS фильтр в globals.css
-export const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
-
-// Legacy export для обратной совместимости
-export const TILE_URLS = {
-  light: TILE_URL,
-  dark: TILE_URL, // CSS инверсия в globals.css
-} as const;
-
-const TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-
-// Default Mongolia center (Ulaanbaatar)
-export const DEFAULT_MAP_CENTER: [number, number] = [47.9184, 106.9177];
-export const DEFAULT_MAP_ZOOM = 14;
+import {
+  TILE_URL,
+  TILE_ATTRIBUTION,
+  DEFAULT_MAP_CENTER,
+  DEFAULT_MAP_ZOOM,
+} from "@/components/map-constants";
 
 export interface BaseMapProps {
   center?: [number, number];
@@ -58,11 +48,7 @@ export function BaseMap({
       attributionControl={false}
       ref={mapRef}
     >
-      <TileLayer
-        url={TILE_URL}
-        attribution={TILE_ATTRIBUTION}
-        maxZoom={19}
-      />
+      <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} maxZoom={19} />
       {children}
     </MapContainer>
   );
@@ -72,5 +58,3 @@ export function BaseMap({
 export function useMapTileUrl(): string {
   return TILE_URL;
 }
-
-export { TILE_ATTRIBUTION };

@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Circle, Marker, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 import { X, ZoomIn, ZoomOut, Navigation2, Maximize2, MapPin, Loader2 } from "lucide-react";
-import { TILE_URL } from "@/components/ui/base-map";
+import { TILE_URL } from "@/components/map-constants";
 
 interface RequestLocationMapLeafletProps {
   coordinates: [number, number];

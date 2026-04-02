@@ -7,7 +7,7 @@ export default function ProfileNotFound() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center">
         <Image
-          src="/icons/7486744.png"
+          src="/icons/7486744.webp"
           alt="Олдсонгүй"
           width={80}
           height={80}

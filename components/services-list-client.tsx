@@ -634,7 +634,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-center">
                 <Image
-                  src="/icons/7486744.png"
+                  src="/icons/7486744.webp"
                   alt={t("noResults")}
                   width={80}
                   height={80}

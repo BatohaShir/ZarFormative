@@ -90,7 +90,9 @@ interface ServiceDetailClientProps {
   listing: ServiceDetailListing;
 }
 
-export const ServiceDetailClient = React.memo(function ServiceDetailClient({ listing }: ServiceDetailClientProps) {
+export const ServiceDetailClient = React.memo(function ServiceDetailClient({
+  listing,
+}: ServiceDetailClientProps) {
   const t = useTranslations("listings");
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -243,7 +245,9 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
 
             {/* Title & Price Card */}
             <div className="bg-card border rounded-2xl p-4 md:p-5 space-y-3">
-              <h1 className="text-xl md:text-2xl font-bold leading-tight wrap-anywhere">{listing.title}</h1>
+              <h1 className="text-xl md:text-2xl font-bold leading-tight wrap-anywhere">
+                {listing.title}
+              </h1>
 
               {/* Divider */}
               <div className="border-t border-border/50" />
@@ -287,7 +291,9 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs">
                   <Eye className="h-3.5 w-3.5" />
-                  <span>{viewsCount} {t("views")}</span>
+                  <span>
+                    {viewsCount} {t("views")}
+                  </span>
                 </div>
               </div>
             </div>
@@ -329,7 +335,9 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
             {/* Gallery - lazy load images */}
             {listing.images.length > 1 && (
               <div className="space-y-2 md:space-y-3">
-                <h2 className="text-base md:text-lg font-semibold">{t("photos")} ({listing.images.length - 1})</h2>
+                <h2 className="text-base md:text-lg font-semibold">
+                  {t("photos")} ({listing.images.length - 1})
+                </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   {listing.images.slice(1).map((image, index) => (
                     <div
@@ -404,9 +412,11 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({ lis
       {showMapModal && hasCoordinates && (
         <LocationMapModal
           coordinates={[listing.latitude!, listing.longitude!]}
-          address={listing.service_type === "remote" && listing.address_detail
-            ? listing.address_detail
-            : locationDisplay}
+          address={
+            listing.service_type === "remote" && listing.address_detail
+              ? listing.address_detail
+              : locationDisplay
+          }
           title={listing.title}
           onClose={() => setShowMapModal(false)}
         />
@@ -422,13 +432,13 @@ export function ServiceDetailSkeleton() {
       <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="container mx-auto px-3 md:px-4 py-3 md:py-4 flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-4">
-            <Skeleton className="h-8 w-8 md:h-10 md:w-10 rounded" />
+            <Skeleton className="h-8 w-8 md:h-10 md:w-10 rounded-lg" />
             <Skeleton className="h-6 w-32 hidden sm:block" />
           </div>
           <div className="hidden md:flex items-center gap-4">
-            <Skeleton className="h-10 w-10 rounded" />
-            <Skeleton className="h-10 w-10 rounded" />
-            <Skeleton className="h-10 w-10 rounded" />
+            <Skeleton className="h-10 w-10 rounded-lg" />
+            <Skeleton className="h-10 w-10 rounded-lg" />
+            <Skeleton className="h-10 w-10 rounded-lg" />
           </div>
         </div>
       </header>
@@ -458,9 +468,7 @@ export function ServiceDetailSkeleton() {
 export function ServiceNotFound() {
   // Note: For server components that render this, translations should be passed as props
   // For now, we use a client-side approach with useTranslations
-  return (
-    <ServiceNotFoundClient />
-  );
+  return <ServiceNotFoundClient />;
 }
 
 function ServiceNotFoundClient() {
@@ -469,7 +477,7 @@ function ServiceNotFoundClient() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="text-center">
         <Image
-          src="/icons/7486744.png"
+          src="/icons/7486744.webp"
           alt={t("notFound")}
           width={80}
           height={80}

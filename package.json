@@ -6,6 +6,7 @@
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev --turbopack -p 3000",
     "dev:stable": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev -p 3000",
     "build": "zenstack generate && next build",
+    "build:analyze": "ANALYZE=true zenstack generate && next build",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
@@ -73,6 +74,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.2",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query": "^5.90.21",

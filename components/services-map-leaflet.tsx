@@ -6,7 +6,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Circle, useMap } from "react-leaflet";
 import type { ListingWithRelations } from "@/components/listing-card";
-import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/ui/base-map";
+import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/map-constants";
 
 const DEFAULT_ZOOM = 6;
 const CITY_ZOOM = 12;
@@ -42,9 +42,7 @@ function FlyToController({ position }: { position: [number, number] | null }) {
   return null;
 }
 
-// OPTIMIZATION: Типы и утилиты вынесены в отдельный файл без зависимости от Leaflet
 import { getListingsWithCoords, type ListingWithCoords } from "./services-map-utils";
-export { getListingsWithCoords, type ListingWithCoords };
 
 interface ServicesMapLeafletProps {
   listings: ListingWithRelations[];

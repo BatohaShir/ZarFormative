@@ -45,22 +45,17 @@ export async function GET(request: NextRequest) {
     const BUCKET = "chat-attachments";
     const ONE_DAY_AGO = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Get all attachment URLs referenced in chat_messages
-    const usedAttachments = await prisma.chat_messages.findMany({
-      where: {
-        attachment_url: { not: null },
-      },
-      select: { attachment_url: true },
-    });
+    // OPTIMIZATION: Use raw SQL with DISTINCT to avoid loading all rows into memory
+    const usedAttachments = await prisma.$queryRaw<{ attachment_url: string }[]>`
+      SELECT DISTINCT attachment_url FROM chat_messages WHERE attachment_url IS NOT NULL
+    `;
 
-    const usedUrls = new Set(
-      usedAttachments.map((m) => m.attachment_url).filter(Boolean) as string[]
-    );
+    const usedUrls = new Set(usedAttachments.map((m) => m.attachment_url));
 
     // List files in the bucket (top-level folders = request IDs)
     const { data: folders, error: listError } = await supabase.storage
       .from(BUCKET)
-      .list("", { limit: 100 });
+      .list("", { limit: 1000 });
 
     if (listError) {
       results.errors.push(`Failed to list bucket: ${listError.message}`);
@@ -69,47 +64,96 @@ export async function GET(request: NextRequest) {
 
     results.checkedBuckets.push(BUCKET);
 
-    // Check each folder for orphaned files
-    for (const folder of folders || []) {
-      if (!folder.name) continue;
+    // OPTIMIZATION: Parallelize subfolder listing instead of sequential loops
+    const validFolders = (folders || []).filter((f) => f.name);
 
-      const { data: subfolders } = await supabase.storage
-        .from(BUCKET)
-        .list(folder.name, { limit: 100 });
-
-      for (const subfolder of subfolders || []) {
-        const folderPath = `${folder.name}/${subfolder.name}`;
-        const { data: files } = await supabase.storage
+    // Fetch all subfolders in parallel (graceful: partial failures don't block)
+    const subfolderSettled = await Promise.allSettled(
+      validFolders.map((folder) =>
+        supabase.storage
           .from(BUCKET)
-          .list(folderPath, { limit: 100 });
+          .list(folder.name, { limit: 1000 })
+          .then((res) => ({
+            folder: folder.name,
+            subfolders: res.data || [],
+          }))
+      )
+    );
 
-        const orphanedPaths: string[] = [];
+    const subfolderResults = subfolderSettled
+      .filter(
+        (r): r is PromiseFulfilledResult<{ folder: string; subfolders: typeof folders }> =>
+          r.status === "fulfilled"
+      )
+      .map((r) => r.value);
 
-        for (const file of files || []) {
-          // Skip files newer than 24 hours (might still be processing)
-          const fileDate = new Date(file.created_at ?? Date.now());
-          if (fileDate > ONE_DAY_AGO) continue;
+    // Log failures
+    subfolderSettled
+      .filter((r) => r.status === "rejected")
+      .forEach((r) => {
+        results.errors.push(`Subfolder listing failed: ${(r as PromiseRejectedResult).reason}`);
+      });
 
-          // Check if this file is referenced by any message
-          const { data: publicUrlData } = supabase.storage
-            .from(BUCKET)
-            .getPublicUrl(`${folderPath}/${file.name}`);
+    // Build list of all folder paths, then fetch files in parallel
+    const allFolderPaths = subfolderResults.flatMap(({ folder, subfolders }) =>
+      (subfolders || []).map((sf) => `${folder}/${sf.name}`)
+    );
 
-          if (!usedUrls.has(publicUrlData.publicUrl)) {
-            orphanedPaths.push(`${folderPath}/${file.name}`);
-          }
+    const fileSettled = await Promise.allSettled(
+      allFolderPaths.map((folderPath) =>
+        supabase.storage
+          .from(BUCKET)
+          .list(folderPath, { limit: 1000 })
+          .then((res) => ({
+            folderPath,
+            files: res.data || [],
+          }))
+      )
+    );
+
+    const fileResults = fileSettled
+      .filter(
+        (
+          r
+        ): r is PromiseFulfilledResult<{
+          folderPath: string;
+          files: NonNullable<typeof folders>;
+        }> => r.status === "fulfilled"
+      )
+      .map((r) => r.value);
+
+    fileSettled
+      .filter((r) => r.status === "rejected")
+      .forEach((r) => {
+        results.errors.push(`File listing failed: ${(r as PromiseRejectedResult).reason}`);
+      });
+
+    // Find orphaned files across all folders
+    const allOrphanedPaths: string[] = [];
+
+    for (const { folderPath, files } of fileResults) {
+      for (const file of files) {
+        const fileDate = new Date(file.created_at ?? Date.now());
+        if (fileDate > ONE_DAY_AGO) continue;
+
+        const { data: publicUrlData } = supabase.storage
+          .from(BUCKET)
+          .getPublicUrl(`${folderPath}/${file.name}`);
+
+        if (!usedUrls.has(publicUrlData.publicUrl)) {
+          allOrphanedPaths.push(`${folderPath}/${file.name}`);
         }
+      }
+    }
 
-        // Delete orphaned files in batch
-        if (orphanedPaths.length > 0) {
-          const { error: deleteError } = await supabase.storage.from(BUCKET).remove(orphanedPaths);
+    // Delete all orphaned files in a single batch
+    if (allOrphanedPaths.length > 0) {
+      const { error: deleteError } = await supabase.storage.from(BUCKET).remove(allOrphanedPaths);
 
-          if (deleteError) {
-            results.errors.push(`Failed to delete in ${folderPath}: ${deleteError.message}`);
-          } else {
-            results.deletedFiles += orphanedPaths.length;
-          }
-        }
+      if (deleteError) {
+        results.errors.push(`Failed to delete orphaned files: ${deleteError.message}`);
+      } else {
+        results.deletedFiles += allOrphanedPaths.length;
       }
     }
 

@@ -7,10 +7,21 @@ import "leaflet/dist/leaflet.css";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
-import { Loader2, Navigation2, AlertCircle, Car, Clock, X, ZoomIn, ZoomOut, Maximize2, MapPin } from "lucide-react";
+import {
+  Loader2,
+  Navigation2,
+  AlertCircle,
+  Car,
+  Clock,
+  X,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  MapPin,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/ui/base-map";
+import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/map-constants";
 
 interface LocationData {
   id: string;
@@ -132,13 +143,7 @@ function getGeolocationErrorMessage(error: GeolocationPositionError): string {
 }
 
 // Компонент для управления картой
-function MapController({
-  center,
-  zoom
-}: {
-  center: [number, number];
-  zoom: number;
-}) {
+function MapController({ center, zoom }: { center: [number, number]; zoom: number }) {
   const map = useMap();
 
   React.useEffect(() => {
@@ -192,8 +197,8 @@ function FullscreenLiveMap({
   const mapRef = React.useRef<any>(null);
   const [zoom, setZoom] = React.useState(14);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 1, 18));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 1, 10));
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 1, 18));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 1, 10));
   const handleCenter = () => {
     if (mapRef.current) {
       mapRef.current.setView(mapCenter, zoom);
@@ -302,7 +307,9 @@ function FullscreenLiveMap({
                     <div className="font-medium text-blue-600">{clientName}</div>
                     <div className="text-muted-foreground text-xs">Захиалагч</div>
                     {clientLocation.accuracy && (
-                      <div className="text-xs">Нарийвчлал: ±{Math.round(clientLocation.accuracy)}м</div>
+                      <div className="text-xs">
+                        Нарийвчлал: ±{Math.round(clientLocation.accuracy)}м
+                      </div>
                     )}
                   </div>
                 </Popup>
@@ -320,10 +327,14 @@ function FullscreenLiveMap({
                     <div className="font-medium text-green-600">{providerName}</div>
                     <div className="text-muted-foreground text-xs">Үйлчилгээ үзүүлэгч</div>
                     {providerLocation.accuracy && (
-                      <div className="text-xs">Нарийвчлал: ±{Math.round(providerLocation.accuracy)}м</div>
+                      <div className="text-xs">
+                        Нарийвчлал: ±{Math.round(providerLocation.accuracy)}м
+                      </div>
                     )}
                     {providerLocation.speed && providerLocation.speed > 0 && (
-                      <div className="text-xs">Хурд: {Math.round(providerLocation.speed * 3.6)} км/ц</div>
+                      <div className="text-xs">
+                        Хурд: {Math.round(providerLocation.speed * 3.6)} км/ц
+                      </div>
                     )}
                   </div>
                 </Popup>
@@ -413,7 +424,6 @@ function FullscreenLiveMap({
               <span>{error}</span>
             </div>
           )}
-
         </div>
       </div>
     </div>
@@ -709,7 +719,12 @@ export function LiveTrackingMapLeaflet({
 
   if (isLoading) {
     return (
-      <div className={cn("w-full h-50 rounded-xl bg-muted flex items-center justify-center", className)}>
+      <div
+        className={cn(
+          "w-full h-50 rounded-xl bg-muted flex items-center justify-center",
+          className
+        )}
+      >
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -753,10 +768,7 @@ export function LiveTrackingMapLeaflet({
 
       {/* Маркер клиента */}
       {clientLocation && (
-        <Marker
-          position={[clientLocation.latitude, clientLocation.longitude]}
-          icon={clientIcon}
-        >
+        <Marker position={[clientLocation.latitude, clientLocation.longitude]} icon={clientIcon}>
           {interactive && (
             <Popup>
               <div className="text-sm">
@@ -783,10 +795,14 @@ export function LiveTrackingMapLeaflet({
                 <div className="font-medium text-green-600">{providerName}</div>
                 <div className="text-muted-foreground text-xs">Үйлчилгээ үзүүлэгч</div>
                 {providerLocation.accuracy && (
-                  <div className="text-xs">Нарийвчлал: ±{Math.round(providerLocation.accuracy)}м</div>
+                  <div className="text-xs">
+                    Нарийвчлал: ±{Math.round(providerLocation.accuracy)}м
+                  </div>
                 )}
                 {providerLocation.speed && providerLocation.speed > 0 && (
-                  <div className="text-xs">Хурд: {Math.round(providerLocation.speed * 3.6)} км/ц</div>
+                  <div className="text-xs">
+                    Хурд: {Math.round(providerLocation.speed * 3.6)} км/ц
+                  </div>
                 )}
               </div>
             </Popup>

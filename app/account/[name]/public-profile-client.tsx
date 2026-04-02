@@ -62,11 +62,7 @@ interface PublicProfileClientProps {
   stats: Stats;
 }
 
-export function PublicProfileClient({
-  profile,
-  listings,
-  stats,
-}: PublicProfileClientProps) {
+export function PublicProfileClient({ profile, listings, stats }: PublicProfileClientProps) {
   const router = useRouter();
 
   const providerName = profile.is_company
@@ -78,9 +74,8 @@ export function PublicProfileClient({
     : "2024";
 
   const totalServices = stats.completedCount + stats.failedCount;
-  const successRate = totalServices > 0
-    ? Math.round((stats.completedCount / totalServices) * 100)
-    : 100;
+  const successRate =
+    totalServices > 0 ? Math.round((stats.completedCount / totalServices) * 100) : 100;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -151,13 +146,13 @@ export function PublicProfileClient({
 
             {/* User Info */}
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">
-                {providerName}
-              </h2>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">{providerName}</h2>
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-muted-foreground mb-4">
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-semibold text-foreground">{stats.rating > 0 ? stats.rating : "-"}</span>
+                  <span className="font-semibold text-foreground">
+                    {stats.rating > 0 ? stats.rating : "-"}
+                  </span>
                   <span>({stats.reviewsCount} сэтгэгдэл)</span>
                 </span>
                 <span className="flex items-center gap-1">
@@ -171,7 +166,9 @@ export function PublicProfileClient({
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <Star className="h-5 w-5 text-yellow-500 fill-current" />
                   <span className="font-bold text-lg">{stats.rating > 0 ? stats.rating : "-"}</span>
-                  <span className="text-sm text-muted-foreground">Үнэлгээ{stats.reviewsCount > 0 ? ` (${stats.reviewsCount})` : ""}</span>
+                  <span className="text-sm text-muted-foreground">
+                    Үнэлгээ{stats.reviewsCount > 0 ? ` (${stats.reviewsCount})` : ""}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
                   <ThumbsUp className="h-5 w-5 text-green-500" />
@@ -266,7 +263,7 @@ export function PublicProfileClient({
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">
                                 <Image
-                                  src="/icons/7486744.png"
+                                  src="/icons/7486744.webp"
                                   alt="No image"
                                   width={48}
                                   height={48}
@@ -305,7 +302,7 @@ export function PublicProfileClient({
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Image
-                    src="/icons/7486744.png"
+                    src="/icons/7486744.webp"
                     alt="Үйлчилгээ байхгүй"
                     width={64}
                     height={64}
@@ -323,7 +320,9 @@ export function PublicProfileClient({
                   <Star className="h-5 w-5 text-primary" />
                   Сэтгэгдэлүүд
                 </h3>
-                <span className="text-sm text-muted-foreground">{stats.reviewsCount} сэтгэгдэл</span>
+                <span className="text-sm text-muted-foreground">
+                  {stats.reviewsCount} сэтгэгдэл
+                </span>
               </div>
               <div className="text-center py-8 text-muted-foreground">
                 <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />

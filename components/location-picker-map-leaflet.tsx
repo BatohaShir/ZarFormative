@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-lea
 import "leaflet/dist/leaflet.css";
 import { Navigation2, Loader2, ZoomIn, ZoomOut, Maximize2, X, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/ui/base-map";
+import { TILE_URL, DEFAULT_MAP_CENTER } from "@/components/map-constants";
 
 // Custom marker icon (lazy load)
 const createMarkerIcon = () => {

@@ -20,7 +20,7 @@ export function RecommendedListingsSSR({ listings }: RecommendedListingsSSRProps
         </div>
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Image
-            src="/icons/7486744.png"
+            src="/icons/7486744.webp"
             alt="Хоосон хайрцаг"
             width={80}
             height={80}

@@ -39,18 +39,10 @@ export {
 } from "./map-controllers";
 
 // Fullscreen Modal
-export {
-  FullscreenMapModal,
-  LegendItem,
-  PreviewMapWrapper,
-} from "./fullscreen-map-modal";
+export { FullscreenMapModal, LegendItem, PreviewMapWrapper } from "./fullscreen-map-modal";
 
-// Re-export base map constants
-export {
-  TILE_URL,
-  TILE_URLS,
-  DEFAULT_MAP_CENTER,
-  DEFAULT_MAP_ZOOM,
-  BaseMap,
-  useMapTileUrl,
-} from "@/components/ui/base-map";
+// Re-export map constants (SSR-safe, no Leaflet dependency)
+export { TILE_URL, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM } from "@/components/map-constants";
+
+// Re-export base map component (requires Leaflet, client-only)
+export { BaseMap, useMapTileUrl } from "@/components/ui/base-map";

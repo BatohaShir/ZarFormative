@@ -5,7 +5,7 @@ import { X, Maximize2, Minimize2, Navigation2, LocateFixed } from "lucide-react"
 import { MapContainer, TileLayer, Marker, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { TILE_URL } from "@/components/ui/base-map";
+import { TILE_URL } from "@/components/map-constants";
 
 // Custom marker icon
 const createMarkerIcon = () => {
@@ -77,7 +77,13 @@ function MapResizeHandler({ isFullscreen }: { isFullscreen: boolean }) {
 }
 
 // Component to fly to a position
-function FlyToPosition({ position, trigger }: { position: [number, number] | null; trigger: number }) {
+function FlyToPosition({
+  position,
+  trigger,
+}: {
+  position: [number, number] | null;
+  trigger: number;
+}) {
   const map = useMap();
 
   React.useEffect(() => {
@@ -89,12 +95,7 @@ function FlyToPosition({ position, trigger }: { position: [number, number] | nul
   return null;
 }
 
-export function LocationMapModal({
-  coordinates,
-  address,
-  title,
-  onClose,
-}: LocationMapModalProps) {
+export function LocationMapModal({ coordinates, address, title, onClose }: LocationMapModalProps) {
   const markerIcon = React.useMemo(() => createMarkerIcon(), []);
   const userLocationIcon = React.useMemo(() => createUserLocationIcon(), []);
   const [userLocation, setUserLocation] = React.useState<[number, number] | null>(null);
@@ -118,7 +119,7 @@ export function LocationMapModal({
       (position) => {
         setUserLocation([position.coords.latitude, position.coords.longitude]);
         setIsLocating(false);
-        setFlyToUserTrigger(prev => prev + 1);
+        setFlyToUserTrigger((prev) => prev + 1);
       },
       () => {
         alert("Байршил тодорхойлоход алдаа гарлаа");
@@ -139,7 +140,7 @@ export function LocationMapModal({
   const handleCenterOnListing = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setFlyToListingTrigger(prev => prev + 1);
+    setFlyToListingTrigger((prev) => prev + 1);
   };
 
   // Prevent clicks from propagating to the Link
@@ -159,9 +160,7 @@ export function LocationMapModal({
     >
       <div
         className={`bg-background rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${
-          isFullscreen
-            ? "w-[calc(100vw-32px)] h-[calc(100vh-32px)] max-w-none"
-            : "w-full max-w-lg"
+          isFullscreen ? "w-[calc(100vw-32px)] h-[calc(100vh-32px)] max-w-none" : "w-full max-w-lg"
         }`}
         onClick={handleModalClick}
       >
@@ -234,11 +233,7 @@ export function LocationMapModal({
               className="w-10 h-10 rounded-lg bg-white dark:bg-gray-800 shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               title={isFullscreen ? "Жижигрүүлэх" : "Томруулах"}
             >
-              {isFullscreen ? (
-                <Minimize2 className="w-5 h-5" />
-              ) : (
-                <Maximize2 className="w-5 h-5" />
-              )}
+              {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
             </button>
 
             {/* My location button - зелёная когда активна */}
@@ -252,7 +247,9 @@ export function LocationMapModal({
               }`}
               title="Миний байршил"
             >
-              <Navigation2 className={`w-5 h-5 rotate-45 ${isLocating ? "animate-pulse" : ""} ${userLocation ? "text-white" : "text-gray-700 dark:text-gray-300"}`} />
+              <Navigation2
+                className={`w-5 h-5 rotate-45 ${isLocating ? "animate-pulse" : ""} ${userLocation ? "text-white" : "text-gray-700 dark:text-gray-300"}`}
+              />
             </button>
 
             {/* Center on listing button */}
