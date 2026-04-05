@@ -1,19 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { InnerHeader } from "@/components/app-header";
 
 export default function ProfileLoading() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Skeleton className="h-8 w-8 md:h-10 md:w-10 rounded-lg" />
-            <Skeleton className="h-6 w-32 md:h-8 md:w-40" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-lg" />
-          </div>
-        </div>
-      </header>
+      <InnerHeader />
 
       <div className="container mx-auto px-4 py-6 md:py-8">
         <div className="bg-linear-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl p-6 md:p-8 mb-6 md:mb-8">

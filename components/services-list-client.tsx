@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useInfiniteFindManylistings } from "@/lib/hooks/listings";
+import { useFindManylisting_boosts } from "@/lib/hooks/listing-boosts";
 
 type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
 
@@ -415,6 +416,34 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
 
   const listingsData = (listings || []) as ListingWithRelations[];
 
+  // Load active boosts to identify VIP listings
+  const { data: activeBoosts } = useFindManylisting_boosts(
+    {
+      where: {
+        status: "boost_active",
+        expires_at: { gt: new Date().toISOString() },
+      },
+      select: { listing_id: true },
+    },
+    { staleTime: 60 * 1000 }
+  );
+
+  const boostedIds = React.useMemo(() => {
+    if (!activeBoosts) return new Set<string>();
+    return new Set(activeBoosts.map((b) => b.listing_id));
+  }, [activeBoosts]);
+
+  // Split into VIP and regular
+  const { vipListings, regularListings } = React.useMemo(() => {
+    const vip: ListingWithRelations[] = [];
+    const regular: ListingWithRelations[] = [];
+    for (const listing of listingsData) {
+      if (boostedIds.has(listing.id)) vip.push(listing);
+      else regular.push(listing);
+    }
+    return { vipListings: vip, regularListings: regular };
+  }, [listingsData, boostedIds]);
+
   // Total count: используем initial если нет фильтров, иначе текущий список
   const displayTotalCount = !hasFilters ? initialTotalCount : listingsData.length;
 
@@ -591,10 +620,18 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
               <ListingCardSkeletonGrid count={6} />
             ) : listingsData.length > 0 ? (
               <>
+                {/* All listings: VIP first with gold border, then regular */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-                  {listingsData.map((listing, index) => {
+                  {vipListings.map((listing) => (
+                    <ListingCard key={listing.id} listing={listing} priority isVip />
+                  ))}
+                  {regularListings.map((listing, index) => {
                     const items = [
-                      <ListingCard key={listing.id} listing={listing} priority={index < 6} />,
+                      <ListingCard
+                        key={listing.id}
+                        listing={listing}
+                        priority={vipListings.length === 0 && index < 6}
+                      />,
                     ];
                     // Insert inline billboard card after every 8th listing
                     if ((index + 1) % 8 === 0) {

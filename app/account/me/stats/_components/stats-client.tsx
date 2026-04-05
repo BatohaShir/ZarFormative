@@ -10,6 +10,7 @@ import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
 import { RequestsButton } from "@/components/requests-button";
 import { NotificationsButton } from "@/components/notifications-button";
+import { InnerHeader } from "@/components/app-header";
 import { useAuth } from "@/contexts/auth-context";
 import { useTranslations } from "next-intl";
 import {
@@ -33,15 +34,7 @@ import {
 function StatsPageSkeleton() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-lg" />
-            <Skeleton className="h-6 w-28" />
-          </div>
-          <Skeleton className="h-8 w-8 rounded-lg" />
-        </div>
-      </header>
+      <InnerHeader />
       <div className="container mx-auto px-4 py-6 max-w-2xl space-y-6">
         <Skeleton className="h-44 rounded-2xl" />
         <Skeleton className="h-28 rounded-xl" />

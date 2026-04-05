@@ -73,6 +73,17 @@ enum DistrictType {
   sum
 }
 
+enum AdStoryStatus {
+  active
+  expired
+  cancelled
+}
+
+enum BoostStatus {
+  boost_active  @map("active")
+  boost_expired @map("expired")
+}
+
 model aimags {
   id         String             @id() @default(uuid()) @db.Uuid()
   name       String             @unique()
@@ -148,7 +159,7 @@ model categories {
   name_en    String?
   icon       String?
   parent_id  String?      @db.Uuid()
-  parent     categories?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
+  parent     categories?  @relation("CategoryHierarchy", fields: [parent_id], references: [id], onDelete: SetNull)
   children   categories[] @relation("CategoryHierarchy")
   sort_order Int          @default(0)
   is_active  Boolean      @default(true)
@@ -172,7 +183,7 @@ model profiles {
   about                   String?
   role                    UserRole                        @default(user)
   created_at              DateTime                        @default(now())
-  updated_at              DateTime                        @default(now())
+  updated_at              DateTime                        @updatedAt()
   company_name            String?
   registration_number     String?
   is_deleted              Boolean                         @default(false)
@@ -195,6 +206,8 @@ model profiles {
   reviews_given           reviews[]                       @relation("ReviewClient")
   reviews_received        reviews[]                       @relation("ReviewProvider")
   location_tracks         request_locations[]
+  ad_stories              ad_stories[]
+  listing_boosts          listing_boosts[]
 
   @@index([is_deleted])
   @@index([is_company])
@@ -311,14 +324,15 @@ model listings {
   updated_at       DateTime                 @updatedAt()
   published_at     DateTime?
   user             profiles                 @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  category         categories?              @relation(fields: [category_id], references: [id])
-  aimag            aimags?                  @relation(fields: [aimag_id], references: [id])
-  district         districts?               @relation(fields: [district_id], references: [id])
-  khoroo           khoroos?                 @relation(fields: [khoroo_id], references: [id])
+  category         categories?              @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  aimag            aimags?                  @relation(fields: [aimag_id], references: [id], onDelete: SetNull)
+  district         districts?               @relation(fields: [district_id], references: [id], onDelete: SetNull)
+  khoroo           khoroos?                 @relation(fields: [khoroo_id], references: [id], onDelete: SetNull)
   images           listings_images[]
   views            listings_views[]
   favorites        user_favorites[]
   requests         listing_requests[]
+  boosts           listing_boosts[]
 
   @@index([user_id])
   @@index([slug])
@@ -408,9 +422,9 @@ model listing_requests {
   listing                listings            @relation(fields: [listing_id], references: [id], onDelete: Cascade)
   client                 profiles            @relation("ClientRequests", fields: [client_id], references: [id], onDelete: Cascade)
   provider               profiles            @relation("ProviderRequests", fields: [provider_id], references: [id], onDelete: Cascade)
-  aimag                  aimags?             @relation(fields: [aimag_id], references: [id])
-  district               districts?          @relation(fields: [district_id], references: [id])
-  khoroo                 khoroos?            @relation(fields: [khoroo_id], references: [id])
+  aimag                  aimags?             @relation(fields: [aimag_id], references: [id], onDelete: SetNull)
+  district               districts?          @relation(fields: [district_id], references: [id], onDelete: SetNull)
+  khoroo                 khoroos?            @relation(fields: [khoroo_id], references: [id], onDelete: SetNull)
   notifications          notifications[]
   chat_messages          chat_messages[]
   review                 reviews?
@@ -510,4 +524,39 @@ model request_locations {
   @@index([updated_at])
   @@index([request_id, updated_at(sort: Desc)])
   @@map("request_locations")
+}
+
+model ad_stories {
+  id          String        @id() @default(uuid()) @db.Uuid()
+  user_id     String        @db.Uuid()
+  image_url   String
+  plan        String        @default("1day")
+  status      AdStoryStatus @default(active)
+  editor_data Json?
+  views_count Int           @default(0)
+  created_at  DateTime      @default(now())
+  expires_at  DateTime
+  user        profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([status, expires_at(sort: Desc)])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([status, created_at(sort: Desc)])
+  @@map("ad_stories")
+}
+
+model listing_boosts {
+  id         String      @id() @default(uuid()) @db.Uuid()
+  listing_id String      @db.Uuid()
+  user_id    String      @db.Uuid()
+  plan       String      @default("3day")
+  status     BoostStatus @default(boost_active)
+  created_at DateTime    @default(now())
+  expires_at DateTime
+  listing    listings    @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  user       profiles    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([listing_id, status])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([status, expires_at])
+  @@map("listing_boosts")
 }

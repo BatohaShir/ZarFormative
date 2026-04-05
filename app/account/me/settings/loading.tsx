@@ -1,16 +1,10 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { InnerHeader } from "@/components/app-header";
 
 export default function SettingsLoading() {
   return (
     <div className="min-h-screen bg-linear-to-b from-muted/30 to-background pb-24 md:pb-8">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-lg">
-        <div className="container mx-auto px-4 h-14 flex items-center gap-4">
-          <Skeleton className="h-10 w-10 rounded-full" />
-          <Skeleton className="h-6 w-32" />
-          <div className="flex-1" />
-          <Skeleton className="h-8 w-8 rounded-full" />
-        </div>
-      </header>
+      <InnerHeader />
 
       <div className="container mx-auto px-4 py-6 max-w-2xl space-y-6">
         {Array.from({ length: 4 }).map((_, s) => (

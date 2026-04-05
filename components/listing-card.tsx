@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { Heart, MapPin, Eye, User, Navigation } from "lucide-react";
+import { Heart, MapPin, Eye, User, Navigation, Crown } from "lucide-react";
 import { useFavorites } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import type {
@@ -17,7 +17,7 @@ import type {
   khoroos,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { formatListingPrice } from "@/lib/utils";
+import { formatListingPrice, cn } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
 // Lazy load map modal
@@ -46,11 +46,13 @@ interface ListingCardProps {
   listing: ListingWithRelations;
   /** Prioritize image loading for LCP optimization (first visible cards) */
   priority?: boolean;
+  isVip?: boolean;
 }
 
 export const ListingCard = React.memo(function ListingCard({
   listing,
   priority = false,
+  isVip = false,
 }: ListingCardProps) {
   const { toggleFavorite, isFavorite, isToggling } = useFavorites();
   const { user } = useAuth();
@@ -97,7 +99,12 @@ export const ListingCard = React.memo(function ListingCard({
     <Link
       href={`/services/${listing.slug}`}
       prefetch={true}
-      className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/20 hover:shadow-lg transition-all duration-300"
+      className={cn(
+        "cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300",
+        isVip
+          ? "border-2 border-amber-400/60 hover:border-amber-400"
+          : "border hover:border-primary/20"
+      )}
     >
       {/* Image */}
       <div className="aspect-4/3 relative overflow-hidden">

@@ -28,6 +28,9 @@ import {
   CheckCircle,
   PauseCircle,
   LayoutGrid,
+  Zap,
+  X,
+  Crown,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -42,6 +45,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
+import { useFindManylisting_boosts, useCreatelisting_boosts } from "@/lib/hooks/listing-boosts";
 import { formatListingPrice } from "@/lib/utils";
 import { deleteAllListingImages } from "@/lib/storage/listings";
 import type { listings } from "@prisma/client";
@@ -82,18 +86,62 @@ function ServiceCardSkeleton() {
   );
 }
 
+// VIP countdown component
+function BoostCountdown({ expiresAt }: { expiresAt: string }) {
+  const [timeLeft, setTimeLeft] = React.useState("");
+
+  React.useEffect(() => {
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft("Дууссан");
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      if (days > 0) setTimeLeft(`${days}ө ${hours}ц`);
+      else if (hours > 0) setTimeLeft(`${hours}ц ${mins}м`);
+      else setTimeLeft(`${mins}м`);
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <Crown className="w-3.5 h-3.5 text-amber-500" />
+      <span className="text-[10px] md:text-xs font-semibold text-amber-600 dark:text-amber-400">
+        VIP
+      </span>
+      <span className="text-[10px] md:text-xs text-muted-foreground">{timeLeft} үлдсэн</span>
+    </div>
+  );
+}
+
 // Карточка услуги - мемоизированный компонент
+interface ActiveBoost {
+  id: string;
+  listing_id: string;
+  expires_at: string;
+}
+
 const ServiceCard = React.memo(function ServiceCard({
   listing,
   onToggleActive,
   onEdit,
   onDelete,
+  onBoost,
+  activeBoost,
   isUpdatingThisCard,
 }: {
   listing: ListingWithRelations;
   onToggleActive: (id: string, status: ListingStatus) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onBoost: (id: string) => void;
+  activeBoost: ActiveBoost | undefined;
   isUpdatingThisCard: boolean;
 }) {
   const imageUrl = listing.images?.[0]?.url || PLACEHOLDER_IMAGE;
@@ -126,6 +174,15 @@ const ServiceCard = React.memo(function ServiceCard({
       onToggleActive(listing.id, status);
     },
     [onToggleActive, listing.id, status]
+  );
+
+  const handleBoost = React.useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onBoost(listing.id);
+    },
+    [onBoost, listing.id]
   );
 
   return (
@@ -226,6 +283,23 @@ const ServiceCard = React.memo(function ServiceCard({
           </div>
         </div>
       </div>
+
+      {/* VIP Boost section under card */}
+      {isActive && (
+        <div className="border-t px-3 md:px-4 py-2.5">
+          {activeBoost ? (
+            <BoostCountdown expiresAt={activeBoost.expires_at} />
+          ) : (
+            <button
+              onClick={handleBoost}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-600 dark:text-amber-400 text-xs font-semibold transition-colors"
+            >
+              <Crown className="w-3.5 h-3.5" />
+              VIP зар болгох
+            </button>
+          )}
+        </div>
+      )}
     </Link>
   );
 });
@@ -305,6 +379,34 @@ export function ServicesClient() {
       staleTime: 30 * 1000,
     }
   );
+
+  // Active boosts via ZenStack
+  const { data: activeBoosts } = useFindManylisting_boosts(
+    {
+      where: {
+        user_id: user?.id,
+        status: "boost_active",
+        expires_at: { gt: new Date().toISOString() },
+      },
+      orderBy: { expires_at: "desc" },
+    },
+    { enabled: !!user?.id, staleTime: 30 * 1000 }
+  );
+
+  const boostByListing = React.useMemo(() => {
+    const map = new Map<string, ActiveBoost>();
+    for (const b of activeBoosts || []) {
+      const existing = map.get(b.listing_id);
+      if (!existing || new Date(b.expires_at) > new Date(existing.expires_at)) {
+        map.set(b.listing_id, {
+          id: b.id,
+          listing_id: b.listing_id,
+          expires_at: b.expires_at.toString(),
+        });
+      }
+    }
+    return map;
+  }, [activeBoosts]);
 
   // Мутации
   const { mutateAsync: updateListing } = useUpdatelistings();
@@ -410,6 +512,44 @@ export function ServicesClient() {
     setListingToDelete(id);
     setDeleteDialogOpen(true);
   }, []);
+
+  // Boost (VIP) modal
+  const [boostListingId, setBoostListingId] = React.useState<string | null>(null);
+  const [boostPlan, setBoostPlan] = React.useState("3day");
+  const [boostSuccess, setBoostSuccess] = React.useState(false);
+  const { mutateAsync: createBoost, isPending: isBoostSubmitting } = useCreatelisting_boosts();
+
+  const BOOST_DURATIONS: Record<string, number> = {
+    "3day": 3 * 24 * 60 * 60 * 1000,
+    "7day": 7 * 24 * 60 * 60 * 1000,
+    "14day": 14 * 24 * 60 * 60 * 1000,
+  };
+
+  const openBoostModal = React.useCallback((id: string) => {
+    setBoostListingId(id);
+    setBoostPlan("3day");
+    setBoostSuccess(false);
+  }, []);
+
+  const handleBoostSubmit = React.useCallback(async () => {
+    if (!boostListingId || !user?.id) return;
+    try {
+      const duration = BOOST_DURATIONS[boostPlan] || BOOST_DURATIONS["3day"];
+      await createBoost({
+        data: {
+          listing: { connect: { id: boostListingId } },
+          user: { connect: { id: user.id } },
+          plan: boostPlan,
+          expires_at: new Date(Date.now() + duration),
+        },
+      });
+      setBoostSuccess(true);
+      // Invalidate boosts cache
+      queryClient.invalidateQueries({ queryKey: ["listing_boosts"] });
+    } catch {
+      toast.error("Алдаа гарлаа");
+    }
+  }, [boostListingId, boostPlan, user?.id, createBoost, queryClient]);
 
   // Мемоизированный фильтрованный список
   const filteredListings = React.useMemo(() => {
@@ -581,6 +721,8 @@ export function ServicesClient() {
                 onToggleActive={handleToggleActive}
                 onEdit={handleEdit}
                 onDelete={openDeleteDialog}
+                onBoost={openBoostModal}
+                activeBoost={boostByListing.get(listing.id)}
                 isUpdatingThisCard={updatingId === listing.id}
               />
             ))}
@@ -631,6 +773,93 @@ export function ServicesClient() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* VIP Boost Modal */}
+      {boostListingId && !boostSuccess && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-background rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-500" />
+                <h2 className="font-semibold text-lg">VIP зар болгох</h2>
+              </div>
+              <button
+                onClick={() => setBoostListingId(null)}
+                className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-2">
+              <label className="text-sm font-medium mb-1 block">Багц сонгох</label>
+              {[
+                { id: "3day", label: "3 хоног", desc: "72 цагийн турш VIP", price: "10,000₮" },
+                { id: "7day", label: "7 хоног", desc: "1 долоо хоног VIP", price: "18,000₮" },
+                { id: "14day", label: "14 хоног", desc: "2 долоо хоног VIP", price: "30,000₮" },
+              ].map((p) => (
+                <label
+                  key={p.id}
+                  className={`flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-colors ${boostPlan === p.id ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20" : "border-border hover:border-amber-500/40"}`}
+                >
+                  <input
+                    type="radio"
+                    name="boost-plan"
+                    checked={boostPlan === p.id}
+                    onChange={() => setBoostPlan(p.id)}
+                    className="accent-amber-500"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">{p.label}</p>
+                    <p className="text-xs text-muted-foreground">{p.desc}</p>
+                  </div>
+                  <span className="font-bold text-amber-600">{p.price}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="p-4 border-t">
+              <button
+                onClick={handleBoostSubmit}
+                disabled={isBoostSubmitting}
+                className="w-full h-11 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isBoostSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Оруулж байна...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="w-4 h-4" /> Төлбөр төлөх
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Boost Success Modal */}
+      {boostSuccess && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-background rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden text-center p-8 relative">
+            <button
+              onClick={() => {
+                setBoostListingId(null);
+                setBoostSuccess(false);
+              }}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
+              <Crown className="w-8 h-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Амжилттай!</h2>
+            <p className="text-sm text-muted-foreground">Таны зар VIP болгогдлоо</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

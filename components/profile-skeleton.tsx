@@ -1,6 +1,7 @@
 "use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { InnerHeader } from "@/components/app-header";
 
 /**
  * Skeleton компонент для страницы профиля
@@ -12,19 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function ProfileSkeleton() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header Skeleton */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Skeleton className="h-8 w-8 md:h-10 md:w-10 rounded-md" />
-            <Skeleton className="h-6 w-32 md:w-40" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-md" />
-            <Skeleton className="h-8 w-8 rounded-md" />
-          </div>
-        </div>
-      </header>
+      <InnerHeader />
 
       <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Profile Header Skeleton */}

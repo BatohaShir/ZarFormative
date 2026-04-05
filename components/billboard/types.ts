@@ -30,3 +30,51 @@ export interface AdStory {
   company_logo: string;
   slides: StorySlide[];
 }
+
+// DB story from API
+export interface DbAdStory {
+  id: string;
+  user_id: string;
+  image_url: string;
+  plan: string;
+  status: string;
+  editor_data: EditorData | null;
+  views_count: number;
+  created_at: string;
+  expires_at: string;
+  user: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+    company_name: string | null;
+    is_company: boolean;
+  };
+}
+
+export interface EditorData {
+  texts: EditorText[];
+  stickers: EditorSticker[];
+  rotation: number;
+  brightness: number;
+}
+
+export interface EditorText {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  color: string;
+  fontSize: number;
+  fontFamily: string;
+  bgStyle: "none" | "filled" | "outline";
+  strikethrough: boolean;
+}
+
+export interface EditorSticker {
+  id: string;
+  emoji: string;
+  x: number;
+  y: number;
+  size: number;
+}

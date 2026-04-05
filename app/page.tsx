@@ -24,8 +24,8 @@ export const revalidate = 60;
 // Функция загрузки данных на сервере
 async function getHomePageData() {
   try {
-    // Параллельно загружаем категории и объявления
-    const [categoriesData, listingsData] = await Promise.all([
+    // Параллельно загружаем категории, объявления и VIP бусты
+    const [categoriesData, listingsData, boostedListingIds] = await Promise.all([
       prisma.categories.findMany({
         where: { is_active: true },
         orderBy: [
@@ -85,6 +85,16 @@ async function getHomePageData() {
         },
         take: 8,
       }),
+      prisma.listing_boosts
+        .findMany({
+          where: {
+            status: "boost_active",
+            expires_at: { gt: new Date() },
+          },
+          select: { listing_id: true },
+          distinct: ["listing_id"],
+        })
+        .then((boosts) => new Set(boosts.map((b) => b.listing_id))),
     ]);
 
     // Строим дерево категорий
@@ -105,6 +115,7 @@ async function getHomePageData() {
       categories: categoryTree,
       allCategories: categoriesData,
       listings: serializedListings as ListingWithRelations[],
+      boostedIds: boostedListingIds,
     };
   } catch (error) {
     console.error("Failed to load home page data:", error);
@@ -113,12 +124,13 @@ async function getHomePageData() {
       categories: fallbackCategories as unknown as CategoryWithChildren[],
       allCategories: [],
       listings: [] as ListingWithRelations[],
+      boostedIds: new Set<string>(),
     };
   }
 }
 
 export default async function Home() {
-  const [{ categories, allCategories, listings }, t] = await Promise.all([
+  const [{ categories, allCategories, listings, boostedIds }, t] = await Promise.all([
     getHomePageData(),
     getTranslations(),
   ]);
@@ -170,7 +182,7 @@ export default async function Home() {
       <CategoriesSectionSSR categories={categories} allCategories={allCategories} />
 
       {/* Recommendations - SSR с предзагруженными данными */}
-      <RecommendedListingsSSR listings={listings} />
+      <RecommendedListingsSSR listings={listings} boostedIds={[...boostedIds]} />
 
       {/* Footer - Desktop only */}
       <div className="hidden md:block">

@@ -102,9 +102,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       sessionStorage.setItem(SYNC_KEY, currentUserId);
       document.cookie = `${LOCALE_COOKIE}=${preferredLang};path=/;max-age=31536000;SameSite=Lax`;
       localStorage.setItem("locale", preferredLang);
-      // Use router.refresh() instead of window.location.reload()
-      // to preserve unsaved form state and avoid full page reload
-      router.refresh();
+      // startTransition keeps the current UI visible while server components re-render,
+      // preventing a white flash during locale sync
+      React.startTransition(() => {
+        router.refresh();
+      });
     } else {
       // Язык уже совпадает - просто помечаем как синхронизированный
       sessionStorage.setItem(SYNC_KEY, currentUserId);

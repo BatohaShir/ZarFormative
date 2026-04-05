@@ -1,24 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { HomeHeader } from "@/components/app-header";
+import { Footer } from "@/components/footer";
 
 export default function RootLoading() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <Skeleton className="h-6 w-32 md:h-8 md:w-40" />
-          <div className="flex md:hidden items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-lg" />
-            <Skeleton className="h-8 w-8 rounded-lg" />
-          </div>
-          <nav className="hidden md:flex items-center gap-4">
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-10 w-24 rounded-lg" />
-          </nav>
-        </div>
-      </header>
+      <HomeHeader />
 
       <div className="container mx-auto px-4">
         <section className="py-8 md:py-12 text-center">
@@ -65,6 +52,11 @@ export default function RootLoading() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Footer - Desktop only */}
+      <div className="hidden md:block">
+        <Footer />
       </div>
     </div>
   );

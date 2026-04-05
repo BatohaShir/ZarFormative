@@ -6,10 +6,14 @@ import { ListingCard, type ListingWithRelations } from "@/components/listing-car
 
 interface RecommendedListingsSSRProps {
   listings: ListingWithRelations[];
+  boostedIds?: string[];
 }
 
-export function RecommendedListingsSSR({ listings }: RecommendedListingsSSRProps) {
+export function RecommendedListingsSSR({ listings, boostedIds = [] }: RecommendedListingsSSRProps) {
   const hasListings = listings && listings.length > 0;
+  const boostedSet = new Set(boostedIds);
+  const vipListings = listings.filter((l) => boostedSet.has(l.id));
+  const regularListings = listings.filter((l) => !boostedSet.has(l.id));
 
   // Если нет объявлений - показываем пустое состояние
   if (!hasListings) {
@@ -47,8 +51,15 @@ export function RecommendedListingsSSR({ listings }: RecommendedListingsSSRProps
         </Link>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-        {listings.map((listing, index) => (
-          <ListingCard key={listing.id} listing={listing} priority={index < 4} />
+        {vipListings.map((listing) => (
+          <ListingCard key={listing.id} listing={listing} priority isVip />
+        ))}
+        {regularListings.map((listing, index) => (
+          <ListingCard
+            key={listing.id}
+            listing={listing}
+            priority={vipListings.length === 0 && index < 4}
+          />
         ))}
       </div>
     </section>

@@ -304,6 +304,8 @@ model profiles {
   reviews_given          reviews[] @relation("ReviewClient")               // Отзывы, которые я оставил
   reviews_received       reviews[] @relation("ReviewProvider")             // Отзывы, которые получил
   location_tracks        request_locations[]                               // Мои геолокации в заявках
+  ad_stories             ad_stories[]                                      // Мои рекламные stories
+  listing_boosts         listing_boosts[]                                  // Мои VIP бусты
 
   // Indexes for query optimization
   @@index([is_deleted]) // For filtering active profiles
@@ -557,6 +559,7 @@ model listings {
   views         listings_views[]
   favorites     user_favorites[]
   requests      listing_requests[]  // Заявки на это объявление
+  boosts        listing_boosts[]   // VIP продвижения
 
   // Indexes для оптимизации запросов
   // OPTIMIZED: Consolidated indexes - removed redundant ones to improve write performance
@@ -982,4 +985,87 @@ model request_locations {
 
   // Admin видит все
   @@allow('all', auth().role == admin)
+}
+
+// ============================================
+// Ad Stories - рекламные истории (stories)
+// ============================================
+
+enum AdStoryStatus {
+  active
+  expired
+  cancelled
+}
+
+model ad_stories {
+  id              String        @id @default(uuid()) @db.Uuid
+  user_id         String        @db.Uuid
+  image_url       String                          // URL изображения в storage
+  plan            String        @default("1day")  // 1day, 2day
+  status          AdStoryStatus @default(active)
+  editor_data     Json?                           // Текст, стикеры, поворот, яркость
+  views_count     Int           @default(0)
+  created_at      DateTime      @default(now())
+  expires_at      DateTime                        // Когда истечёт (created_at + plan duration)
+
+  // Relations
+  user            profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([status, expires_at(sort: Desc)])       // Активные stories
+  @@index([user_id, created_at(sort: Desc)])      // Stories пользователя
+  @@index([status, created_at(sort: Desc)])       // Для ленты
+
+  @@map("ad_stories")
+
+  // === RBAC Rules ===
+  // Все могут видеть активные stories
+  @@allow('read', status == active)
+
+  // Владелец видит все свои
+  @@allow('read', auth() != null && auth().id == user_id)
+
+  // Авторизованный пользователь может создать
+  @@allow('create', auth() != null && auth().id == user_id)
+
+  // Владелец может обновить свой story
+  @@allow('update', auth() != null && auth().id == user_id)
+
+  // Admin может всё
+  @@allow('all', auth().role == admin)
+}
+
+// ============================================
+// Listing Boosts - VIP продвижение объявлений
+// ============================================
+
+enum BoostStatus {
+  boost_active   @map("active")
+  boost_expired  @map("expired")
+}
+
+model listing_boosts {
+  id          String      @id @default(uuid()) @db.Uuid
+  listing_id  String      @db.Uuid
+  user_id     String      @db.Uuid
+  plan        String      @default("3day")    // 3day, 7day, 14day
+  status      BoostStatus @default(boost_active)
+  created_at  DateTime    @default(now())
+  expires_at  DateTime
+
+  // Relations
+  listing     listings    @relation(fields: [listing_id], references: [id], onDelete: Cascade)
+  user        profiles    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([listing_id, status])
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([status, expires_at])
+
+  @@map("listing_boosts")
+
+  // === RBAC Rules ===
+  @@allow('read', auth() != null && auth().id == user_id)
+  @@allow('create', auth() != null && auth().id == user_id)
+  @@allow('read,update', auth().role == admin)
 }

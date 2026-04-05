@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { RequestForm } from "@/components/request-form";
 import { ChevronLeft, MapPin, Heart, Eye, Navigation, FileText } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
+import { InnerHeader } from "@/components/app-header";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatListingPrice } from "@/lib/utils";
@@ -429,19 +430,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
 export function ServiceDetailSkeleton() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-        <div className="container mx-auto px-3 md:px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Skeleton className="h-8 w-8 md:h-10 md:w-10 rounded-lg" />
-            <Skeleton className="h-6 w-32 hidden sm:block" />
-          </div>
-          <div className="hidden md:flex items-center gap-4">
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-10 w-10 rounded-lg" />
-            <Skeleton className="h-10 w-10 rounded-lg" />
-          </div>
-        </div>
-      </header>
+      <InnerHeader />
       <main className="container mx-auto px-3 md:px-4 py-4 md:py-6">
         <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
