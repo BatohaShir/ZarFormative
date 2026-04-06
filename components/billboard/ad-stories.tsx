@@ -93,6 +93,24 @@ function StoryRing({
   const totalGap = gap * total;
   const segmentAngle = (360 - totalGap) / total;
 
+  // Single story — full circle
+  if (total === 1) {
+    const viewed = viewedSet.has(storyIds[0]);
+    return (
+      <svg viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 w-full h-full">
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={viewed ? "#d1d5db" : "#3b82f6"}
+          strokeWidth={strokeWidth}
+        />
+      </svg>
+    );
+  }
+
+  // Multiple stories — segmented arcs
   return (
     <svg
       viewBox={`0 0 ${size} ${size}`}
