@@ -1,13 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  useFindManylistings,
-  useUpdatelistings,
-  useDeletelistings,
-} from "@/lib/hooks/listings";
+import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
@@ -112,7 +108,11 @@ export default function ListingsPage() {
   const queryClient = useQueryClient();
 
   // Fetch listings с include
-  const { data: listings, isLoading, refetch } = useFindManylistings(
+  const {
+    data: listings,
+    isLoading,
+    refetch,
+  } = useFindManylistings(
     {
       orderBy: { created_at: "desc" },
       include: {
@@ -180,18 +180,20 @@ export default function ListingsPage() {
     };
   }, [refetchListings]);
 
-  // Фильтрация
-  const filteredListings = (listings || []).filter((listing) => {
-    const searchLower = search.toLowerCase();
-    const matchesSearch =
-      !search ||
-      listing.title.toLowerCase().includes(searchLower) ||
-      listing.slug.toLowerCase().includes(searchLower);
+  // OPTIMIZATION: Мемоизация фильтрации
+  const filteredListings = React.useMemo(() => {
+    return (listings || []).filter((listing) => {
+      const searchLower = search.toLowerCase();
+      const matchesSearch =
+        !search ||
+        listing.title.toLowerCase().includes(searchLower) ||
+        listing.slug.toLowerCase().includes(searchLower);
 
-    const matchesStatus = statusFilter === "all" || listing.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || listing.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    });
+  }, [listings, search, statusFilter]);
 
   // Изменение статуса
   const handleStatusChange = async (listingId: string, newStatus: ListingStatus) => {
@@ -241,13 +243,16 @@ export default function ListingsPage() {
     }
   };
 
-  // Статистика
-  const stats = {
-    total: listings?.length || 0,
-    active: listings?.filter((l) => l.status === "active").length || 0,
-    draft: listings?.filter((l) => l.status === "draft").length || 0,
-    paused: listings?.filter((l) => l.status === "paused").length || 0,
-  };
+  // OPTIMIZATION: Мемоизация статистики
+  const stats = React.useMemo(
+    () => ({
+      total: listings?.length || 0,
+      active: listings?.filter((l) => l.status === "active").length || 0,
+      draft: listings?.filter((l) => l.status === "draft").length || 0,
+      paused: listings?.filter((l) => l.status === "paused").length || 0,
+    }),
+    [listings]
+  );
 
   // Получить имя владельца
   const getOwnerName = (listing: Listing) => {
@@ -266,13 +271,7 @@ export default function ListingsPage() {
     if (image?.url) {
       return (
         <div className="w-16 h-12 rounded-lg overflow-hidden relative bg-gray-100 dark:bg-gray-800">
-          <Image
-            src={image.url}
-            alt={listing.title}
-            fill
-            className="object-cover"
-            unoptimized
-          />
+          <Image src={image.url} alt={listing.title} fill className="object-cover" unoptimized />
         </div>
       );
     }
@@ -307,10 +306,7 @@ export default function ListingsPage() {
 
         {isOpen && (
           <>
-            <div
-              className="fixed inset-0 z-10"
-              onClick={() => setOpenDropdown(null)}
-            />
+            <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
             <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 min-w-[160px] py-1">
               {(Object.keys(STATUS_INFO) as ListingStatus[]).map((status) => {
                 const info = STATUS_INFO[status];
@@ -344,38 +340,26 @@ export default function ListingsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Услуги
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Модерация объявлений и услуг
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Услуги</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Модерация объявлений и услуг</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {stats.total}
-          </div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
           <div className="text-sm text-gray-500">Всего</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-green-600">
-            {stats.active}
-          </div>
+          <div className="text-2xl font-bold text-green-600">{stats.active}</div>
           <div className="text-sm text-gray-500">Активных</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-gray-600">
-            {stats.draft}
-          </div>
+          <div className="text-2xl font-bold text-gray-600">{stats.draft}</div>
           <div className="text-sm text-gray-500">Черновиков</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-yellow-600">
-            {stats.paused}
-          </div>
+          <div className="text-2xl font-bold text-yellow-600">{stats.paused}</div>
           <div className="text-sm text-gray-500">Приостановлено</div>
         </div>
       </div>

@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
-import { useFavorites } from "@/contexts/favorites-context";
+import { useFavoriteIds } from "@/contexts/favorites-context";
 
 interface FavoritesButtonProps {
   className?: string;
 }
 
 export function FavoritesButton({ className }: FavoritesButtonProps) {
-  const { count } = useFavorites();
+  const { count } = useFavoriteIds();
 
   return (
     <Link href="/account/me/favorites">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   useFindManykhoroos,
   useCreatekhoroos,
@@ -129,14 +129,17 @@ export default function KhoroosPage() {
   const updateMutation = useUpdatekhoroos();
   const deleteMutation = useDeletekhoroos();
 
-  // Filter by search
-  const filteredKhoroos =
-    khoroos?.filter(
-      (k) =>
-        k.name.toLowerCase().includes(search.toLowerCase()) ||
-        k.district?.name.toLowerCase().includes(search.toLowerCase()) ||
-        k.district?.aimag?.name.toLowerCase().includes(search.toLowerCase())
-    ) || [];
+  // OPTIMIZATION: Мемо��зация фильтрации
+  const filteredKhoroos = React.useMemo(
+    () =>
+      khoroos?.filter(
+        (k) =>
+          k.name.toLowerCase().includes(search.toLowerCase()) ||
+          k.district?.name.toLowerCase().includes(search.toLowerCase()) ||
+          k.district?.aimag?.name.toLowerCase().includes(search.toLowerCase())
+      ) || [],
+    [khoroos, search]
+  );
 
   // Open modal for create
   const openCreateModal = () => {

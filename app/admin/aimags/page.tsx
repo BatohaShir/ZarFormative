@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   useFindManyaimags,
   useCreateaimags,
@@ -82,14 +82,17 @@ export default function AimagsPage() {
   const updateMutation = useUpdateaimags();
   const deleteMutation = useDeleteaimags();
 
-  // Filter by search
-  const filteredAimags =
-    aimags?.filter(
-      (a) =>
-        a.name.toLowerCase().includes(search.toLowerCase()) ||
-        a.code.toLowerCase().includes(search.toLowerCase()) ||
-        a.name_en?.toLowerCase().includes(search.toLowerCase())
-    ) || [];
+  // OPTIMIZATION: Мемоизация фильтрации
+  const filteredAimags = React.useMemo(
+    () =>
+      aimags?.filter(
+        (a) =>
+          a.name.toLowerCase().includes(search.toLowerCase()) ||
+          a.code.toLowerCase().includes(search.toLowerCase()) ||
+          a.name_en?.toLowerCase().includes(search.toLowerCase())
+      ) || [],
+    [aimags, search]
+  );
 
   // Open modal for create
   const openCreateModal = () => {

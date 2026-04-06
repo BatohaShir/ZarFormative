@@ -2,36 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { useRealtimeConnection } from "@/hooks/use-realtime-connection";
+import { useAuth } from "@/contexts/auth-context";
 import { WifiOff, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
- * Banner that shows when realtime connection is lost
- * with a 2-second debounce to avoid flickering
+ * Inner banner component — only rendered for authenticated users.
+ * This avoids creating a WebSocket connection for guest visitors.
  */
-export function RealtimeConnectionBanner() {
+function RealtimeConnectionBannerInner() {
   const { status, isConnected, isReconnecting, reconnect } = useRealtimeConnection();
   const [showBanner, setShowBanner] = useState(false);
 
-  // Debounce showing the banner to avoid flicker on brief disconnects
+  // Debounce: show banner after 2s of disconnect, hide immediately on reconnect
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-
     if (!isConnected && status !== "connecting") {
-      // Wait 2 seconds before showing banner
-      timeoutId = setTimeout(() => {
-        setShowBanner(true);
-      }, 2000);
-    } else {
-      setShowBanner(false);
+      const timeoutId = setTimeout(() => setShowBanner(true), 2000);
+      return () => clearTimeout(timeoutId);
     }
-
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
+    // Connected or connecting — schedule hide on microtask to avoid sync setState in effect
+    const id = requestAnimationFrame(() => setShowBanner(false));
+    return () => cancelAnimationFrame(id);
   }, [isConnected, status]);
 
   if (!showBanner) return null;
@@ -46,9 +38,7 @@ export function RealtimeConnectionBanner() {
       )}
     >
       <WifiOff className="h-4 w-4 shrink-0" />
-      <span>
-        {isReconnecting ? "Дахин холбогдож байна..." : "Интернэт холболт тасарсан"}
-      </span>
+      <span>{isReconnecting ? "Дахин холбогдож байна..." : "Интернэт холболт тасарсан"}</span>
       {!isReconnecting && (
         <Button
           variant="ghost"
@@ -63,4 +53,18 @@ export function RealtimeConnectionBanner() {
       {isReconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
     </div>
   );
+}
+
+/**
+ * Banner that shows when realtime connection is lost.
+ * Only renders for authenticated users to avoid creating
+ * unnecessary WebSocket connections for guest visitors.
+ */
+export function RealtimeConnectionBanner() {
+  const { isAuthenticated } = useAuth();
+
+  // Don't create WebSocket for guests
+  if (!isAuthenticated) return null;
+
+  return <RealtimeConnectionBannerInner />;
 }

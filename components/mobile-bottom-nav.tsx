@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Home, Heart, Plus, FileText, User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useFavorites } from "@/contexts/favorites-context";
+import { useFavoriteIds } from "@/contexts/favorites-context";
 import { useMessages } from "@/contexts/messages-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useState } from "react";
@@ -15,7 +15,7 @@ import { AuthModal } from "./auth-modal";
 export function MobileBottomNav() {
   const pathname = usePathname();
   const t = useTranslations();
-  const { count: favoritesCount } = useFavorites();
+  const { count: favoritesCount } = useFavoriteIds();
   const { totalUnreadCount } = useMessages();
   const { isAuthenticated, avatarUrl } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -27,14 +27,7 @@ export function MobileBottomNav() {
     return pathname.startsWith(path);
   };
 
-  const handleRequestsClick = (e: React.MouseEvent) => {
-    if (!isAuthenticated) {
-      e.preventDefault();
-      setShowAuthModal(true);
-    }
-  };
-
-  const handleProfileClick = (e: React.MouseEvent) => {
+  const handleAuthClick = (e: React.MouseEvent) => {
     if (!isAuthenticated) {
       e.preventDefault();
       setShowAuthModal(true);
@@ -70,7 +63,7 @@ export function MobileBottomNav() {
       label: t("nav.requests"),
       isActive: isActive("/account/me/requests"),
       badge: totalUnreadCount > 0 ? totalUnreadCount : null,
-      onClick: handleRequestsClick,
+      onClick: handleAuthClick,
     },
     {
       href: "/account/me",
@@ -78,7 +71,7 @@ export function MobileBottomNav() {
       label: t("nav.profile"),
       isActive: pathname === "/account/me",
       badge: null,
-      onClick: handleProfileClick,
+      onClick: handleAuthClick,
     },
   ];
 
@@ -110,10 +103,12 @@ export function MobileBottomNav() {
                   >
                     <Icon className="h-6 w-6 text-white" />
                   </div>
-                  <span className={cn(
-                    "text-[10px] font-medium mt-1",
-                    active ? "text-blue-600 dark:text-blue-400" : "text-primary"
-                  )}>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium mt-1",
+                      active ? "text-blue-600 dark:text-blue-400" : "text-primary"
+                    )}
+                  >
                     {item.label}
                   </span>
                 </Link>
@@ -175,18 +170,14 @@ export function MobileBottomNav() {
                   <Icon
                     className={cn(
                       "h-5 w-5 transition-colors",
-                      active
-                        ? "text-primary"
-                        : "text-muted-foreground hover:text-foreground"
+                      active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   />
                   {item.badge !== null && (
                     <div
                       className={cn(
                         "absolute -top-1.5 -right-2 h-4.5 min-w-4.5 px-1 rounded-full flex items-center justify-center text-[10px] font-bold text-white",
-                        item.label === "Заявки"
-                          ? "bg-red-500"
-                          : "bg-pink-500"
+                        item.label === "Заявки" ? "bg-red-500" : "bg-pink-500"
                       )}
                     >
                       {item.badge > 99 ? "99+" : item.badge}
@@ -208,10 +199,7 @@ export function MobileBottomNav() {
       </nav>
 
       {showAuthModal && (
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-        />
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       )}
     </>
   );

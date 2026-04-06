@@ -416,12 +416,21 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
 
   const listingsData = (listings || []) as ListingWithRelations[];
 
+  // OPTIMIZATION: Round date to 5-min intervals for stable query key.
+  // Value changes at next re-render after a 5-min boundary passes (not on a timer).
+  // On this page, infinite scroll and filters cause frequent re-renders, so the value stays fresh.
+  const boostDateThreshold = React.useMemo(() => {
+    const fiveMin = 5 * 60 * 1000;
+    return new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.floor(Date.now() / (5 * 60 * 1000))]);
+
   // Load active boosts to identify VIP listings
   const { data: activeBoosts } = useFindManylisting_boosts(
     {
       where: {
         status: "boost_active",
-        expires_at: { gt: new Date().toISOString() },
+        expires_at: { gt: boostDateThreshold },
       },
       select: { listing_id: true },
     },
@@ -443,6 +452,9 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     }
     return { vipListings: vip, regularListings: regular };
   }, [listingsData, boostedIds]);
+
+  // OPTIMIZATION: Memoize billboard data to avoid calling getMockBillboards on every render
+  const inlineBillboards = React.useMemo(() => getMockBillboards("services_inline"), []);
 
   // Total count: используем initial если нет фильтров, иначе текущий список
   const displayTotalCount = !hasFilters ? initialTotalCount : listingsData.length;
@@ -635,7 +647,6 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
                     ];
                     // Insert inline billboard card after every 8th listing
                     if ((index + 1) % 8 === 0) {
-                      const inlineBillboards = getMockBillboards("services_inline");
                       const bbIndex = Math.floor(index / 8) % Math.max(inlineBillboards.length, 1);
                       const bb = inlineBillboards[bbIndex];
                       if (bb) {

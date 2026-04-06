@@ -1314,11 +1314,19 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
 export function AdStories() {
   const { isAuthenticated } = useAuth();
 
+  // OPTIMIZATION: Round date to 5-min intervals for stable query key.
+  // Value changes at next re-render after a 5-min boundary (not on a timer).
+  const storiesDateThreshold = React.useMemo(() => {
+    const fiveMin = 5 * 60 * 1000;
+    return new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.floor(Date.now() / (5 * 60 * 1000))]);
+
   const { data: rawStoriesData, isLoading } = useFindManyad_stories(
     {
       where: {
         status: "active",
-        expires_at: { gt: new Date().toISOString() },
+        expires_at: { gt: storiesDateThreshold },
       },
       include: {
         user: {

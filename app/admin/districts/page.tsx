@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   useFindManydistricts,
   useCreatedistricts,
@@ -99,14 +99,17 @@ export default function DistrictsPage() {
   const updateMutation = useUpdatedistricts();
   const deleteMutation = useDeletedistricts();
 
-  // Filter by search
-  const filteredDistricts =
-    districts?.filter(
-      (d) =>
-        d.name.toLowerCase().includes(search.toLowerCase()) ||
-        d.name_en?.toLowerCase().includes(search.toLowerCase()) ||
-        d.aimag?.name.toLowerCase().includes(search.toLowerCase())
-    ) || [];
+  // OPTIMIZATION: Мемоизация фильтрации
+  const filteredDistricts = React.useMemo(
+    () =>
+      districts?.filter(
+        (d) =>
+          d.name.toLowerCase().includes(search.toLowerCase()) ||
+          d.name_en?.toLowerCase().includes(search.toLowerCase()) ||
+          d.aimag?.name.toLowerCase().includes(search.toLowerCase())
+      ) || [],
+    [districts, search]
+  );
 
   // Open modal for create
   const openCreateModal = () => {

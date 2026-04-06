@@ -21,17 +21,142 @@ interface NotificationBellProps {
   className?: string;
 }
 
+/**
+ * Dropdown content — subscribes to Data context only when dropdown is open.
+ * This prevents re-renders of the bell icon when notification list changes.
+ */
+function NotificationDropdownContent({
+  isDark,
+  onClose,
+}: {
+  isDark: boolean;
+  onClose: () => void;
+}) {
+  const { markAllAsRead, isMarking } = useNotificationsActions();
+  const { unreadCount } = useNotificationsCount();
+  const { notifications, isLoading } = useNotificationsData();
+
+  const recentNotifications = notifications.slice(0, 5);
+
+  return (
+    <>
+      {/* Header */}
+      <div
+        className={`flex items-center justify-between px-5 py-4 border-b ${
+          isDark ? "border-white/10" : "border-gray-100"
+        }`}
+      >
+        <h3 className={`font-semibold text-base ${isDark ? "text-white" : "text-gray-900"}`}>
+          Мэдэгдэл
+        </h3>
+        {unreadCount > 0 && (
+          <button
+            onClick={() => markAllAsRead()}
+            disabled={isMarking}
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+              isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
+            }`}
+          >
+            {isMarking ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <>
+                <CheckCheck className="h-3.5 w-3.5" />
+                <span>Бүгдийг уншсан</span>
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* Notification list */}
+      <div className="max-h-105 overflow-y-auto scrollbar-hide">
+        {isLoading ? (
+          <div className="p-8 text-center">
+            <div
+              className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${
+                isDark ? "bg-slate-800" : "bg-gray-100"
+              }`}
+            >
+              <Loader2
+                className={`h-6 w-6 animate-spin ${isDark ? "text-slate-500" : "text-gray-400"}`}
+              />
+            </div>
+            <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
+              Ачааллаж байна...
+            </p>
+          </div>
+        ) : recentNotifications.length === 0 ? (
+          <div className="p-10 text-center">
+            <div
+              className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
+                isDark ? "bg-slate-800/50" : "bg-gray-100"
+              }`}
+            >
+              <Bell className={`h-8 w-8 ${isDark ? "text-slate-600" : "text-gray-400"}`} />
+            </div>
+            <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>
+              Мэдэгдэл байхгүй
+            </p>
+            <p className={`text-xs mt-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>
+              Шинэ мэдэгдэл ирэхэд энд харагдана
+            </p>
+          </div>
+        ) : (
+          <div className="py-2">
+            {recentNotifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onClick={onClose}
+                variant={isDark ? "dark" : "light"}
+                inDropdown
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer - link to full page */}
+      {notifications.length > 0 && (
+        <div className={`border-t ${isDark ? "border-white/10" : "border-gray-100"}`}>
+          <Link
+            href="/account/me/notifications"
+            onClick={onClose}
+            className={`flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors ${
+              isDark
+                ? "text-slate-400 hover:text-white hover:bg-white/5"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <span>Бүх мэдэгдэл харах</span>
+            <span
+              className={`px-1.5 py-0.5 rounded-md text-xs ${
+                isDark ? "bg-slate-800" : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {notifications.length}
+            </span>
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * NotificationBell — subscribes only to Count context for the badge.
+ * Data context is loaded lazily inside the dropdown when opened.
+ */
 export function NotificationBell({ className }: NotificationBellProps) {
   const [open, setOpen] = React.useState(false);
   const { resolvedTheme } = useTheme();
   const { unreadCount, hasNewNotification } = useNotificationsCount();
-  const { markAllAsRead, isMarking } = useNotificationsActions();
-  const { notifications, isLoading } = useNotificationsData();
 
   const isDark = resolvedTheme === "dark";
 
-  // Take only recent 5 for dropdown
-  const recentNotifications = notifications.slice(0, 5);
+  const handleClose = React.useCallback(() => setOpen(false), []);
 
   // Add class to wrapper for mobile centering
   React.useEffect(() => {
@@ -70,107 +195,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
         }`}
         sideOffset={20}
       >
-        {/* Header */}
-        <div
-          className={`flex items-center justify-between px-5 py-4 border-b ${
-            isDark ? "border-white/10" : "border-gray-100"
-          }`}
-        >
-          <h3 className={`font-semibold text-base ${isDark ? "text-white" : "text-gray-900"}`}>
-            Мэдэгдэл
-          </h3>
-          {unreadCount > 0 && (
-            <button
-              onClick={() => markAllAsRead()}
-              disabled={isMarking}
-              className={`flex items-center gap-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
-                isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
-              }`}
-            >
-              {isMarking ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <>
-                  <CheckCheck className="h-3.5 w-3.5" />
-                  <span>Бүгдийг уншсан</span>
-                </>
-              )}
-            </button>
-          )}
-        </div>
-
-        {/* Notification list */}
-        <div className="max-h-105 overflow-y-auto scrollbar-hide">
-          {isLoading ? (
-            <div className="p-8 text-center">
-              <div
-                className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-3 ${
-                  isDark ? "bg-slate-800" : "bg-gray-100"
-                }`}
-              >
-                <Loader2
-                  className={`h-6 w-6 animate-spin ${isDark ? "text-slate-500" : "text-gray-400"}`}
-                />
-              </div>
-              <p className={`text-sm ${isDark ? "text-slate-500" : "text-gray-500"}`}>
-                Ачааллаж байна...
-              </p>
-            </div>
-          ) : recentNotifications.length === 0 ? (
-            <div className="p-10 text-center">
-              <div
-                className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
-                  isDark ? "bg-slate-800/50" : "bg-gray-100"
-                }`}
-              >
-                <Bell className={`h-8 w-8 ${isDark ? "text-slate-600" : "text-gray-400"}`} />
-              </div>
-              <p className={`text-sm font-medium ${isDark ? "text-slate-400" : "text-gray-600"}`}>
-                Мэдэгдэл байхгүй
-              </p>
-              <p className={`text-xs mt-1 ${isDark ? "text-slate-600" : "text-gray-400"}`}>
-                Шинэ мэдэгдэл ирэхэд энд харагдана
-              </p>
-            </div>
-          ) : (
-            <div className="py-2">
-              {recentNotifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  onClick={() => setOpen(false)}
-                  variant={isDark ? "dark" : "light"}
-                  inDropdown
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer - link to full page */}
-        {notifications.length > 0 && (
-          <div className={`border-t ${isDark ? "border-white/10" : "border-gray-100"}`}>
-            <Link
-              href="/account/me/notifications"
-              onClick={() => setOpen(false)}
-              className={`flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors ${
-                isDark
-                  ? "text-slate-400 hover:text-white hover:bg-white/5"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-              }`}
-            >
-              <span>Бүх мэдэгдэл харах</span>
-              <span
-                className={`px-1.5 py-0.5 rounded-md text-xs ${
-                  isDark ? "bg-slate-800" : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {notifications.length}
-              </span>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </div>
-        )}
+        {/* Data context loaded only when dropdown is open */}
+        <NotificationDropdownContent isDark={isDark} onClose={handleClose} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

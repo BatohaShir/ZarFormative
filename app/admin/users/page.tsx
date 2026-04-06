@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import {
-  useFindManyprofiles,
-  useUpdateprofiles,
-} from "@/lib/hooks/profiles";
+import { useFindManyprofiles, useUpdateprofiles } from "@/lib/hooks/profiles";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
@@ -81,7 +78,11 @@ export default function UsersPage() {
   const queryClient = useQueryClient();
 
   // Fetch users с оптимизированным select
-  const { data: users, isLoading, refetch } = useFindManyprofiles(
+  const {
+    data: users,
+    isLoading,
+    refetch,
+  } = useFindManyprofiles(
     {
       orderBy: { created_at: "desc" },
       select: {
@@ -137,22 +138,24 @@ export default function UsersPage() {
     };
   }, [refetchProfiles]);
 
-  // Фильтрация пользователей
-  const filteredUsers = (users || []).filter((user) => {
-    // Поиск
-    const searchLower = search.toLowerCase();
-    const matchesSearch =
-      !search ||
-      user.first_name?.toLowerCase().includes(searchLower) ||
-      user.last_name?.toLowerCase().includes(searchLower) ||
-      user.phone_number?.toLowerCase().includes(searchLower) ||
-      user.company_name?.toLowerCase().includes(searchLower);
+  // OPTIMIZATION: Мемоизация фильтрации — пересчитывается только при изменении данных/фильтров
+  const filteredUsers = React.useMemo(() => {
+    return (users || []).filter((user) => {
+      // Поиск
+      const searchLower = search.toLowerCase();
+      const matchesSearch =
+        !search ||
+        user.first_name?.toLowerCase().includes(searchLower) ||
+        user.last_name?.toLowerCase().includes(searchLower) ||
+        user.phone_number?.toLowerCase().includes(searchLower) ||
+        user.company_name?.toLowerCase().includes(searchLower);
 
-    // Фильтр по роли
-    const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      // Фильтр по роли
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
 
-    return matchesSearch && matchesRole;
-  });
+      return matchesSearch && matchesRole;
+    });
+  }, [users, search, roleFilter]);
 
   // Изменение роли
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
@@ -169,13 +172,16 @@ export default function UsersPage() {
     }
   };
 
-  // Статистика
-  const stats = {
-    total: users?.length || 0,
-    users: users?.filter((u) => u.role === "user").length || 0,
-    managers: users?.filter((u) => u.role === "manager").length || 0,
-    admins: users?.filter((u) => u.role === "admin").length || 0,
-  };
+  // OPTIMIZATION: Мемоизация статистики
+  const stats = React.useMemo(
+    () => ({
+      total: users?.length || 0,
+      users: users?.filter((u) => u.role === "user").length || 0,
+      managers: users?.filter((u) => u.role === "manager").length || 0,
+      admins: users?.filter((u) => u.role === "admin").length || 0,
+    }),
+    [users]
+  );
 
   // Получить display name
   const getDisplayName = (user: Profile) => {
@@ -240,10 +246,7 @@ export default function UsersPage() {
 
         {isOpen && (
           <>
-            <div
-              className="fixed inset-0 z-10"
-              onClick={() => setOpenDropdown(null)}
-            />
+            <div className="fixed inset-0 z-10" onClick={() => setOpenDropdown(null)} />
             <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-20 min-w-[160px] py-1">
               {(Object.keys(ROLE_INFO) as UserRole[]).map((role) => {
                 const info = ROLE_INFO[role];
@@ -277,9 +280,7 @@ export default function UsersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Пользователи
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Пользователи</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">
           Просмотр и управление ролями пользователей
         </p>
@@ -288,27 +289,19 @@ export default function UsersPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {stats.total}
-          </div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
           <div className="text-sm text-gray-500">Всего</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-gray-600">
-            {stats.users}
-          </div>
+          <div className="text-2xl font-bold text-gray-600">{stats.users}</div>
           <div className="text-sm text-gray-500">Пользователей</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-blue-600">
-            {stats.managers}
-          </div>
+          <div className="text-2xl font-bold text-blue-600">{stats.managers}</div>
           <div className="text-sm text-gray-500">Менеджеров</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-red-600">
-            {stats.admins}
-          </div>
+          <div className="text-2xl font-bold text-red-600">{stats.admins}</div>
           <div className="text-sm text-gray-500">Админов</div>
         </div>
       </div>

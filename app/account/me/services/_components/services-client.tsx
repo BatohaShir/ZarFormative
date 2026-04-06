@@ -380,13 +380,21 @@ export function ServicesClient() {
     }
   );
 
+  // OPTIMIZATION: Round date to 5-min intervals for stable query key.
+  // Value changes at next re-render after a 5-min boundary (not on a timer).
+  const boostDateThreshold = React.useMemo(() => {
+    const fiveMin = 5 * 60 * 1000;
+    return new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.floor(Date.now() / (5 * 60 * 1000))]);
+
   // Active boosts via ZenStack
   const { data: activeBoosts } = useFindManylisting_boosts(
     {
       where: {
         user_id: user?.id,
         status: "boost_active",
-        expires_at: { gt: new Date().toISOString() },
+        expires_at: { gt: boostDateThreshold },
       },
       orderBy: { expires_at: "desc" },
     },

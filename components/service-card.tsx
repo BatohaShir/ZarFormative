@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Star, ThumbsUp, ThumbsDown, Heart, MapPin } from "lucide-react";
-import { useFavorites } from "@/contexts/favorites-context";
+import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 
 interface ServiceCardProps {
@@ -26,10 +26,9 @@ interface ServiceCardProps {
   };
 }
 
-export const ServiceCard = React.memo(function ServiceCard({
-  service,
-}: ServiceCardProps) {
-  const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+export const ServiceCard = React.memo(function ServiceCard({ service }: ServiceCardProps) {
+  const { isFavorite } = useFavoriteIds();
+  const { toggleFavorite, isToggling } = useFavoriteActions();
   const { user } = useAuth();
   const isOwnListing = service.providerId ? user?.id === service.providerId : false;
   // Преобразуем id в строку для совместимости с новым API
@@ -38,7 +37,9 @@ export const ServiceCard = React.memo(function ServiceCard({
 
   // Используем ref для isToggling чтобы избежать пересоздания callback
   const isTogglingRef = React.useRef(isToggling);
-  isTogglingRef.current = isToggling;
+  React.useEffect(() => {
+    isTogglingRef.current = isToggling;
+  }, [isToggling]);
 
   const handleLike = React.useCallback(
     (e: React.MouseEvent) => {
@@ -78,9 +79,7 @@ export const ServiceCard = React.memo(function ServiceCard({
           >
             <Heart
               className={`w-4 h-4 md:w-5 md:h-5 transition-colors ${
-                isLiked
-                  ? "fill-pink-500 text-pink-500"
-                  : "text-gray-600 dark:text-gray-300"
+                isLiked ? "fill-pink-500 text-pink-500" : "text-gray-600 dark:text-gray-300"
               }`}
             />
           </button>
@@ -94,9 +93,7 @@ export const ServiceCard = React.memo(function ServiceCard({
 
       {/* Content */}
       <div className="p-3 md:p-4">
-        <h4 className="font-semibold text-xs md:text-sm line-clamp-1">
-          {service.title}
-        </h4>
+        <h4 className="font-semibold text-xs md:text-sm line-clamp-1">{service.title}</h4>
         <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 mt-0.5 md:mt-1">
           {service.description}
         </p>

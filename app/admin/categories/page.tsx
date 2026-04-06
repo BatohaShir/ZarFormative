@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
   useFindManycategories,
@@ -95,22 +95,28 @@ export default function CategoriesPage() {
   const updateMutation = useUpdatecategories();
   const deleteMutation = useDeletecategories();
 
-  // Filter root categories (no parent)
-  const rootCategories = categories?.filter((c) => !c.parent_id) || [];
+  // OPTIMIZATION: Мемоизация фильтрации
+  const rootCategories = React.useMemo(
+    () => categories?.filter((c) => !c.parent_id) || [],
+    [categories]
+  );
 
-  // Filter by search (search in both root and children)
-  const filteredCategories = search
-    ? rootCategories.filter(
-        (c) =>
-          c.name.toLowerCase().includes(search.toLowerCase()) ||
-          c.slug.toLowerCase().includes(search.toLowerCase()) ||
-          c.children?.some(
-            (child: Category) =>
-              child.name.toLowerCase().includes(search.toLowerCase()) ||
-              child.slug.toLowerCase().includes(search.toLowerCase())
+  const filteredCategories = React.useMemo(
+    () =>
+      search
+        ? rootCategories.filter(
+            (c) =>
+              c.name.toLowerCase().includes(search.toLowerCase()) ||
+              c.slug.toLowerCase().includes(search.toLowerCase()) ||
+              c.children?.some(
+                (child: Category) =>
+                  child.name.toLowerCase().includes(search.toLowerCase()) ||
+                  child.slug.toLowerCase().includes(search.toLowerCase())
+              )
           )
-      )
-    : rootCategories;
+        : rootCategories,
+    [rootCategories, search]
+  );
 
   // Toggle expand
   const toggleExpand = (id: string) => {

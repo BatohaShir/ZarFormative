@@ -14,9 +14,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/auth-context";
-import { LoginForm } from "@/components/auth/login-form";
-import { RegisterForm } from "@/components/auth/register-form";
+
+// OPTIMIZATION: Lazy-load auth forms — only loaded when modal is opened
+// Saves ~15-20KB from initial bundle (zod resolvers, react-hook-form validators)
+const LoginForm = dynamic(
+  () => import("@/components/auth/login-form").then((mod) => mod.LoginForm),
+  { ssr: false, loading: () => <div className="h-48 animate-pulse bg-muted rounded-lg" /> }
+);
+const RegisterForm = dynamic(
+  () => import("@/components/auth/register-form").then((mod) => mod.RegisterForm),
+  { ssr: false, loading: () => <div className="h-64 animate-pulse bg-muted rounded-lg" /> }
+);
 
 interface AuthModalProps {
   isOpen?: boolean;
@@ -25,15 +35,7 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
   const t = useTranslations();
-  const {
-    user,
-    signIn,
-    signUp,
-    isAuthenticated,
-    isLoading,
-    displayName,
-    avatarUrl,
-  } = useAuth();
+  const { user, signIn, signUp, isAuthenticated, isLoading, displayName, avatarUrl } = useAuth();
 
   const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -78,9 +80,7 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
           />
           <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-background" />
         </div>
-        <span className="hidden md:block text-sm font-medium max-w-24 truncate">
-          {displayName}
-        </span>
+        <span className="hidden md:block text-sm font-medium max-w-24 truncate">{displayName}</span>
       </Link>
     );
   }

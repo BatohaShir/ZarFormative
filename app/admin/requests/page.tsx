@@ -1,9 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import {
-  useFindManylisting_requests,
-} from "@/lib/hooks/listing-requests";
+import React, { useState, useEffect, useCallback } from "react";
+import { useFindManylisting_requests } from "@/lib/hooks/listing-requests";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
@@ -153,7 +151,15 @@ type StatusGroup = keyof typeof STATUS_GROUPS;
 
 const STATUS_BY_GROUP: Record<StatusGroup, RequestStatus[]> = {
   all: Object.keys(STATUS_INFO) as RequestStatus[],
-  active: ["pending", "price_proposed", "accepted", "in_progress", "awaiting_client_confirmation", "awaiting_completion_details", "awaiting_payment"],
+  active: [
+    "pending",
+    "price_proposed",
+    "accepted",
+    "in_progress",
+    "awaiting_client_confirmation",
+    "awaiting_completion_details",
+    "awaiting_payment",
+  ],
   completed: ["completed"],
   cancelled: ["rejected", "cancelled_by_client", "cancelled_by_provider", "disputed"],
 };
@@ -228,30 +234,37 @@ export default function RequestsPage() {
     };
   }, [refetchRequests]);
 
-  // Фильтрация
-  const filteredRequests = (requests || []).filter((request) => {
-    const searchLower = search.toLowerCase();
-    const matchesSearch =
-      !search ||
-      request.listing?.title?.toLowerCase().includes(searchLower) ||
-      request.client?.first_name?.toLowerCase().includes(searchLower) ||
-      request.client?.last_name?.toLowerCase().includes(searchLower) ||
-      request.provider?.first_name?.toLowerCase().includes(searchLower) ||
-      request.provider?.last_name?.toLowerCase().includes(searchLower) ||
-      request.client_phone?.toLowerCase().includes(searchLower);
+  // OPTIMIZATION: Мемоизация фильтрации
+  const filteredRequests = React.useMemo(() => {
+    return (requests || []).filter((request) => {
+      const searchLower = search.toLowerCase();
+      const matchesSearch =
+        !search ||
+        request.listing?.title?.toLowerCase().includes(searchLower) ||
+        request.client?.first_name?.toLowerCase().includes(searchLower) ||
+        request.client?.last_name?.toLowerCase().includes(searchLower) ||
+        request.provider?.first_name?.toLowerCase().includes(searchLower) ||
+        request.provider?.last_name?.toLowerCase().includes(searchLower) ||
+        request.client_phone?.toLowerCase().includes(searchLower);
 
-    const matchesGroup = STATUS_BY_GROUP[statusGroup].includes(request.status as RequestStatus);
+      const matchesGroup = STATUS_BY_GROUP[statusGroup].includes(request.status as RequestStatus);
 
-    return matchesSearch && matchesGroup;
-  });
+      return matchesSearch && matchesGroup;
+    });
+  }, [requests, search, statusGroup]);
 
-  // Статистика
-  const stats = {
-    total: requests?.length || 0,
-    active: requests?.filter((r) => STATUS_BY_GROUP.active.includes(r.status as RequestStatus)).length || 0,
-    completed: requests?.filter((r) => r.status === "completed").length || 0,
-    disputed: requests?.filter((r) => r.status === "disputed").length || 0,
-  };
+  // OPTIMIZATION: Мемоизация статистики
+  const stats = React.useMemo(
+    () => ({
+      total: requests?.length || 0,
+      active:
+        requests?.filter((r) => STATUS_BY_GROUP.active.includes(r.status as RequestStatus))
+          .length || 0,
+      completed: requests?.filter((r) => r.status === "completed").length || 0,
+      disputed: requests?.filter((r) => r.status === "disputed").length || 0,
+    }),
+    [requests]
+  );
 
   // Получить имя пользователя
   const getUserName = (user: ListingRequest["client"]) => {
@@ -296,38 +309,26 @@ export default function RequestsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Заявки
-        </h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">
-          Просмотр всех заявок на услуги
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Заявки</h1>
+        <p className="text-gray-500 dark:text-gray-400 mt-1">Просмотр всех заявок на услуги</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-gray-900 dark:text-white">
-            {stats.total}
-          </div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
           <div className="text-sm text-gray-500">Всего</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-blue-600">
-            {stats.active}
-          </div>
+          <div className="text-2xl font-bold text-blue-600">{stats.active}</div>
           <div className="text-sm text-gray-500">Активных</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-green-600">
-            {stats.completed}
-          </div>
+          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
           <div className="text-sm text-gray-500">Завершённых</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4">
-          <div className="text-2xl font-bold text-red-600">
-            {stats.disputed}
-          </div>
+          <div className="text-2xl font-bold text-red-600">{stats.disputed}</div>
           <div className="text-sm text-gray-500">Споров</div>
         </div>
       </div>

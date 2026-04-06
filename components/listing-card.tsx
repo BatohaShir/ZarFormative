@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { Heart, MapPin, Eye, User, Navigation, Crown } from "lucide-react";
-import { useFavorites } from "@/contexts/favorites-context";
+import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
 import type {
   listings,
@@ -54,7 +54,9 @@ export const ListingCard = React.memo(function ListingCard({
   priority = false,
   isVip = false,
 }: ListingCardProps) {
-  const { toggleFavorite, isFavorite, isToggling } = useFavorites();
+  // OPTIMIZATION: Use separate context hooks to avoid re-renders from unrelated context changes
+  const { isFavorite } = useFavoriteIds();
+  const { toggleFavorite, isToggling } = useFavoriteActions();
   const { user } = useAuth();
   // OPTIMIZATION: Memoize isFavorite check to avoid O(n) search on every render
   const isLiked = React.useMemo(() => isFavorite(listing.id), [isFavorite, listing.id]);
