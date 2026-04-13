@@ -51,7 +51,7 @@
     "@supabase/supabase-js": "^2.95.3",
     "@types/bcryptjs": "^2.4.6",
     "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.36.2",
+    "@upstash/redis": "^1.37.0",
     "@zenstackhq/runtime": "2.22.1",
     "@zenstackhq/server": "2.22.1",
     "@zenstackhq/tanstack-query": "2.22.1",
