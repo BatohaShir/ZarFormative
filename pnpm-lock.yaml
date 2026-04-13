@@ -75,8 +75,8 @@ importers:
         specifier: 2.22.1
         version: 2.22.1(@prisma/client@5.22.0(prisma@5.22.0))(zod@4.3.6)
       '@zenstackhq/tanstack-query':
-        specifier: 2.22.1
-        version: 2.22.1(@prisma/client@5.22.0(prisma@5.22.0))(typescript@5.9.3)(zod@4.3.6)
+        specifier: 3.5.6
+        version: 3.5.6(@tanstack/react-query@5.96.0(react@19.2.3))
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -2773,6 +2773,12 @@ packages:
   '@xtuc/long@4.2.2':
     resolution: {integrity: sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ==}
 
+  '@zenstackhq/client-helpers@3.5.6':
+    resolution: {integrity: sha512-J5w1qTVnGyWYD25EftbWWdMz9pfKabfJGwUp4Z7FVsU+yrT8+CzoyxK6lfYLpGQ5IaOwn+ti4ejr45uQyBvRLQ==}
+
+  '@zenstackhq/common-helpers@3.5.6':
+    resolution: {integrity: sha512-yh380RGsTq7g6pYjKIwAcKYtY7MdEzr8afzrnr2BfkTH90ETOvSIqLppNxWHTL2b8bnKsfHssHwxQ50z0tfjyg==}
+
   '@zenstackhq/language@2.22.1':
     resolution: {integrity: sha512-VSCVV7aMXMcC/tBnURIehtdQrm04u7EtwbtFB391PPW3ZESp9tEIK4CskLzEiaR8tR/w+rMOQiX3dyXuhJVZOA==}
 
@@ -2782,6 +2788,9 @@ packages:
       '@prisma/client': 5.0.0 - 7.x
       zod: ^3.25.0 || ^4.0.0
 
+  '@zenstackhq/schema@3.5.6':
+    resolution: {integrity: sha512-dew4oIJZ620A01h2J4Y2VmTyf4+uhM/IOtSlfkGLTrki3/yL79+p3DuKbXB5/Dr6w9FI/6lscxCe9Rwk+XoEug==}
+
   '@zenstackhq/sdk@2.22.1':
     resolution: {integrity: sha512-N6FxqdzWWoQKxBVZzfgIui7ve5raolrGZAyCGM/9rwiMJcwCTbrRf/F98kvCoCtLasRfzQJjz7L9CBRjXOdgew==}
 
@@ -2790,8 +2799,19 @@ packages:
     peerDependencies:
       zod: ^3.25.0 || ^4.0.0
 
-  '@zenstackhq/tanstack-query@2.22.1':
-    resolution: {integrity: sha512-2Ad1rBzTMLj2kWrGbeRlYIujCehT8ZsG6rrRv3iaQ17gW3+Rv3mBcmsTkb5rJf2uyPwYdxDuTfTSJzkzg1NWBw==}
+  '@zenstackhq/tanstack-query@3.5.6':
+    resolution: {integrity: sha512-4frE86rU7sLivcxFj4zrfLEv4IxTt6V7xdjGUKdl7NeUqTPmWMFCkibqGfWk+SoABiDwonG0PRcNHkYNjOnOsQ==}
+    peerDependencies:
+      '@tanstack/react-query': ^5.0.0
+      '@tanstack/svelte-query': ^6.0.0
+      '@tanstack/vue-query': ^5.0.0
+    peerDependenciesMeta:
+      '@tanstack/react-query':
+        optional: true
+      '@tanstack/svelte-query':
+        optional: true
+      '@tanstack/vue-query':
+        optional: true
 
   acorn-import-attributes@1.9.5:
     resolution: {integrity: sha512-n02Vykv5uA3eHGM/Z2dQrcD56kL8TyDb2p1+0P83PClMnC/nc+anbQRhIOWnSq4Ke/KvDPrY3C9hDtC/A3eHnQ==}
@@ -3223,13 +3243,14 @@ packages:
     resolution: {integrity: sha512-yCEafptTtb4bk7GLEQoM8KVJpxAfdBJYaXyzQEgQQQgYrZiDp8SJmGKlYza6CYjEDNstAdNdKA3UuoULlEbS6w==}
     engines: {node: '>=12.13'}
 
+  copy-anything@4.0.5:
+    resolution: {integrity: sha512-7Vv6asjS4gMOuILabD3l739tsaxFQmC+a7pLZm02zyvs8p977bL3zEgq3yDk5rn9B0PbYgIv++jmHcuUab4RhA==}
+    engines: {node: '>=18'}
+
   cross-env@10.1.0:
     resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
     engines: {node: '>=20'}
     hasBin: true
-
-  cross-fetch@4.1.0:
-    resolution: {integrity: sha512-uKm5PU+MHTootlWEY+mZ4vvXoCn4fLQxT9dSc1sXVMSFkINTJVN8cAQROpwcKm8bJ/c7rgZVIBWzH5T78sNZZw==}
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -4097,6 +4118,10 @@ packages:
   is-what@4.1.16:
     resolution: {integrity: sha512-ZhMwEosbFJkA0YhFnNDgTM4ZxDRsS6HqTo7qsZM08fehyRYIYa0yHu5R6mgo1n/8MgaPBXiPimPD77baVFYg+A==}
     engines: {node: '>=12.13'}
+
+  is-what@5.5.0:
+    resolution: {integrity: sha512-oG7cgbmg5kLYae2N5IVd3jm2s+vldjxJzK1pcu9LfpGuQ93MQSzo0okvRna+7y5ifrD+20FE8FvjusyGaz14fw==}
+    engines: {node: '>=18'}
 
   isarray@2.0.5:
     resolution: {integrity: sha512-xHjhDr3cNBK0BzdUJSPXZntQUx/mwMS5Rw4A7lPJ90XGAO6ISP/ePDNuo0vhqOZU+UD5JoodwCAAoZQd3FeAKw==}
@@ -5355,6 +5380,10 @@ packages:
   superjson@1.13.3:
     resolution: {integrity: sha512-mJiVjfd2vokfDxsQPOwJ/PtanO87LhpYY88ubI5dUB1Ab58Txbyje3+jpm+/83R/fevaq/107NNhtYBLuoTrFg==}
     engines: {node: '>=10'}
+
+  superjson@2.2.6:
+    resolution: {integrity: sha512-H+ue8Zo4vJmV2nRjpx86P35lzwDT3nItnIsocgumgr0hHMQ+ZGq5vrERg9kJBo5AWGmxZDhzDo+WVIJqkB0cGA==}
+    engines: {node: '>=16'}
 
   supports-color@7.2.0:
     resolution: {integrity: sha512-qpCAvRl9stuOHveKsn7HncJRvv501qIacKzQlO/+Lwxc9+0q2wLyv4Dfvt80/DPn2pqOBsJdDiogXGR9+OvwRw==}
@@ -8535,6 +8564,15 @@ snapshots:
 
   '@xtuc/long@4.2.2': {}
 
+  '@zenstackhq/client-helpers@3.5.6':
+    dependencies:
+      '@zenstackhq/common-helpers': 3.5.6
+      '@zenstackhq/schema': 3.5.6
+      decimal.js: 10.6.0
+      superjson: 2.2.6
+
+  '@zenstackhq/common-helpers@3.5.6': {}
+
   '@zenstackhq/language@2.22.1':
     dependencies:
       langium: 1.3.1
@@ -8556,6 +8594,10 @@ snapshots:
       uuid: 9.0.1
       zod: 4.3.6
       zod-validation-error: 4.0.2(zod@4.3.6)
+
+  '@zenstackhq/schema@3.5.6':
+    dependencies:
+      decimal.js: 10.6.0
 
   '@zenstackhq/sdk@2.22.1(@prisma/client@5.22.0(prisma@5.22.0))(typescript@5.9.3)(zod@4.3.6)':
     dependencies:
@@ -8584,20 +8626,14 @@ snapshots:
     transitivePeerDependencies:
       - '@prisma/client'
 
-  '@zenstackhq/tanstack-query@2.22.1(@prisma/client@5.22.0(prisma@5.22.0))(typescript@5.9.3)(zod@4.3.6)':
+  '@zenstackhq/tanstack-query@3.5.6(@tanstack/react-query@5.96.0(react@19.2.3))':
     dependencies:
-      '@zenstackhq/runtime': 2.22.1(@prisma/client@5.22.0(prisma@5.22.0))(zod@4.3.6)
-      '@zenstackhq/sdk': 2.22.1(@prisma/client@5.22.0(prisma@5.22.0))(typescript@5.9.3)(zod@4.3.6)
-      cross-fetch: 4.1.0
-      semver: 7.7.3
-      ts-morph: 26.0.0
-      ts-pattern: 4.3.0
-    transitivePeerDependencies:
-      - '@prisma/client'
-      - encoding
-      - magicast
-      - typescript
-      - zod
+      '@zenstackhq/client-helpers': 3.5.6
+      '@zenstackhq/common-helpers': 3.5.6
+      '@zenstackhq/schema': 3.5.6
+      decimal.js: 10.6.0
+    optionalDependencies:
+      '@tanstack/react-query': 5.96.0(react@19.2.3)
 
   acorn-import-attributes@1.9.5(acorn@8.15.0):
     dependencies:
@@ -9050,16 +9086,14 @@ snapshots:
     dependencies:
       is-what: 4.1.16
 
+  copy-anything@4.0.5:
+    dependencies:
+      is-what: 5.5.0
+
   cross-env@10.1.0:
     dependencies:
       '@epic-web/invariant': 1.0.0
       cross-spawn: 7.0.6
-
-  cross-fetch@4.1.0:
-    dependencies:
-      node-fetch: 2.7.0
-    transitivePeerDependencies:
-      - encoding
 
   cross-spawn@7.0.6:
     dependencies:
@@ -10081,6 +10115,8 @@ snapshots:
       get-intrinsic: 1.3.0
 
   is-what@4.1.16: {}
+
+  is-what@5.5.0: {}
 
   isarray@2.0.5: {}
 
@@ -11599,6 +11635,10 @@ snapshots:
   superjson@1.13.3:
     dependencies:
       copy-anything: 3.0.5
+
+  superjson@2.2.6:
+    dependencies:
+      copy-anything: 4.0.5
 
   supports-color@7.2.0:
     dependencies:
