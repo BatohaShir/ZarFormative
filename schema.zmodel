@@ -316,6 +316,10 @@ model profiles {
   @@map("profiles")
   @@auth()
 
+  // Mirrors SQL CHECK constraints
+  @@validate(preferred_language in ['mn','ru','en'], 'Unsupported language code')
+  @@validate(reviews_count >= 0 && completed_jobs_count >= 0, 'Counters cannot be negative')
+
   // === RBAC Rules ===
   // Публично видны только не-удалённые профили
   @@allow('read', is_deleted == false)
@@ -590,6 +594,15 @@ model listings {
 
   @@map("listings")
 
+  // Mirrors SQL CHECK constraints (see 20260417_wave3_integrity.sql)
+  @@validate(price == null || price >= 0, 'Price cannot be negative')
+  @@validate(
+    (latitude == null || (latitude >= -90 && latitude <= 90)) &&
+    (longitude == null || (longitude >= -180 && longitude <= 180)),
+    'Coordinates out of valid range'
+  )
+  @@validate(views_count >= 0 && favorites_count >= 0, 'Counters cannot be negative')
+
   // === RBAC Rules ===
   // Активные объявления видны всем
   @@allow('read', status == active && is_active == true)
@@ -798,6 +811,14 @@ model listing_requests {
 
   @@map("listing_requests")
 
+  // Mirrors SQL CHECK constraints
+  @@validate(proposed_price == null || proposed_price >= 0, 'Proposed price cannot be negative')
+  @@validate(
+    (latitude == null || (latitude >= -90 && latitude <= 90)) &&
+    (longitude == null || (longitude >= -180 && longitude <= 180)),
+    'Coordinates out of valid range'
+  )
+
   // === RBAC Rules ===
   // Клиент может создавать заявки, если:
   // - авторизован
@@ -952,6 +973,9 @@ model reviews {
 
   @@map("reviews")
 
+  // Mirror of SQL CHECK reviews_rating_range
+  @@validate(rating >= 1 && rating <= 5, 'Rating must be between 1 and 5')
+
   // === RBAC Rules ===
   // Все могут читать отзывы (публичная информация)
   @@allow('read', true)
@@ -1043,6 +1067,10 @@ model ad_stories {
 
   @@map("ad_stories")
 
+  // Mirrors SQL CHECK ad_stories_plan_valid
+  @@validate(plan in ['1day','2day'], 'Unsupported story plan')
+  @@validate(views_count >= 0, 'Views counter cannot be negative')
+
   // === RBAC Rules ===
   // Все могут видеть активные stories
   @@allow('read', status == active)
@@ -1088,6 +1116,9 @@ model listing_boosts {
   @@index([status, expires_at])
 
   @@map("listing_boosts")
+
+  // Mirrors SQL CHECK listing_boosts_plan_valid
+  @@validate(plan in ['3day','7day','14day'], 'Unsupported boost plan')
 
   // === RBAC Rules ===
   // Владелец видит свои бусты
