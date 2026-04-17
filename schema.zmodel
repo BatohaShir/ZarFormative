@@ -317,11 +317,19 @@ model profiles {
   @@auth()
 
   // === RBAC Rules ===
-  // Все могут читать профили
-  @@allow('read', true)
+  // Публично видны только не-удалённые профили
+  @@allow('read', is_deleted == false)
 
-  // Создание через триггер Supabase (системное)
-  @@allow('create', true)
+  // Владелец видит свой профиль даже если soft-deleted
+  @@allow('read', auth() == this)
+
+  // Admin/Manager видят все
+  @@allow('read', auth().role in [admin, manager])
+
+  // Создание только через Supabase auth trigger (server-side).
+  // Запрещаем create через REST API — иначе любой может создать
+  // профиль с произвольным id (включая чужой auth.users UUID).
+  @@deny('create', true)
 
   // Пользователь может обновлять свой профиль
   @@allow('update', auth() == this)
@@ -345,7 +353,7 @@ model profiles_push_subscriptions {
   auth       String?   // Auth secret
   expires_at DateTime?
   created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
 
   // Relations
   profile    profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -393,7 +401,7 @@ model profiles_notification_settings {
   quiet_hours_end        String   @default("08:00")
 
   created_at             DateTime @default(now())
-  updated_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
 
   // Relations
   profile                profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -425,7 +433,7 @@ model profiles_educations {
   end_date        DateTime? // Дата окончания (null если ещё учится)
   is_current      Boolean   @default(false) // Учится в данный момент
   created_at      DateTime  @default(now())
-  updated_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 
   // Relations
   user            profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -466,7 +474,7 @@ model profiles_work_experiences {
   end_date        DateTime? // Дата окончания (null если работает сейчас)
   is_current      Boolean   @default(false) // Работает в данный момент
   created_at      DateTime  @default(now())
-  updated_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
 
   // Relations
   user            profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
@@ -667,8 +675,10 @@ model listings_views {
   @@map("listings_views")
 
   // === RBAC Rules ===
-  // Создание - все могут (через API)
-  @@allow('create', true)
+  // Создание только через server-side route (app/api/listings/[id]/view/route.ts),
+  // который использует prisma.$queryRaw минуя ZenStack для дедупликации 24h.
+  // Запрет через REST API защищает счётчик от накрутки.
+  @@deny('create', true)
 
   // Чтение - владелец объявления или админ
   @@allow('read', auth() == listing.user || auth().role in [admin, manager])
@@ -789,8 +799,15 @@ model listing_requests {
   @@map("listing_requests")
 
   // === RBAC Rules ===
-  // Клиент может создавать заявки (если авторизован и не владелец объявления)
-  @@allow('create', auth() != null && auth().id == client_id && auth().id != provider_id)
+  // Клиент может создавать заявки, если:
+  // - авторизован
+  // - client_id == auth().id (нельзя создать от чужого имени)
+  // - provider_id совпадает с владельцем объявления (нельзя подменить исполнителя)
+  // - сам себе заявку не создаёт
+  @@allow('create', auth() != null
+    && auth().id == client_id
+    && provider_id == listing.user_id
+    && auth().id != provider_id)
 
   // Клиент видит свои заявки
   @@allow('read', auth() != null && auth().id == client_id)
@@ -846,8 +863,16 @@ model notifications {
   // Пользователь может обновлять свои уведомления (пометить прочитанным)
   @@allow('update', auth() != null && auth().id == user_id)
 
-  // Создание разрешено всем авторизованным (для создания уведомлений другим)
-  @@allow('create', auth() != null)
+  // Создание: авторизованный пользователь может создать notification для другого.
+  // Защита от спуфинга: actor_id (если указан) должен совпадать с auth().id,
+  // чтобы нельзя было отправить уведомление от имени другого юзера.
+  // Нельзя создать уведомление самому себе (актуально только cross-user).
+  @@allow('create', auth() != null
+    && (actor_id == null || actor_id == auth().id)
+    && auth().id != user_id)
+
+  // Server-side cron создаёт уведомления с actor_id == null через prisma напрямую,
+  // минуя ZenStack enhance() — RBAC-проверка там не применяется.
 
   // Admin видит все уведомления
   @@allow('read', auth().role == admin)
@@ -1028,8 +1053,8 @@ model ad_stories {
   // Авторизованный пользователь может создать
   @@allow('create', auth() != null && auth().id == user_id)
 
-  // Владелец может обновить свой story
-  @@allow('update', auth() != null && auth().id == user_id)
+  // Владелец может обновить/удалить свой story
+  @@allow('update,delete', auth() != null && auth().id == user_id)
 
   // Admin может всё
   @@allow('all', auth().role == admin)
@@ -1065,7 +1090,17 @@ model listing_boosts {
   @@map("listing_boosts")
 
   // === RBAC Rules ===
+  // Владелец видит свои бусты
   @@allow('read', auth() != null && auth().id == user_id)
-  @@allow('create', auth() != null && auth().id == user_id)
-  @@allow('read,update', auth().role == admin)
+
+  // Создавать буст может только владелец объявления (нельзя бустить чужое)
+  @@allow('create', auth() != null
+    && auth().id == user_id
+    && listing.user_id == auth().id)
+
+  // Пометить свой буст как expired (ручная отмена)
+  @@allow('update', auth() != null && auth().id == user_id)
+
+  // Admin видит/редактирует все
+  @@allow('read,update,delete', auth().role == admin)
 }

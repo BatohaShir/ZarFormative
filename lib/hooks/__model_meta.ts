@@ -646,7 +646,7 @@ const metadata: ModelMeta = {
         updated_at: {
           name: "updated_at",
           type: "DateTime",
-          attributes: [{ name: "@default", args: [{ name: "value" }] }],
+          attributes: [{ name: "@updatedAt", args: [] }],
         },
         profile: {
           name: "profile",
@@ -752,7 +752,7 @@ const metadata: ModelMeta = {
         updated_at: {
           name: "updated_at",
           type: "DateTime",
-          attributes: [{ name: "@default", args: [{ name: "value" }] }],
+          attributes: [{ name: "@updatedAt", args: [] }],
         },
         profile: {
           name: "profile",
@@ -825,7 +825,7 @@ const metadata: ModelMeta = {
         updated_at: {
           name: "updated_at",
           type: "DateTime",
-          attributes: [{ name: "@default", args: [{ name: "value" }] }],
+          attributes: [{ name: "@updatedAt", args: [] }],
         },
         user: {
           name: "user",
@@ -894,7 +894,7 @@ const metadata: ModelMeta = {
         updated_at: {
           name: "updated_at",
           type: "DateTime",
-          attributes: [{ name: "@default", args: [{ name: "value" }] }],
+          attributes: [{ name: "@updatedAt", args: [] }],
         },
         user: {
           name: "user",

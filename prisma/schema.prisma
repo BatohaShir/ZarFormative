@@ -224,7 +224,7 @@ model profiles_push_subscriptions {
   auth       String?
   expires_at DateTime?
   created_at DateTime  @default(now())
-  updated_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt()
   profile    profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, endpoint])
@@ -248,7 +248,7 @@ model profiles_notification_settings {
   quiet_hours_start      String   @default("22:00")
   quiet_hours_end        String   @default("08:00")
   created_at             DateTime @default(now())
-  updated_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt()
   profile                profiles @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("profiles_notification_settings")
@@ -264,7 +264,7 @@ model profiles_educations {
   end_date       DateTime?
   is_current     Boolean   @default(false)
   created_at     DateTime  @default(now())
-  updated_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt()
   user           profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
@@ -284,7 +284,7 @@ model profiles_work_experiences {
   end_date    DateTime?
   is_current  Boolean   @default(false)
   created_at  DateTime  @default(now())
-  updated_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt()
   user        profiles  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id])
