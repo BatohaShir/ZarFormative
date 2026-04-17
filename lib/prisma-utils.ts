@@ -49,16 +49,7 @@ export function normalizeQueryResult<T extends Record<string, unknown>>(
   result: T[],
   bigIntFields: (keyof T)[]
 ): T[] {
-  return result.map((row) => {
-    const normalized = { ...row };
-    for (const field of bigIntFields) {
-      const value = normalized[field];
-      if (typeof value === "bigint") {
-        (normalized[field] as unknown) = Number(value);
-      }
-    }
-    return normalized;
-  });
+  return result.map((row) => normalizeSingleResult(row, bigIntFields));
 }
 
 /**
@@ -72,14 +63,14 @@ export function normalizeSingleResult<T extends Record<string, unknown>>(
   row: T,
   bigIntFields: (keyof T)[]
 ): T {
-  const normalized = { ...row };
+  const normalized: Record<string, unknown> = { ...row };
   for (const field of bigIntFields) {
-    const value = normalized[field];
+    const value = normalized[field as string];
     if (typeof value === "bigint") {
-      (normalized[field] as unknown) = Number(value);
+      normalized[field as string] = Number(value);
     }
   }
-  return normalized;
+  return normalized as T;
 }
 
 /**
@@ -93,7 +84,12 @@ export function decimalToNumber(value: unknown): number {
     return (value as { toNumber: () => number }).toNumber();
   }
   if (typeof value === "number") return value;
-  if (typeof value === "string") return parseFloat(value);
+  if (typeof value === "string") {
+    // Prisma Decimal serializes as locale-independent string with "." as decimal separator.
+    // Number() is stricter than parseFloat() and returns NaN for invalid input instead of 0.
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
   return 0;
 }
 

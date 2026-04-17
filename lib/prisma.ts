@@ -8,6 +8,10 @@ export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    transactionOptions: {
+      maxWait: 15000,
+      timeout: 20000,
+    },
   });
 
 if (process.env.NODE_ENV !== "production") {

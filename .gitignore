@@ -48,4 +48,8 @@ next-env.d.ts
 
 # prisma
 prisma/migrations
+prisma/backups/
 .claude/settings.local.json
+
+# playwright-mcp logs
+.playwright-mcp/

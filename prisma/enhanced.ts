@@ -1,5 +1,5 @@
 import { enhance } from "@zenstackhq/runtime";
-import { prisma } from "./index";
+import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
 // In-memory кэш для ролей пользователей (живёт в рамках одного запроса/worker)
