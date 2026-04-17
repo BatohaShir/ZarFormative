@@ -91,7 +91,8 @@ export async function GET(request: NextRequest) {
         ) as user_name,
         p.avatar_url as user_avatar,
         ts_rank(l.search_vector, to_tsquery('russian', ${tsQuery})) +
-        ts_rank(l.search_vector, to_tsquery('english', ${tsQuery})) as rank
+        ts_rank(l.search_vector, to_tsquery('english', ${tsQuery})) +
+        ts_rank(l.search_vector, to_tsquery('simple',  ${tsQuery})) as rank
       FROM listings l
       LEFT JOIN categories c ON l.category_id = c.id
       LEFT JOIN aimags a ON l.aimag_id = a.id
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest) {
         AND (
           l.search_vector @@ to_tsquery('russian', ${tsQuery})
           OR l.search_vector @@ to_tsquery('english', ${tsQuery})
+          OR l.search_vector @@ to_tsquery('simple',  ${tsQuery})
         )
       ORDER BY rank DESC, l.views_count DESC, l.created_at DESC
       LIMIT ${limit + 1}
