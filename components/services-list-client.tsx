@@ -4,7 +4,7 @@ import * as React from "react";
 import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -19,7 +19,12 @@ import { BillboardCard } from "@/components/billboard/billboard-card";
 import { getMockBillboards } from "@/components/billboard/mock-data";
 import { SearchInput } from "@/components/search-input";
 import { CitySelect } from "@/components/city-select";
-import { ServicesFilters, type ProviderType } from "@/components/services-filters";
+// Alias the Filters panel component so its name doesn't shadow the
+// ServicesFilters value/type we expose from this module.
+import {
+  ServicesFilters as ServicesFiltersPanel,
+  type ProviderType,
+} from "@/components/services-filters";
 import {
   ChevronLeft,
   SlidersHorizontal,
@@ -38,40 +43,35 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useInfiniteFindManylistings } from "@/lib/hooks/listings";
-import { useFindManylisting_boosts } from "@/lib/hooks/listing-boosts";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  filtersToSearchParams,
+  PAGE_SIZE as SERVER_PAGE_SIZE,
+  type ServicesFilters,
+  type ServicesQueryResult,
+  type SortOption,
+} from "@/lib/services/query";
 
-type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
-
-// Shared with app/services/page.tsx so SSR and client see the exact
-// same filter shape — that's what lets us skip re-fetching on hydration
-// when the URL hasn't changed.
-export interface ServicesFilters {
-  categorySlugs: string[];
-  priceMin: number;
-  priceMax: number;
-  sort: SortOption;
-  aimagId: string;
-  districtId: string;
-  provider: ProviderType;
-  q: string;
-}
+// Re-export the shared types so downstream imports from this module
+// (of which there are several) don't need to be rewritten.
+export type { ServicesFilters } from "@/lib/services/query";
 
 interface ServicesListClientProps {
   initialListings: ListingWithRelations[];
   initialBoostedIds: string[];
   initialFilters: ServicesFilters;
+  initialNextCursor: { createdAt: string; id: string } | null;
 }
 
 function ServicesListContent({
   initialListings,
   initialBoostedIds,
   initialFilters,
+  initialNextCursor,
 }: ServicesListClientProps) {
   const t = useTranslations("listings");
   const tCommon = useTranslations("common");
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Track if URL was updated by user interaction (skip first render)
   const isFirstRender = React.useRef(true);
@@ -109,105 +109,33 @@ function ServicesListContent({
   // Filter by specific listing IDs (from map cluster click)
   const [selectedListingIds, setSelectedListingIds] = React.useState<string[]>([]);
 
-  // Строим where условие для запроса
-  const whereCondition = React.useMemo(() => {
-    const conditions: Record<string, unknown> = {
-      status: "active",
-      is_active: true,
-    };
+  // Active filters shape mirrors ServicesFilters so we can feed the same
+  // values into filtersToSearchParams() for both the API call and the
+  // URL sync effect. The listingIds field is client-only (from cluster
+  // map click) and travels as its own request parameter.
+  const activeFilters: ServicesFilters = React.useMemo(
+    () => ({
+      categorySlugs: selectedCategories,
+      priceMin: committedPriceRange[0],
+      priceMax: committedPriceRange[1],
+      sort: sortBy,
+      aimagId: selectedAimagId,
+      districtId: selectedDistrictId,
+      provider: providerType,
+      q: searchQuery.trim(),
+    }),
+    [
+      selectedCategories,
+      committedPriceRange,
+      sortBy,
+      selectedAimagId,
+      selectedDistrictId,
+      providerType,
+      searchQuery,
+    ]
+  );
 
-    // Фильтр по категориям (slug)
-    if (selectedCategories.length > 0) {
-      conditions.category = {
-        slug: { in: selectedCategories },
-      };
-    }
-
-    // Фильтр по цене (используем committed значения)
-    if (committedPriceRange[0] > 0 || committedPriceRange[1] < 1000000) {
-      conditions.price = {};
-      if (committedPriceRange[0] > 0) {
-        (conditions.price as Record<string, number>).gte = committedPriceRange[0];
-      }
-      if (committedPriceRange[1] < 1000000) {
-        (conditions.price as Record<string, number>).lte = committedPriceRange[1];
-      }
-    }
-
-    // Фильтр по конкретным ID объявлений (из клика на кластер карты)
-    if (selectedListingIds.length > 0) {
-      conditions.id = { in: selectedListingIds };
-    }
-    // Фильтр по локации (аймаг и дүүрэг) - только если нет фильтра по ID
-    else if (selectedDistrictId) {
-      conditions.district_id = selectedDistrictId;
-    } else if (selectedAimagId) {
-      conditions.aimag_id = selectedAimagId;
-    }
-
-    // Фильтр по типу поставщика (компания или частное лицо)
-    if (providerType !== "all") {
-      conditions.user = {
-        is_company: providerType === "company",
-      };
-    }
-
-    // Текстовый поиск (q) — токенизируем по словам; каждое слово должно
-    // найтись в одном из полей (title, description, category.name,
-    // user.first_name / last_name / company_name). Все слова должны найтись.
-    const q = searchQuery.trim();
-    if (q.length >= 2) {
-      const tokens = q
-        .split(/\s+/)
-        .map((t) => t.trim())
-        .filter((t) => t.length >= 2);
-      const targets = tokens.length > 0 ? tokens : [q];
-      const ins = (field: string, token: string) => ({
-        [field]: { contains: token, mode: "insensitive" as const },
-      });
-      const perTokenAnd = targets.map((token) => ({
-        OR: [
-          ins("title", token),
-          ins("description", token),
-          { category: { name: { contains: token, mode: "insensitive" as const } } },
-          {
-            user: {
-              OR: [ins("first_name", token), ins("last_name", token), ins("company_name", token)],
-            },
-          },
-        ],
-      }));
-      const existingAnd = (conditions.AND as unknown[] | undefined) ?? [];
-      conditions.AND = [...existingAnd, ...perTokenAnd];
-    }
-
-    return conditions;
-  }, [
-    selectedCategories,
-    committedPriceRange,
-    selectedAimagId,
-    selectedDistrictId,
-    providerType,
-    selectedListingIds,
-    searchQuery,
-  ]);
-
-  // Строим orderBy для сортировки
-  const orderByCondition = React.useMemo(() => {
-    switch (sortBy) {
-      case "price_asc":
-        return { price: "asc" as const };
-      case "price_desc":
-        return { price: "desc" as const };
-      case "popular":
-        return { views_count: "desc" as const };
-      case "newest":
-      default:
-        return { created_at: "desc" as const };
-    }
-  }, [sortBy]);
-
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE = SERVER_PAGE_SIZE;
 
   // True when current state still matches the filters SSR rendered with.
   // While true we can reuse initialListings as React Query's initialData,
@@ -239,89 +167,68 @@ function ServicesListContent({
     selectedListingIds.length > 0 ||
     searchQuery.trim().length >= 2;
 
-  // Загружаем объявления с cursor-based пагинацией
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteFindManylistings(
-      {
-        where: whereCondition,
-        include: {
-          user: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              avatar_url: true,
-              company_name: true,
-              is_company: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
-          images: {
-            where: {
-              is_cover: true,
-            },
-            select: {
-              id: true,
-              url: true,
-              sort_order: true,
-              is_cover: true,
-            },
-            take: 1,
-          },
-          aimag: {
-            select: {
-              id: true,
-              name: true,
-              latitude: true,
-              longitude: true,
-            },
-          },
-          district: {
-            select: {
-              id: true,
-              name: true,
-              latitude: true,
-              longitude: true,
-            },
-          },
-          // OPTIMIZED: khoroo не нужен для списка - показывается только на детальной странице
-          // Экономит ~5% payload на каждой карточке
-        },
-        orderBy: orderByCondition,
-        take: PAGE_SIZE,
-      },
-      {
-        getNextPageParam: (lastPage) => {
-          if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
-          const lastItem = lastPage[lastPage.length - 1];
-          return { cursor: { id: lastItem.id }, skip: 1 };
-        },
-        staleTime: 2 * 60 * 1000,
-        gcTime: 10 * 60 * 1000,
-        // Seed from SSR whenever the filter state still matches what SSR
-        // rendered with. Previously we only seeded when NO filters were
-        // applied, so /services?q=X landed cold and paid a client-side
-        // round-trip to refetch the exact same rows SSR just returned.
-        initialData: matchesInitialFilters
-          ? {
-              pages: [initialListings],
-              pageParams: [undefined],
-            }
-          : undefined,
-      }
-    );
+  // Fetch through our /api/services CTE instead of the generic ZenStack
+  // REST endpoint. Same query the SSR loader uses, so filter changes
+  // and "load more" never go through the slower ZenStack middleware
+  // and can't diverge from what SSR rendered.
+  const queryKey = React.useMemo(
+    () => ["services", activeFilters, selectedListingIds.join(",")] as const,
+    [activeFilters, selectedListingIds]
+  );
 
-  // Собираем все объявления из всех страниц
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<
+    ServicesQueryResult,
+    Error
+  >({
+    queryKey,
+    initialPageParam: undefined as { createdAt: string; id: string } | undefined,
+    queryFn: async ({ pageParam, signal }) => {
+      const params = filtersToSearchParams(activeFilters);
+      if (selectedListingIds.length > 0) {
+        params.set("listingIds", selectedListingIds.join(","));
+      }
+      const cursor = pageParam as { createdAt: string; id: string } | undefined;
+      if (cursor) {
+        params.set("cursorCreatedAt", cursor.createdAt);
+        params.set("cursorId", cursor.id);
+      }
+      const res = await fetch(`/api/services?${params.toString()}`, { signal });
+      if (!res.ok) throw new Error(`/api/services ${res.status}`);
+      return (await res.json()) as ServicesQueryResult;
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    // Seed from SSR whenever current filter state still matches what
+    // SSR rendered with. Previously we only seeded on "no filters",
+    // so /services?q=X landed cold and paid an extra client round-trip
+    // to fetch the exact rows SSR just produced.
+    initialData: matchesInitialFilters
+      ? {
+          pages: [
+            {
+              listings: initialListings,
+              boostedIds: initialBoostedIds,
+              nextCursor: initialNextCursor,
+            },
+          ],
+          pageParams: [undefined],
+        }
+      : undefined,
+  });
+
+  // Flatten all pages into a single list for rendering.
   const listings = React.useMemo(() => {
     if (!data?.pages) return initialListings;
-    return data.pages.flat();
+    return data.pages.flatMap((p) => p.listings);
   }, [data, initialListings]);
+
+  // Live boosts come from the same page payload. Fall back to the SSR
+  // seed until the first page resolves so VIP badges don't flicker.
+  const boostedIdsFromQuery = React.useMemo(() => {
+    const first = data?.pages?.[0];
+    return first ? first.boostedIds : initialBoostedIds;
+  }, [data, initialBoostedIds]);
 
   // Intersection Observer для auto infinite scroll
   React.useEffect(() => {
@@ -482,34 +389,11 @@ function ServicesListContent({
 
   const listingsData = (listings || []) as ListingWithRelations[];
 
-  // OPTIMIZATION: Round date to 5-min intervals for stable query key.
-  // Value changes at next re-render after a 5-min boundary passes (not on a timer).
-  // On this page, infinite scroll and filters cause frequent re-renders, so the value stays fresh.
-  const boostDateThreshold = React.useMemo(() => {
-    const fiveMin = 5 * 60 * 1000;
-    return new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Math.floor(Date.now() / (5 * 60 * 1000))]);
-
-  // Load active boosts to identify VIP listings
-  const { data: activeBoosts } = useFindManylisting_boosts(
-    {
-      where: {
-        status: "boost_active",
-        expires_at: { gt: boostDateThreshold },
-      },
-      select: { listing_id: true },
-    },
-    { staleTime: 60 * 1000 }
-  );
-
-  // Prefer freshly-fetched boosts, fall back to SSR-seeded ids until
-  // the query resolves. Keeps VIP badges visible on first paint instead
-  // of flickering in once the client query finishes.
-  const boostedIds = React.useMemo(() => {
-    if (activeBoosts) return new Set(activeBoosts.map((b) => b.listing_id));
-    return new Set(initialBoostedIds);
-  }, [activeBoosts, initialBoostedIds]);
+  // Boosts now arrive in the same /api/services response as the listings
+  // (same CTE), so we don't need a separate listing_boosts query here —
+  // the old useFindManylisting_boosts call was 1 extra round-trip on
+  // every mount. boostedIdsFromQuery comes from data.pages[0].
+  const boostedIds = React.useMemo(() => new Set(boostedIdsFromQuery), [boostedIdsFromQuery]);
 
   // Split into VIP and regular
   const { vipListings, regularListings } = React.useMemo(() => {
@@ -637,7 +521,7 @@ function ServicesListContent({
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3">
               <div className="border rounded-lg p-4">
-                <ServicesFilters
+                <ServicesFiltersPanel
                   variant="mobile"
                   selectedCategories={selectedCategories}
                   onCategoriesChange={setSelectedCategories}
@@ -666,7 +550,7 @@ function ServicesListContent({
                   </span>
                 )}
               </h3>
-              <ServicesFilters
+              <ServicesFiltersPanel
                 variant="desktop"
                 selectedCategories={selectedCategories}
                 onCategoriesChange={setSelectedCategories}
