@@ -24,95 +24,145 @@ export const revalidate = 60;
 // Description preview length for card — with line-clamp-1 we never show more.
 const DESCRIPTION_PREVIEW_LEN = 140;
 
-// Данные для главной: только то, что реально видно в карточках/секциях.
-// Любое лишнее поле улетает в HTML payload (serialized RSC props) и замедляет
-// гидратацию, поэтому SELECT жёстко совпадает с тем, что читает ListingCard.
+// Shapes of the JSON rows returned by the single $queryRaw below.
+// Keep in sync with the SQL; these are what downstream components consume.
+interface RawListingRow {
+  id: string;
+  user_id: string;
+  title: string;
+  slug: string;
+  description: string;
+  price: string | number | null; // pg numeric → string via JSON, coerced below
+  currency: string;
+  is_negotiable: boolean;
+  service_type: string | null;
+  address: string | null;
+  latitude: string | number | null;
+  longitude: string | number | null;
+  views_count: number;
+  favorites_count: number;
+  created_at: Date | string;
+  user: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+    company_name: string | null;
+    is_company: boolean;
+  } | null;
+  category: { id: string; name: string; slug: string } | null;
+  aimag: { id: string; name: string } | null;
+  district: { id: string; name: string } | null;
+  khoroo: { id: string; name: string } | null;
+  images: { id: string; url: string }[];
+}
+
+interface HomeDataRow {
+  categories: unknown[];
+  listings: RawListingRow[];
+  boosted_ids: string[];
+}
+
+// Single round-trip fetch. Previously Prisma issued 5+ sequential queries
+// (listings + 4 relation dataloader lookups + boosts + categories). On the
+// Seoul Supabase region with ~2s per-round-trip from Mongolia that cost
+// 10-15s cold. Here we collapse everything into one json-building query
+// and pay one round-trip.
 async function getHomePageData() {
   try {
-    const [rootCategories, listingsData, activeBoosts] = await Promise.all([
-      // Для главной показываем только root (parent_id IS NULL) — 10 штук.
-      // Подкатегории грузит <CategoriesModal> по open через client hook, поэтому
-      // нет смысла таскать 80+ строк в HTML каждый раз.
-      prisma.categories.findMany({
-        where: { is_active: true, parent_id: null },
-        orderBy: { sort_order: "asc" },
-        take: 10,
-      }),
-      // Narrow select: 25+ колонок listings (description full, search_vector,
-      // completion_photos, proposed_price, рабочие часы и т.д.) не нужны
-      // карточке. Урезаем примерно в 2-3 раза transfer от БД.
-      prisma.listings.findMany({
-        where: { status: "active", is_active: true },
-        select: {
-          id: true,
-          user_id: true,
-          title: true,
-          slug: true,
-          // description — обрезаем ниже в map до DESCRIPTION_PREVIEW_LEN
-          description: true,
-          price: true,
-          currency: true,
-          is_negotiable: true,
-          service_type: true,
-          address: true,
-          latitude: true,
-          longitude: true,
-          views_count: true,
-          favorites_count: true,
-          created_at: true,
-          user: {
-            select: {
-              id: true,
-              first_name: true,
-              last_name: true,
-              avatar_url: true,
-              company_name: true,
-              is_company: true,
-            },
-          },
-          category: { select: { id: true, name: true, slug: true } },
-          aimag: { select: { id: true, name: true } },
-          district: { select: { id: true, name: true } },
-          khoroo: { select: { id: true, name: true } },
-          // Cover image (единственная) — без sort_order, без лишних полей.
-          images: {
-            where: { is_cover: true },
-            select: { id: true, url: true },
-            take: 1,
-          },
-        },
-        orderBy: { created_at: "desc" },
-        take: 8,
-      }),
-      prisma.listing_boosts.findMany({
-        where: { status: "boost_active", expires_at: { gt: new Date() } },
-        select: { listing_id: true },
-        distinct: ["listing_id"],
-      }),
-    ]);
+    const rows = await prisma.$queryRaw<HomeDataRow[]>`
+      WITH cat AS (
+        SELECT jsonb_agg(
+          to_jsonb(c.*) ORDER BY c.sort_order ASC
+        ) FILTER (WHERE c.id IS NOT NULL) AS data
+        FROM (
+          SELECT *
+          FROM categories
+          WHERE is_active = true AND parent_id IS NULL
+          ORDER BY sort_order ASC
+          LIMIT 10
+        ) c
+      ),
+      list AS (
+        SELECT jsonb_agg(row ORDER BY created_at DESC) AS data
+        FROM (
+          SELECT
+            l.id, l.user_id, l.title, l.slug, l.description,
+            l.price, l.currency, l.is_negotiable,
+            l.service_type::text AS service_type,
+            l.address, l.latitude, l.longitude,
+            l.views_count, l.favorites_count, l.created_at,
+            CASE WHEN u.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', u.id,
+              'first_name', u.first_name,
+              'last_name', u.last_name,
+              'avatar_url', u.avatar_url,
+              'company_name', u.company_name,
+              'is_company', u.is_company
+            ) END AS "user",
+            CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', c.id, 'name', c.name, 'slug', c.slug
+            ) END AS category,
+            CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', a.id, 'name', a.name
+            ) END AS aimag,
+            CASE WHEN d.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', d.id, 'name', d.name
+            ) END AS district,
+            CASE WHEN k.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', k.id, 'name', k.name
+            ) END AS khoroo,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object('id', li.id, 'url', li.url))
+               FROM listings_images li
+               WHERE li.listing_id = l.id AND li.is_cover = true
+               LIMIT 1),
+              '[]'::jsonb
+            ) AS images,
+            to_jsonb(l.*) AS row_full
+          FROM listings l
+          LEFT JOIN profiles u ON u.id = l.user_id
+          LEFT JOIN categories c ON c.id = l.category_id
+          LEFT JOIN aimags a ON a.id = l.aimag_id
+          LEFT JOIN districts d ON d.id = l.district_id
+          LEFT JOIN khoroos k ON k.id = l.khoroo_id
+          WHERE l.status = 'active' AND l.is_active = true
+          ORDER BY l.created_at DESC
+          LIMIT 8
+        ) row
+      ),
+      boost AS (
+        SELECT COALESCE(array_agg(DISTINCT listing_id), ARRAY[]::uuid[]) AS ids
+        FROM listing_boosts
+        WHERE status = 'active' AND expires_at > NOW()
+      )
+      SELECT
+        COALESCE(cat.data, '[]'::jsonb) AS categories,
+        COALESCE(list.data, '[]'::jsonb) AS listings,
+        boost.ids AS boosted_ids
+      FROM cat, list, boost
+    `;
 
-    const boostedIds = activeBoosts.map((b) => b.listing_id);
+    const row = rows[0] ?? { categories: [], listings: [], boosted_ids: [] };
 
-    // Decimal → number + обрезка description до DESCRIPTION_PREVIEW_LEN.
-    // ListingCard использует line-clamp-1, поэтому смысла слать полный
-    // description (до нескольких KB) в RSC payload нет.
-    const listings = listingsData.map((l) => ({
+    // Trim description and coerce pg numerics to number for client props.
+    const listings = (row.listings ?? []).map((l) => ({
       ...l,
       description:
-        l.description.length > DESCRIPTION_PREVIEW_LEN
+        (l.description ?? "").length > DESCRIPTION_PREVIEW_LEN
           ? l.description.slice(0, DESCRIPTION_PREVIEW_LEN) + "…"
           : l.description,
-      price: l.price ? Number(l.price) : null,
-      latitude: l.latitude ? Number(l.latitude) : null,
-      longitude: l.longitude ? Number(l.longitude) : null,
-      // images приходят без sort_order — добавляем 0 для совместимости с типом.
-      images: l.images.map((img) => ({ ...img, sort_order: 0 })),
+      price: l.price != null ? Number(l.price) : null,
+      latitude: l.latitude != null ? Number(l.latitude) : null,
+      longitude: l.longitude != null ? Number(l.longitude) : null,
+      // ListingCard's type expects sort_order on images; cover is always 0.
+      images: (l.images ?? []).map((img) => ({ ...img, sort_order: 0 })),
     })) as unknown as ListingWithRelations[];
 
     return {
-      categories: rootCategories as unknown as CategoryWithChildren[],
+      categories: (row.categories ?? []) as unknown as CategoryWithChildren[],
       listings,
-      boostedIds,
+      boostedIds: row.boosted_ids ?? [],
     };
   } catch (error) {
     console.error("Failed to load home page data:", error);
