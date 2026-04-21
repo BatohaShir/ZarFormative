@@ -43,12 +43,31 @@ import { useFindManylisting_boosts } from "@/lib/hooks/listing-boosts";
 
 type SortOption = "popular" | "price_asc" | "price_desc" | "newest";
 
-interface ServicesListClientProps {
-  initialListings: ListingWithRelations[];
-  initialTotalCount: number;
+// Shared with app/services/page.tsx so SSR and client see the exact
+// same filter shape — that's what lets us skip re-fetching on hydration
+// when the URL hasn't changed.
+export interface ServicesFilters {
+  categorySlugs: string[];
+  priceMin: number;
+  priceMax: number;
+  sort: SortOption;
+  aimagId: string;
+  districtId: string;
+  provider: ProviderType;
+  q: string;
 }
 
-function ServicesListContent({ initialListings, initialTotalCount }: ServicesListClientProps) {
+interface ServicesListClientProps {
+  initialListings: ListingWithRelations[];
+  initialBoostedIds: string[];
+  initialFilters: ServicesFilters;
+}
+
+function ServicesListContent({
+  initialListings,
+  initialBoostedIds,
+  initialFilters,
+}: ServicesListClientProps) {
   const t = useTranslations("listings");
   const tCommon = useTranslations("common");
   const router = useRouter();
@@ -63,39 +82,29 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
   // Для debounce URL updates
   const urlUpdateTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Use lazy initializers to read URL params only once
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>(() => {
-    const initialCategory = searchParams.get("category") || "";
-    return initialCategory
-      ? [initialCategory]
-      : searchParams.get("categories")?.split(",").filter(Boolean) || [];
-  });
-
-  // Локальное состояние для визуального отображения слайдера (без debounce)
+  // Filter state seeded from the SSR-parsed initialFilters. SSR already
+  // parsed the URL; reading it again here would just duplicate that work
+  // and risk drift if parsing rules diverge.
+  const [selectedCategories, setSelectedCategories] = React.useState<string[]>(
+    () => initialFilters.categorySlugs
+  );
   const [localPriceRange, setLocalPriceRange] = React.useState<[number, number]>(() => [
-    parseInt(searchParams.get("priceMin") || "0", 10),
-    parseInt(searchParams.get("priceMax") || "1000000", 10),
+    initialFilters.priceMin,
+    initialFilters.priceMax,
   ]);
-
-  // Состояние для запросов (с debounce через onValueCommit)
   const [committedPriceRange, setCommittedPriceRange] =
     React.useState<[number, number]>(localPriceRange);
-
-  const [sortBy, setSortBy] = React.useState<SortOption>(
-    () => (searchParams.get("sort") as SortOption) || "newest"
-  );
-  const [selectedAimagId, setSelectedAimagId] = React.useState(
-    () => searchParams.get("aimag") || ""
-  );
+  const [sortBy, setSortBy] = React.useState<SortOption>(() => initialFilters.sort);
+  const [selectedAimagId, setSelectedAimagId] = React.useState(() => initialFilters.aimagId);
   const [selectedAimagName, setSelectedAimagName] = React.useState("");
   const [selectedDistrictId, setSelectedDistrictId] = React.useState(
-    () => searchParams.get("district") || ""
+    () => initialFilters.districtId
   );
   const [selectedDistrictName, setSelectedDistrictName] = React.useState("");
   const [providerType, setProviderType] = React.useState<ProviderType>(
-    () => (searchParams.get("provider") as ProviderType) || "all"
+    () => initialFilters.provider
   );
-  const [searchQuery, setSearchQuery] = React.useState(() => searchParams.get("q") || "");
+  const [searchQuery, setSearchQuery] = React.useState(() => initialFilters.q);
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   // Filter by specific listing IDs (from map cluster click)
   const [selectedListingIds, setSelectedListingIds] = React.useState<string[]>([]);
@@ -200,13 +209,31 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
 
   const PAGE_SIZE = 12;
 
-  // Проверяем нужно ли делать запрос (есть ли фильтры отличные от дефолтных)
+  // True when current state still matches the filters SSR rendered with.
+  // While true we can reuse initialListings as React Query's initialData,
+  // avoiding a re-fetch on mount. Cluster-map selection is a client-only
+  // state not represented in the SSR filters, so any selection forces a
+  // fresh query.
+  const matchesInitialFilters =
+    selectedListingIds.length === 0 &&
+    searchQuery === initialFilters.q &&
+    sortBy === initialFilters.sort &&
+    selectedAimagId === initialFilters.aimagId &&
+    selectedDistrictId === initialFilters.districtId &&
+    providerType === initialFilters.provider &&
+    committedPriceRange[0] === initialFilters.priceMin &&
+    committedPriceRange[1] === initialFilters.priceMax &&
+    selectedCategories.length === initialFilters.categorySlugs.length &&
+    selectedCategories.every((c) => initialFilters.categorySlugs.includes(c));
+
+  // Legacy name kept because downstream code (count display, UI affordances)
+  // still reads it.
   const hasFilters =
     selectedCategories.length > 0 ||
     committedPriceRange[0] > 0 ||
     committedPriceRange[1] < 1000000 ||
-    selectedAimagId ||
-    selectedDistrictId ||
+    selectedAimagId !== "" ||
+    selectedDistrictId !== "" ||
     providerType !== "all" ||
     sortBy !== "newest" ||
     selectedListingIds.length > 0 ||
@@ -277,8 +304,11 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
         },
         staleTime: 2 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
-        // Используем initial data только если нет фильтров
-        initialData: !hasFilters
+        // Seed from SSR whenever the filter state still matches what SSR
+        // rendered with. Previously we only seeded when NO filters were
+        // applied, so /services?q=X landed cold and paid a client-side
+        // round-trip to refetch the exact same rows SSR just returned.
+        initialData: matchesInitialFilters
           ? {
               pages: [initialListings],
               pageParams: [undefined],
@@ -473,10 +503,13 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     { staleTime: 60 * 1000 }
   );
 
+  // Prefer freshly-fetched boosts, fall back to SSR-seeded ids until
+  // the query resolves. Keeps VIP badges visible on first paint instead
+  // of flickering in once the client query finishes.
   const boostedIds = React.useMemo(() => {
-    if (!activeBoosts) return new Set<string>();
-    return new Set(activeBoosts.map((b) => b.listing_id));
-  }, [activeBoosts]);
+    if (activeBoosts) return new Set(activeBoosts.map((b) => b.listing_id));
+    return new Set(initialBoostedIds);
+  }, [activeBoosts, initialBoostedIds]);
 
   // Split into VIP and regular
   const { vipListings, regularListings } = React.useMemo(() => {
@@ -492,8 +525,12 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
   // OPTIMIZATION: Memoize billboard data to avoid calling getMockBillboards on every render
   const inlineBillboards = React.useMemo(() => getMockBillboards("services_inline"), []);
 
-  // Total count: используем initial если нет фильтров, иначе текущий список
-  const displayTotalCount = !hasFilters ? initialTotalCount : listingsData.length;
+  // Show what's actually loaded on screen. Previously we did a separate
+  // COUNT(*) on SSR for the no-filter case just so the header could say
+  // "(1,243 results)" vs "(12 results)" — an extra DB round-trip for a
+  // vanity label. Drop the dedicated count and report the loaded count;
+  // infinite scroll will bump it as more pages stream in.
+  const displayTotalCount = listingsData.length;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
