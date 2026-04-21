@@ -7,11 +7,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
+import { SiteHeader } from "@/components/site-header";
 import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
 import { ListingCardSkeletonGrid } from "@/components/listing-card-skeleton";
 import { BillboardSlot } from "@/components/billboard";
@@ -25,15 +21,7 @@ import {
   ServicesFilters as ServicesFiltersPanel,
   type ProviderType,
 } from "@/components/services-filters";
-import {
-  ChevronLeft,
-  SlidersHorizontal,
-  ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
-  MapPin,
-  Loader2,
-} from "lucide-react";
+import { SlidersHorizontal, ChevronDown, ChevronUp, MapPin } from "lucide-react";
 import { ServicesMap } from "@/components/services-map";
 import {
   Select,
@@ -421,49 +409,23 @@ function ServicesListContent({
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10">
-                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </Link>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
-          </div>
-          {/* Mobile Nav - theme toggle + notifications bell */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader backHref="/" />
 
-      <div className="container mx-auto px-4 py-4 md:py-6">
-        {/* Page Title with Total Count */}
-        <div className="flex items-baseline gap-2 mb-4">
-          <h2 className="text-xl md:text-2xl font-bold">{t("allServices")}</h2>
-          <span className="text-sm text-muted-foreground">
-            ({displayTotalCount} {t("results")})
-          </span>
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* Editorial page header */}
+        <div className="mb-6 md:mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight">
+              {t("allServices")}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1.5 tabular">
+              {isLoading ? t("loading") : `${displayTotalCount} ${t("results")}`}
+            </p>
+          </div>
         </div>
 
-        {/* Desktop Search & City */}
-        <div className="hidden md:flex w-full gap-2 mb-6">
+        {/* Desktop Search & City — stacked side-by-side matching hero tokens */}
+        <div className="hidden md:flex gap-2 mb-8">
           <SearchInput
             className="flex-1"
             value={searchQuery}
@@ -486,9 +448,8 @@ function ServicesListContent({
           />
         </div>
 
-        {/* Mobile: Search, City (full width), Collapsible Filters */}
-        <div className="md:hidden space-y-3 mb-4">
-          {/* Search */}
+        {/* Mobile: Search → Location (full width) → Filters (full width) */}
+        <div className="md:hidden space-y-2.5 mb-5">
           <SearchInput
             value={searchQuery}
             onValueChange={setSearchQuery}
@@ -496,7 +457,7 @@ function ServicesListContent({
             showSubmit
           />
 
-          {/* City Select - Full Width */}
+          {/* Location — full width */}
           <CitySelect
             onSelect={handleLocationSelect}
             value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
@@ -510,38 +471,44 @@ function ServicesListContent({
                 : undefined
             }
             trigger={(displayText) => (
-              <Button variant="outline" className="w-full justify-between h-11">
-                <span className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  {displayText}
+              <button
+                type="button"
+                className="w-full inline-flex items-center justify-between gap-2 h-11 px-4 rounded-xl border border-border bg-card hover:bg-muted transition-colors"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-sm">{displayText}</span>
                 </span>
-                <ChevronDown className="h-4 w-4 shrink-0" />
-              </Button>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
             )}
           />
 
-          {/* Collapsible Filters */}
+          {/* Filters — full width, collapsible */}
           <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen}>
             <CollapsibleTrigger asChild>
-              <Button variant="outline" className="w-full justify-between h-11">
+              <button
+                type="button"
+                className="w-full inline-flex items-center justify-between gap-2 h-11 px-4 rounded-xl border border-border bg-card hover:bg-muted transition-colors"
+              >
                 <span className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  <span>{t("filters")}</span>
+                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">{t("filters")}</span>
                   {activeFiltersCount > 0 && (
-                    <span className="h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
+                    <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-foreground text-background text-[10px] font-semibold tabular">
                       {activeFiltersCount}
                     </span>
                   )}
                 </span>
                 {filtersOpen ? (
-                  <ChevronUp className="h-4 w-4" />
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 )}
-              </Button>
+              </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-3">
-              <div className="border rounded-lg p-4">
+              <div className="rounded-2xl ring-1 ring-border p-4">
                 <ServicesFiltersPanel
                   variant="mobile"
                   selectedCategories={selectedCategories}
@@ -559,19 +526,18 @@ function ServicesListContent({
           </Collapsible>
         </div>
 
-        <div className="flex gap-6">
-          {/* Desktop Filters Sidebar */}
-          <aside className="hidden md:block w-64 shrink-0">
-            <div className="sticky top-24 border rounded-lg p-4">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4" />
-                {t("filters")}
+        <div className="flex gap-8 md:gap-10">
+          {/* Desktop Filters Sidebar — editorial, no box */}
+          <aside className="hidden md:block w-60 shrink-0">
+            <div className="sticky top-24">
+              <div className="flex items-center gap-2 mb-5">
+                <h3 className="font-display font-bold text-lg tracking-tight">{t("filters")}</h3>
                 {activeFiltersCount > 0 && (
-                  <span className="ml-auto h-5 w-5 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
+                  <span className="h-5 min-w-5 px-1.5 flex items-center justify-center rounded-full bg-foreground text-background text-[10px] font-semibold tabular">
                     {activeFiltersCount}
                   </span>
                 )}
-              </h3>
+              </div>
               <ServicesFiltersPanel
                 variant="desktop"
                 selectedCategories={selectedCategories}
@@ -590,24 +556,26 @@ function ServicesListContent({
           {/* Services Grid */}
           <div className="flex-1">
             {/* Billboard — before map */}
-            <BillboardSlot placement="services_top" className="px-0 mb-4" />
+            <BillboardSlot placement="services_top" className="px-0 mb-5" />
 
             {/* Map Section */}
-            <ServicesMap
-              listings={listingsData}
-              className="mb-4 h-50 md:h-70"
-              onLocationSelect={handleLocationSelectFromMap}
-              onClusterSelect={handleClusterSelectFromMap}
-            />
+            <div className="mb-6 rounded-2xl overflow-hidden ring-1 ring-border">
+              <ServicesMap
+                listings={listingsData}
+                className="h-50 md:h-70"
+                onLocationSelect={handleLocationSelectFromMap}
+                onClusterSelect={handleClusterSelectFromMap}
+              />
+            </div>
 
             {/* Results header with sort */}
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-muted-foreground">
-                {isLoading ? t("loading") : `${listingsData.length} ${t("services")}`}
+            <div className="flex items-end justify-between mb-5 md:mb-6">
+              <p className="text-sm md:text-base">
+                <span className="font-display font-semibold tabular">{listingsData.length}</span>{" "}
+                <span className="text-muted-foreground">{t("services")}</span>
               </p>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
-                <SelectTrigger className="w-36 md:w-44">
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                <SelectTrigger className="h-9 w-auto min-w-32 md:min-w-44 rounded-full border-border bg-muted/60 hover:bg-muted text-sm">
                   <SelectValue placeholder={t("sort")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -650,45 +618,49 @@ function ServicesListContent({
 
                 {/* Skeleton при загрузке следующей страницы */}
                 {isFetchingNextPage && (
-                  <div className="mt-4">
+                  <div className="mt-5">
                     <ListingCardSkeletonGrid count={3} />
                   </div>
                 )}
 
                 {/* Intersection Observer target для auto infinite scroll */}
                 {hasNextPage && (
-                  <div ref={loadMoreRef} className="flex justify-center mt-6 py-4">
+                  <div ref={loadMoreRef} className="flex justify-center mt-8 py-4">
                     {!isFetchingNextPage && (
-                      <Button
-                        variant="outline"
+                      <button
                         onClick={() => fetchNextPage()}
-                        className="min-w-40"
+                        className="h-11 px-6 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all"
                       >
                         {t("loadMore")}
-                      </Button>
+                      </button>
                     )}
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="flex flex-col items-center justify-center py-20 md:py-24 text-center rounded-2xl bg-muted/40">
                 <Image
                   src="/icons/7486744.webp"
-                  alt={t("noResults")}
-                  width={80}
-                  height={80}
-                  className="mb-4 opacity-70"
+                  alt=""
+                  width={72}
+                  height={72}
+                  className="mb-4 opacity-50"
                 />
-                <p className="text-muted-foreground mb-2">{t("noResults")}</p>
-                <p className="text-muted-foreground/70 text-sm mb-4">{t("noResultsHint")}</p>
-                <div className="flex gap-2">
+                <p className="font-display text-lg font-semibold">{t("noResults")}</p>
+                <p className="text-muted-foreground text-sm mt-1">{t("noResultsHint")}</p>
+                <div className="flex gap-2 mt-5">
                   {activeFiltersCount > 0 && (
-                    <Button variant="outline" onClick={resetFilters}>
+                    <button
+                      onClick={resetFilters}
+                      className="h-10 px-4 rounded-full border border-border text-sm font-medium hover:bg-muted transition-colors"
+                    >
                       {t("clearFilters")}
-                    </Button>
+                    </button>
                   )}
                   <Link href="/services/create">
-                    <Button>{t("addListing")}</Button>
+                    <span className="inline-flex items-center h-10 px-4 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors">
+                      {t("addListing")}
+                    </span>
                   </Link>
                 </div>
               </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthModal } from "@/components/auth-modal";
 import { FavoritesButton } from "@/components/favorites-button";
@@ -8,7 +10,12 @@ import { RequestsButton } from "@/components/requests-button";
 import { NotificationsButton } from "@/components/notifications-button";
 import { cn } from "@/lib/utils";
 
-export function SiteHeader() {
+interface SiteHeaderProps {
+  /** When set, a back chevron appears before the logo and links to this href. */
+  backHref?: string;
+}
+
+export function SiteHeader({ backHref }: SiteHeaderProps = {}) {
   const [scrolled, setScrolled] = React.useState(false);
 
   React.useEffect(() => {
@@ -28,13 +35,25 @@ export function SiteHeader() {
       )}
     >
       <div className="container mx-auto px-4 md:px-6 h-14 md:h-16 flex items-center justify-between">
-        <span
-          className="text-lg md:text-xl font-display font-bold tracking-tight"
-          aria-label="Tsogts.mn"
-        >
-          <span className="text-[#015197]">Tsogts</span>
-          <span className="text-accent">.mn</span>
-        </span>
+        <div className="flex items-center gap-2 md:gap-3">
+          {backHref && (
+            <Link
+              href={backHref}
+              aria-label="Буцах"
+              className="w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center hover:bg-muted transition-colors -ml-1"
+            >
+              <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
+            </Link>
+          )}
+          <Link
+            href="/"
+            className="text-lg md:text-xl font-display font-bold tracking-tight"
+            aria-label="Tsogts.mn"
+          >
+            <span className="text-[#015197]">Tsogts</span>
+            <span className="text-accent">.mn</span>
+          </Link>
+        </div>
 
         {/* Mobile */}
         <div className="flex md:hidden items-center gap-1">
