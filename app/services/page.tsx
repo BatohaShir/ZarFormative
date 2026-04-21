@@ -1,5 +1,5 @@
 import { ServicesListClient } from "@/components/services-list-client";
-import { fetchServices, fetchServicesReferenceData, parseFilters } from "@/lib/services/query";
+import { fetchServicesPageData, parseFilters } from "@/lib/services/query";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -25,15 +25,12 @@ export default async function ServicesPage({
   const params = await searchParams;
   const filters = parseFilters(params);
 
-  // Run the listings CTE and the reference-data CTE in parallel. The
-  // latter feeds the filter UI (CitySelect, CategoryFilterModal) so it
-  // doesn't need to issue its own client-side findMany on mount —
-  // when the URL already pins an aimag we seed its districts too, so
-  // the aimag's sub-list is ready without a third round-trip.
-  const [{ listings, boostedIds, nextCursor }, referenceData] = await Promise.all([
-    fetchServices(filters),
-    fetchServicesReferenceData(filters.aimagId || undefined),
-  ]);
+  // One $queryRaw, one DB round-trip. Previously we called
+  // fetchServices + fetchServicesReferenceData inside Promise.all
+  // thinking they'd parallelise — on pgbouncer transaction mode
+  // they actually serialise on the same connection and pay two
+  // round-trips. Folded into a single CTE below.
+  const { listings, boostedIds, nextCursor, referenceData } = await fetchServicesPageData(filters);
 
   return (
     <ServicesListClient

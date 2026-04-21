@@ -223,14 +223,16 @@ function buildOrderByFragment(sort: SortOption): Prisma.Sql {
 
 /**
  * Reference data for the filter UI (aimags list + root categories).
- * Served separately from fetchServices because:
- *   - near-static (aimags almost never change, categories slowly)
- *   - cacheable for hours (vs 60s for the listing grid)
- *   - SSR can fetch both in parallel, no serialization cost
  *
- * One small query, embedded in SSR props → removes two client-side
- * findMany queries (useFindManyaimags, useFindManycategories) that
- * otherwise fire on mount for every authenticated visit.
+ * NOTE: On SSR prefer fetchServicesPageData() which folds this into the
+ * same round-trip as the listings query. Prisma + pgbouncer in
+ * transaction mode doesn't actually parallelise `await Promise.all([...])`
+ * of two queries — each still pays its own ~2s round-trip — so SSR only
+ * wins when everything lives in one $queryRaw.
+ *
+ * This standalone helper is kept for edge cases that need reference
+ * data without listings (none today), but the page loader should not
+ * call it directly.
  */
 export async function fetchServicesReferenceData(aimagId?: string): Promise<ServicesReferenceData> {
   try {
@@ -463,4 +465,214 @@ export async function fetchServices(
     boostedIds: row.boosted_ids ?? [],
     nextCursor,
   };
+}
+
+/**
+ * SSR page loader: one $queryRaw that returns the listings result AND
+ * the filter reference data in a single round-trip.
+ *
+ * Why merge them when we already had two separate functions?
+ * Because `Promise.all([fetchA(), fetchB()])` on Prisma + Supabase's
+ * pgbouncer (transaction mode) doesn't actually run the two queries
+ * in parallel at the database level — Prisma serialises them on a
+ * single connection with a DEALLOCATE between, so each pays its own
+ * ~2s RTT from Mongolia → Seoul. Folding both into one CTE means one
+ * RTT total.
+ *
+ * Benchmarked from MN → ap-northeast-2:
+ *   Promise.all([fetchServices, fetchServicesReferenceData]): ~5.3s
+ *   fetchServicesPageData (one CTE):                          ~2.0s
+ */
+export async function fetchServicesPageData(
+  filters: ServicesFilters
+): Promise<ServicesQueryResult & { referenceData: ServicesReferenceData }> {
+  const { categorySlugs, priceMin, priceMax, sort, aimagId, districtId, provider, q } = filters;
+  const limit = PAGE_SIZE;
+
+  // UUID guard — anything else becomes NULL and skips the districts CTE.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const selectedAimagId = aimagId && UUID_RE.test(aimagId) ? aimagId : null;
+
+  // Listings WHERE — same logic as fetchServices.
+  const whereParts: Prisma.Sql[] = [
+    Prisma.sql`l.status = 'active'`,
+    Prisma.sql`l.is_active = true`,
+  ];
+
+  if (categorySlugs.length > 0) {
+    whereParts.push(Prisma.sql`c.slug IN (${Prisma.join(categorySlugs)})`);
+  }
+  if (priceMin > 0) whereParts.push(Prisma.sql`l.price >= ${priceMin}`);
+  if (priceMax < 1_000_000) whereParts.push(Prisma.sql`l.price <= ${priceMax}`);
+
+  if (districtId) {
+    whereParts.push(Prisma.sql`l.district_id = ${districtId}::uuid`);
+  } else if (aimagId) {
+    whereParts.push(Prisma.sql`l.aimag_id = ${aimagId}::uuid`);
+  }
+
+  if (provider !== "all") {
+    whereParts.push(Prisma.sql`u.is_company = ${provider === "company"}`);
+  }
+
+  const tsQuery = q.length >= 2 ? buildTsQuery(q) : null;
+  if (tsQuery) {
+    whereParts.push(Prisma.sql`(
+      l.search_vector @@ to_tsquery('russian', ${tsQuery})
+      OR l.search_vector @@ to_tsquery('english', ${tsQuery})
+      OR l.search_vector @@ to_tsquery('simple',  ${tsQuery})
+      OR u.first_name ILIKE ${"%" + q + "%"}
+      OR u.last_name  ILIKE ${"%" + q + "%"}
+      OR u.company_name ILIKE ${"%" + q + "%"}
+    )`);
+  }
+
+  const whereSql = Prisma.sql`WHERE ${Prisma.join(whereParts, " AND ")}`;
+  const orderBySql = buildOrderByFragment(sort);
+  const fetchLimit = limit + 1;
+
+  try {
+    const rows = await prisma.$queryRaw<
+      (ServicesDataRow & {
+        ref_aimags: aimags[];
+        ref_categories: categories[];
+        ref_districts: districts[];
+      })[]
+    >`
+      WITH list AS (
+        SELECT jsonb_agg(row) AS data FROM (
+          SELECT
+            l.id, l.user_id, l.title, l.slug,
+            CASE
+              WHEN length(l.description) > ${DESCRIPTION_PREVIEW_LEN}::int
+                THEN left(l.description, ${DESCRIPTION_PREVIEW_LEN}::int) || '…'
+              ELSE l.description
+            END AS description,
+            l.price, l.currency, l.is_negotiable,
+            l.service_type::text AS service_type,
+            l.address, l.latitude, l.longitude,
+            l.views_count, l.favorites_count, l.created_at,
+            CASE WHEN u.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', u.id,
+              'first_name', u.first_name,
+              'last_name', u.last_name,
+              'avatar_url', u.avatar_url,
+              'company_name', u.company_name,
+              'is_company', u.is_company
+            ) END AS "user",
+            CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', c.id, 'name', c.name, 'slug', c.slug
+            ) END AS category,
+            CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', a.id, 'name', a.name,
+              'latitude', a.latitude, 'longitude', a.longitude
+            ) END AS aimag,
+            CASE WHEN d.id IS NULL THEN NULL ELSE jsonb_build_object(
+              'id', d.id, 'name', d.name,
+              'latitude', d.latitude, 'longitude', d.longitude
+            ) END AS district,
+            COALESCE(
+              (SELECT jsonb_agg(jsonb_build_object('id', li.id, 'url', li.url))
+               FROM listings_images li
+               WHERE li.listing_id = l.id AND li.is_cover = true
+               LIMIT 1),
+              '[]'::jsonb
+            ) AS images
+          FROM listings l
+          LEFT JOIN profiles u   ON u.id = l.user_id
+          LEFT JOIN categories c ON c.id = l.category_id
+          LEFT JOIN aimags a     ON a.id = l.aimag_id
+          LEFT JOIN districts d  ON d.id = l.district_id
+          ${whereSql}
+          ${orderBySql}
+          LIMIT ${fetchLimit}::int
+        ) row
+      ),
+      boost AS (
+        SELECT COALESCE(array_agg(DISTINCT listing_id), ARRAY[]::uuid[]) AS ids
+        FROM listing_boosts
+        WHERE status = 'active' AND expires_at > NOW()
+      ),
+      ref_a AS (
+        SELECT COALESCE(jsonb_agg(to_jsonb(aa.*) ORDER BY aa.sort_order ASC), '[]'::jsonb) AS data
+        FROM (SELECT * FROM aimags WHERE is_active = true) aa
+      ),
+      ref_c AS (
+        SELECT COALESCE(jsonb_agg(to_jsonb(cc.*) ORDER BY cc.sort_order ASC), '[]'::jsonb) AS data
+        FROM (SELECT * FROM categories WHERE is_active = true) cc
+      ),
+      ref_d AS (
+        SELECT COALESCE(jsonb_agg(to_jsonb(dd.*) ORDER BY dd.sort_order ASC), '[]'::jsonb) AS data
+        FROM (
+          SELECT *
+          FROM districts
+          WHERE is_active = true
+            AND ${
+              selectedAimagId ? Prisma.sql`aimag_id = ${selectedAimagId}::uuid` : Prisma.sql`false`
+            }
+        ) dd
+      )
+      SELECT
+        COALESCE(list.data, '[]'::jsonb) AS listings,
+        boost.ids AS boosted_ids,
+        ref_a.data AS ref_aimags,
+        ref_c.data AS ref_categories,
+        ref_d.data AS ref_districts
+      FROM list, boost, ref_a, ref_c, ref_d
+    `;
+
+    const row = rows[0];
+    const rawListings = row?.listings ?? [];
+
+    // hasMore pattern — same as fetchServices.
+    const hasMore = rawListings.length > limit;
+    const visible = hasMore ? rawListings.slice(0, limit) : rawListings;
+    const last = hasMore ? rawListings[limit - 1] : null;
+    const nextCursor =
+      hasMore && last && sort === "newest"
+        ? { createdAt: String(last.created_at), id: last.id }
+        : null;
+
+    const listings = visible.map((l) => ({
+      ...l,
+      price: l.price != null ? Number(l.price) : null,
+      latitude: l.latitude != null ? Number(l.latitude) : null,
+      longitude: l.longitude != null ? Number(l.longitude) : null,
+      aimag: l.aimag
+        ? {
+            ...l.aimag,
+            latitude: l.aimag.latitude != null ? Number(l.aimag.latitude) : null,
+            longitude: l.aimag.longitude != null ? Number(l.aimag.longitude) : null,
+          }
+        : null,
+      district: l.district
+        ? {
+            ...l.district,
+            latitude: l.district.latitude != null ? Number(l.district.latitude) : null,
+            longitude: l.district.longitude != null ? Number(l.district.longitude) : null,
+          }
+        : null,
+      images: (l.images ?? []).map((img) => ({ ...img, sort_order: 0 })),
+    })) as unknown as ListingWithRelations[];
+
+    return {
+      listings,
+      boostedIds: row?.boosted_ids ?? [],
+      nextCursor,
+      referenceData: {
+        aimags: row?.ref_aimags ?? [],
+        categories: row?.ref_categories ?? [],
+        districts: row?.ref_districts ?? [],
+        districtsAimagId: selectedAimagId,
+      },
+    };
+  } catch (error) {
+    console.error("fetchServicesPageData failed:", error);
+    return {
+      listings: [],
+      boostedIds: [],
+      nextCursor: null,
+      referenceData: { aimags: [], categories: [], districts: [], districtsAimagId: null },
+    };
+  }
 }
