@@ -150,10 +150,14 @@ const StoryCircle = React.memo(function StoryCircle({
   group,
   viewedIds,
   onClick,
+  priority = false,
 }: {
   group: GroupedStory;
   viewedIds: Set<string>;
   onClick: () => void;
+  /** Eager-load the avatar for the first few circles so they paint
+   *  without waiting for lazy-load intersection. */
+  priority?: boolean;
 }) {
   const storyIds = group.stories.map((s) => s.id);
 
@@ -175,6 +179,8 @@ const StoryCircle = React.memo(function StoryCircle({
             width={60}
             height={60}
             unoptimized
+            priority={priority}
+            loading={priority ? undefined : "lazy"}
             className="w-full h-full rounded-full object-cover"
           />
         </div>
@@ -1095,7 +1101,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
     setIsSubmitting(true);
 
     try {
-      // 1. Upload image to storage
+      // 1. Upload image — must finish before we can write the row.
       const { url, error: uploadError } = await uploadStoryImage(user.id, selectedFile);
       if (uploadError || !url) {
         toast.error(uploadError || "Зураг оруулахад алдаа гарлаа");
@@ -1103,9 +1109,49 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
         return;
       }
 
-      // 2. Create story via ZenStack
+      // 2. Optimistic path: as soon as storage has the image, we
+      //    (a) drop a provisional story into React Query's cache so
+      //        the carousel shows it on the next render, and
+      //    (b) flip the modal to "success" immediately — the user
+      //        doesn't stare at a spinner for a second DB round-trip.
+      //    The actual INSERT fires in the background below.
+      const now = new Date().toISOString();
       const duration = STORY_PLAN_DURATIONS[plan] || STORY_PLAN_DURATIONS["1day"];
-      await createStory({
+      const tempId = `pending-${crypto.randomUUID()}`;
+      const optimistic: DbAdStory = {
+        id: tempId,
+        user_id: user.id,
+        image_url: url,
+        plan,
+        status: "active",
+        editor_data: editorData ?? null,
+        views_count: 0,
+        created_at: now,
+        expires_at: new Date(Date.now() + duration).toISOString(),
+        user: {
+          id: user.id,
+          first_name: user.user_metadata?.first_name ?? null,
+          last_name: user.user_metadata?.last_name ?? null,
+          avatar_url: user.user_metadata?.avatar_url ?? null,
+          company_name: user.user_metadata?.company_name ?? null,
+          is_company: Boolean(user.user_metadata?.is_company),
+        },
+      };
+
+      // Push into every cached ad_stories query (there's typically
+      // just the one on the homepage, but this covers future callers).
+      queryClient.setQueriesData<DbAdStory[]>({ queryKey: ["ad_stories"] }, (prev) => [
+        optimistic,
+        ...(prev ?? []),
+      ]);
+
+      setStep("success");
+      setIsSubmitting(false);
+
+      // 3. Background INSERT — not awaited. If it fails we roll back
+      //    the optimistic row and show a toast; the user has already
+      //    seen the success screen but the story won't actually exist.
+      createStory({
         data: {
           user: { connect: { id: user.id } },
           image_url: url,
@@ -1113,13 +1159,20 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
           editor_data: editorData ? JSON.parse(JSON.stringify(editorData)) : undefined,
           expires_at: new Date(Date.now() + duration),
         },
-      });
-
-      setStep("success");
-      queryClient.invalidateQueries({ queryKey: ["ad_stories"] });
+      })
+        .then(() => {
+          // Let the next background refresh replace the provisional
+          // row with the real one (same image, same user → same ring).
+          queryClient.invalidateQueries({ queryKey: ["ad_stories"] });
+        })
+        .catch(() => {
+          queryClient.setQueriesData<DbAdStory[]>({ queryKey: ["ad_stories"] }, (prev) =>
+            (prev ?? []).filter((s) => s.id !== tempId)
+          );
+          toast.error("Stories-г хадгалж чадсангүй. Дахин оролдоно уу.");
+        });
     } catch {
       toast.error("Алдаа гарлаа");
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -1500,7 +1553,17 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
 // AdStories — горизонтальная лента кружочков
 // ============================================
 
-export function AdStories() {
+interface AdStoriesProps {
+  /**
+   * SSR-seeded list. When provided, React Query treats the query as
+   * already fresh and skips the mount-time network hop. Stories then
+   * show up in the very first paint instead of arriving 1-2s after
+   * hydration (one round-trip to Seoul from MN).
+   */
+  initialStories?: DbAdStory[];
+}
+
+export function AdStories({ initialStories }: AdStoriesProps = {}) {
   const { isAuthenticated } = useAuth();
 
   // OPTIMIZATION: Round date to 5-min intervals for stable query key.
@@ -1531,7 +1594,15 @@ export function AdStories() {
       },
       orderBy: { created_at: "desc" },
     },
-    { staleTime: 30 * 1000 }
+    {
+      staleTime: 30 * 1000,
+      // Seed from SSR so the ring doesn't pop in after a round-trip.
+      // React Query still refreshes in the background after staleTime.
+      // Cast is needed because the ZenStack-generated hook's initialData
+      // type is the full findMany payload including defaults, which our
+      // narrower DbAdStory[] shape satisfies structurally.
+      initialData: initialStories as never,
+    }
   );
   const rawStories = (rawStoriesData || []) as unknown as DbAdStory[];
 
@@ -1615,6 +1686,9 @@ export function AdStories() {
                   group={group}
                   viewedIds={viewedIds}
                   onClick={() => setOpenGroupIndex(index)}
+                  // First few circles are above the fold on every viewport;
+                  // eager-loading them prevents a pop-in when the page paints.
+                  priority={index < 4}
                 />
               ))}
         </div>

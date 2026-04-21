@@ -5,6 +5,7 @@ import { Footer } from "@/components/footer";
 import { CategoriesSectionSSR } from "@/components/categories-section-ssr";
 import { RecommendedListingsSSR } from "@/components/recommended-listings-ssr";
 import { AdStories } from "@/components/billboard";
+import type { DbAdStory } from "@/components/billboard/types";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -56,6 +57,7 @@ interface HomeDataRow {
   categories: unknown[];
   listings: RawListingRow[];
   boosted_ids: string[];
+  ad_stories: DbAdStory[];
 }
 
 // Single round-trip fetch. Previously Prisma issued 5+ sequential queries
@@ -130,15 +132,45 @@ async function getHomePageData() {
         SELECT COALESCE(array_agg(DISTINCT listing_id), ARRAY[]::uuid[]) AS ids
         FROM listing_boosts
         WHERE status = 'active' AND expires_at > NOW()
+      ),
+      -- Instagram-style ad stories for the carousel. Same CTE so we
+      -- don't pay an extra round-trip just to render story circles;
+      -- user is embedded via jsonb_build_object to avoid Prisma's
+      -- dataloader firing a second IN(...) query for profiles.
+      stories AS (
+        SELECT jsonb_agg(row ORDER BY created_at DESC) AS data FROM (
+          SELECT
+            s.id, s.user_id, s.image_url, s.plan, s.status::text AS status,
+            s.editor_data, s.views_count, s.created_at, s.expires_at,
+            jsonb_build_object(
+              'id', su.id,
+              'first_name', su.first_name,
+              'last_name', su.last_name,
+              'avatar_url', su.avatar_url,
+              'company_name', su.company_name,
+              'is_company', su.is_company
+            ) AS "user"
+          FROM ad_stories s
+          LEFT JOIN profiles su ON su.id = s.user_id
+          WHERE s.status = 'active' AND s.expires_at > NOW()
+          ORDER BY s.created_at DESC
+          LIMIT 50
+        ) row
       )
       SELECT
         COALESCE(cat.data, '[]'::jsonb) AS categories,
         COALESCE(list.data, '[]'::jsonb) AS listings,
-        boost.ids AS boosted_ids
-      FROM cat, list, boost
+        boost.ids AS boosted_ids,
+        COALESCE(stories.data, '[]'::jsonb) AS ad_stories
+      FROM cat, list, boost, stories
     `;
 
-    const row = rows[0] ?? { categories: [], listings: [], boosted_ids: [] };
+    const row = rows[0] ?? {
+      categories: [],
+      listings: [],
+      boosted_ids: [],
+      ad_stories: [],
+    };
 
     // Trim description and coerce pg numerics to number for client props.
     const listings = (row.listings ?? []).map((l) => ({
@@ -158,6 +190,7 @@ async function getHomePageData() {
       categories: (row.categories ?? []) as unknown as CategoryWithChildren[],
       listings,
       boostedIds: row.boosted_ids ?? [],
+      adStories: row.ad_stories ?? [],
     };
   } catch (error) {
     console.error("Failed to load home page data:", error);
@@ -165,12 +198,13 @@ async function getHomePageData() {
       categories: fallbackCategories as unknown as CategoryWithChildren[],
       listings: [] as ListingWithRelations[],
       boostedIds: [] as string[],
+      adStories: [] as DbAdStory[],
     };
   }
 }
 
 export default async function Home() {
-  const [{ categories, listings, boostedIds }, t] = await Promise.all([
+  const [{ categories, listings, boostedIds, adStories }, t] = await Promise.all([
     getHomePageData(),
     getTranslations(),
   ]);
@@ -189,8 +223,9 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Ad Stories — Instagram-style */}
-      <AdStories />
+      {/* Ad Stories — Instagram-style. SSR-seeded so circles render
+          immediately instead of waiting on a client findMany after hydration. */}
+      <AdStories initialStories={adStories} />
 
       {/* Categories - SSR с предзагруженными данными (только roots; модалка
           с подкатегориями лениво тянет остальное client-side) */}
