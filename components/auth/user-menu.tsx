@@ -2,12 +2,7 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +21,6 @@ import {
   ThumbsUp,
   ThumbsDown,
   Pencil,
-  Settings,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -41,6 +35,9 @@ interface Profile {
   is_company?: boolean;
   company_name?: string | null;
   registration_number?: string | null;
+  avg_rating?: number | null;
+  reviews_count?: number;
+  completed_jobs_count?: number;
 }
 
 interface UserMenuProps {
@@ -184,28 +181,30 @@ export function UserMenu({
               </div>
             </div>
 
-            {/* Stats */}
+            {/* Stats — real values from profiles table, maintained by DB triggers (Wave 3) */}
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center justify-center gap-1 text-yellow-500 mb-1">
                   <Star className="h-4 w-4 fill-current" />
-                  <span className="font-bold">4.9</span>
+                  <span className="font-bold">
+                    {profile?.avg_rating != null ? Number(profile.avg_rating).toFixed(1) : "—"}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground">Үнэлгээ</p>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded-lg">
                 <div className="flex items-center justify-center gap-1 text-green-500 mb-1">
                   <ThumbsUp className="h-4 w-4" />
-                  <span className="font-bold">127</span>
+                  <span className="font-bold">{profile?.completed_jobs_count ?? 0}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">Амжилттай</p>
               </div>
               <div className="text-center p-3 bg-muted/50 rounded-lg">
-                <div className="flex items-center justify-center gap-1 text-red-500 mb-1">
+                <div className="flex items-center justify-center gap-1 text-blue-500 mb-1">
                   <ThumbsDown className="h-4 w-4" />
-                  <span className="font-bold">2</span>
+                  <span className="font-bold">{profile?.reviews_count ?? 0}</span>
                 </div>
-                <p className="text-xs text-muted-foreground">Амжилтгүй</p>
+                <p className="text-xs text-muted-foreground">Үнэлгээ тоо</p>
               </div>
             </div>
 

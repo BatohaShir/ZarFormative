@@ -27,6 +27,8 @@ interface AuthContextType {
     }
   ) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
   uploadAvatar: (file: File) => Promise<{ error: string | null; url: string | null }>;
   updateProfile: (
@@ -57,6 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     signOut,
+    requestPasswordReset,
+    updatePassword,
     uploadAvatar,
     updateProfile,
     refetchProfile,
@@ -124,6 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signOut,
+      requestPasswordReset,
+      updatePassword,
       refreshProfile,
       uploadAvatar,
       updateProfile,
@@ -138,6 +144,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signIn,
       signUp,
       signOut,
+      requestPasswordReset,
+      updatePassword,
       refreshProfile,
       uploadAvatar,
       updateProfile,

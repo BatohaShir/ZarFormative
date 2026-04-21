@@ -83,8 +83,14 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
 
     if (!regPassword.trim()) {
       newErrors.password = t("enterPassword");
-    } else if (regPassword.length < 6) {
+    } else if (regPassword.length < 8) {
       newErrors.password = t("passwordMinLength");
+    } else if (!/[A-Z]/.test(regPassword)) {
+      newErrors.password = t("passwordUppercase");
+    } else if (!/[a-z]/.test(regPassword)) {
+      newErrors.password = t("passwordLowercase");
+    } else if (!/[0-9]/.test(regPassword)) {
+      newErrors.password = t("passwordNumber");
     }
 
     if (!regConfirmPassword.trim()) {
@@ -222,6 +228,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
                   placeholder={t("firstName")}
+                  autoComplete="given-name"
                   className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
                   value={regFirstName}
                   onChange={(e) => {
@@ -241,6 +248,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
                   placeholder={t("lastName")}
+                  autoComplete="family-name"
                   className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
                   value={regLastName}
                   onChange={(e) => {
@@ -308,6 +316,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type="tel"
+              autoComplete="tel"
               placeholder={t("phoneNumber")}
               className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
               value={regPhone}
@@ -326,6 +335,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type="email"
+              autoComplete="email"
               placeholder={t("email")}
               className="pl-9 sm:pl-10 h-9 sm:h-10 text-sm"
               value={regEmail}
@@ -343,6 +353,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
               placeholder={t("password")}
               className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
               value={regPassword}
@@ -373,6 +384,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               type={showConfirmPassword ? "text" : "password"}
+              autoComplete="new-password"
               placeholder={t("confirmPassword")}
               className="pl-9 sm:pl-10 pr-9 sm:pr-10 h-9 sm:h-10 text-sm"
               value={regConfirmPassword}
@@ -415,11 +427,21 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
               htmlFor="terms"
               className="text-[10px] sm:text-xs font-normal leading-tight cursor-pointer text-muted-foreground"
             >
-              <a href="#" className="text-primary hover:underline">
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
                 {t("termsAndConditions")}
               </a>{" "}
               {t("and")}{" "}
-              <a href="#" className="text-primary hover:underline">
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
                 {t("privacyPolicy")}
               </a>
               {t("agreeToTerms")}

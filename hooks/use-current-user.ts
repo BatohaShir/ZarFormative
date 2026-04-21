@@ -234,6 +234,23 @@ export function useCurrentUser() {
     return { error: error?.message ?? null };
   };
 
+  // Request password reset — sends email with link to /auth/reset-password
+  const requestPasswordReset = async (email: string) => {
+    const siteUrl =
+      typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_SITE_URL;
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/reset-password`,
+    });
+    return { error: error?.message ?? null };
+  };
+
+  // Update password — used on the /auth/reset-password page after user
+  // follows the recovery link (Supabase auto-creates a recovery session).
+  const updatePassword = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error: error?.message ?? null };
+  };
+
   // Loading: only true if we have no cached data AND we're still loading
   const isLoading = isAuthLoading || (isProfileLoading && !cachedProfile);
   const isAuthenticated = !!user;
@@ -269,6 +286,8 @@ export function useCurrentUser() {
     signIn,
     signUp,
     signOut,
+    requestPasswordReset,
+    updatePassword,
     updateProfile,
     uploadAvatar,
     refetchProfile,
