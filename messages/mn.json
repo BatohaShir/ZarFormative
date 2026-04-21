@@ -315,7 +315,18 @@
     "title": "Хэрэгтэй үйлчилгээгээ олоорой",
     "subtitle": "Мянга мянган мэргэжилтнүүд танд туслахад бэлэн байна",
     "addService": "Үйлчилгээ нэмэх",
-    "postAd": "Зар оруулах"
+    "postAd": "Зар оруулах",
+    "heroLine1": "Мэргэжилтэн олоорой.",
+    "heroLine2": "30 секундэд.",
+    "searchCta": "Хайх",
+    "popularLabel": "Түгээмэл:",
+    "categoriesTitle": "Ангилал",
+    "allCategories": "Бүх ангилал",
+    "recommendedTitle": "Танд зориулсан санал",
+    "featuredLabel": "Онцлох",
+    "viewAll": "Бүгдийг харах",
+    "emptyTitle": "Одоогоор зар байхгүй байна",
+    "emptySubtitle": "Эхний зараа нэмээрэй!"
   },
   "billboard": {
     "adLabel": "Реклам",

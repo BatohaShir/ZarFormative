@@ -16,7 +16,6 @@ import type {
   districts,
   khoroos,
 } from "@prisma/client";
-import { Decimal } from "@prisma/client/runtime/library";
 import { formatListingPrice, cn } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
@@ -100,110 +99,104 @@ export const ListingCard = React.memo(function ListingCard({
   return (
     <Link
       href={`/services/${listing.slug}`}
-      // Default hover-prefetch: with 8+ cards in viewport, prefetch=true
-      // would kick off a full RSC payload download per card on mount.
-      // Hover is enough for the common path and keeps the idle network quiet.
       prefetch={null}
       className={cn(
-        "cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300",
-        isVip
-          ? "border-2 border-amber-400/60 hover:border-amber-400"
-          : "border hover:border-primary/20"
+        "group relative block bg-card rounded-2xl overflow-hidden transition-all duration-200",
+        "hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]",
+        isVip ? "ring-1 ring-accent/40" : "ring-1 ring-border"
       )}
+      style={{ transitionTimingFunction: "var(--ease-brand)" }}
     >
-      {/* Image */}
-      <div className="aspect-4/3 relative overflow-hidden">
+      {/* Image — square */}
+      <div className="aspect-square relative overflow-hidden bg-muted">
         <Image
           src={imageUrl}
           alt={listing.title}
           fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           priority={priority}
           loading={priority ? undefined : "lazy"}
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
         />
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-black/70 via-black/20 to-transparent" />
 
-        {/* Category badge */}
-        <div className="absolute top-2.5 left-2.5 md:top-3 md:left-3">
-          <span className="text-[10px] md:text-xs bg-white/95 dark:bg-gray-900/90 text-foreground px-2.5 py-1 md:px-3 md:py-1.5 rounded-full font-medium shadow-sm backdrop-blur-sm">
-            {listing.category.name}
-          </span>
-        </div>
+        {/* VIP badge */}
+        {isVip && (
+          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent text-accent-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
+            <Crown className="w-3 h-3" />
+            VIP
+          </div>
+        )}
 
-        {/* Own listing badge - positioned to the right when no like button */}
-        {isOwnListing && (
-          <div className="absolute top-2.5 right-2.5 md:top-3 md:right-3">
-            <span className="text-[10px] md:text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full font-medium shadow-sm flex items-center gap-1">
+        {/* Own / Like */}
+        {isOwnListing ? (
+          <div className="absolute top-3 right-3">
+            <span className="text-[10px] bg-foreground/90 text-background px-2 py-1 rounded-full font-medium flex items-center gap-1 backdrop-blur-sm">
               <User className="w-3 h-3" />
               Миний
             </span>
           </div>
-        )}
-
-        {/* Like button - hidden for own listings */}
-        {!isOwnListing && (
+        ) : (
           <button
             onClick={handleLike}
-            className="absolute top-2.5 right-2.5 md:top-3 md:right-3 w-8 h-8 md:w-9 md:h-9 rounded-full bg-white/90 dark:bg-gray-900/80 hover:bg-white dark:hover:bg-gray-900 flex items-center justify-center transition-all shadow-sm backdrop-blur-sm hover:scale-110"
+            aria-label="Taалагдсан"
+            className={cn(
+              "absolute top-3 right-3 w-9 h-9 flex items-center justify-center rounded-full transition-all",
+              "bg-background/70 backdrop-blur-md hover:bg-background active:scale-90"
+            )}
           >
             <Heart
-              className={`w-4 h-4 md:w-5 md:h-5 transition-all ${
-                isLiked ? "fill-red-500 text-red-500 scale-110" : "text-gray-600 dark:text-gray-300"
-              }`}
+              className={cn(
+                "w-4.5 h-4.5 transition-all",
+                isLiked ? "fill-accent text-accent scale-110" : "text-foreground"
+              )}
             />
           </button>
         )}
-
-        {/* Price on image */}
-        <div className="absolute bottom-2.5 left-2.5 right-2.5 md:bottom-3 md:left-3 md:right-3">
-          <p className="text-white font-bold text-lg md:text-xl drop-shadow-lg">{priceDisplay}</p>
-        </div>
       </div>
 
       {/* Content */}
-      <div className="p-3 md:p-4 space-y-2 md:space-y-2.5">
-        {/* Title */}
-        <h4 className="font-semibold text-sm md:text-base line-clamp-1 group-hover:text-primary transition-colors">
-          {listing.title}
-        </h4>
+      <div className="p-3.5 md:p-4 space-y-2">
+        {/* Title + category micro-label */}
+        <div className="space-y-1">
+          <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
+            {listing.category.name}
+          </span>
+          <h4 className="font-display font-semibold text-[15px] md:text-base leading-snug line-clamp-2 group-hover:text-accent transition-colors">
+            {listing.title}
+          </h4>
+        </div>
 
-        {/* Description */}
-        <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">
-          {listing.description}
+        {/* Price — hero of the card */}
+        <p className="font-display text-lg md:text-xl font-bold tabular tracking-tight">
+          {priceDisplay}
         </p>
 
-        {/* Provider row */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
+        {/* Provider + stats */}
+        <div className="flex items-center justify-between pt-1.5 border-t border-border">
+          <div className="flex items-center gap-2 min-w-0 flex-1 pt-2">
             {listing.user.avatar_url ? (
               <Image
                 src={listing.user.avatar_url}
                 alt={providerName}
-                width={24}
-                height={24}
+                width={20}
+                height={20}
                 unoptimized={listing.user.avatar_url.includes("dicebear")}
-                className="rounded-full object-cover w-5 h-5 md:w-6 md:h-6 shrink-0 ring-2 ring-primary/20"
+                className="rounded-full object-cover w-5 h-5 shrink-0"
               />
             ) : (
-              <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] md:text-xs font-semibold text-primary shrink-0">
+              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-semibold text-foreground shrink-0">
                 {providerName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-xs md:text-sm text-foreground font-medium truncate">
-              {providerName}
-            </span>
+            <span className="text-xs text-muted-foreground truncate">{providerName}</span>
           </div>
-
-          {/* Stats */}
-          <div className="flex items-center gap-2 md:gap-3 text-xs text-muted-foreground shrink-0">
+          <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground shrink-0 pt-2 tabular">
             <span className="flex items-center gap-1">
-              <Eye className="w-3.5 h-3.5" />
+              <Eye className="w-3 h-3" />
               {listing.views_count}
             </span>
-            <span className="flex items-center gap-1 text-red-500">
-              <Heart className="w-3.5 h-3.5 fill-current" />
+            <span className="flex items-center gap-1">
+              <Heart className={cn("w-3 h-3", isLiked && "fill-accent text-accent")} />
               {listing.favorites_count + (isLiked ? 1 : 0)}
             </span>
           </div>
@@ -211,22 +204,20 @@ export const ListingCard = React.memo(function ListingCard({
 
         {/* Location */}
         <div className="flex items-center gap-1.5 text-muted-foreground">
-          <MapPin className="w-3.5 h-3.5 text-primary/70 shrink-0" />
-          <span className="text-xs md:text-sm truncate flex-1">{locationDisplay}</span>
+          <MapPin className="w-3 h-3 shrink-0" />
+          <span className="text-[11px] md:text-xs truncate flex-1">{locationDisplay}</span>
           {hasCoordinates && (
             <button
               onClick={handleShowMap}
-              className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors shrink-0"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full hover:bg-muted text-foreground transition-colors shrink-0"
               title="Газрын зурагт харах"
             >
               <Navigation className="w-3 h-3" />
-              <span className="text-[10px] font-medium">Map</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Map Modal */}
       {showMapModal && hasCoordinates && (
         <LocationMapModal
           coordinates={[Number(listing.latitude), Number(listing.longitude)]}

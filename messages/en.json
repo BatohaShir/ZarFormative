@@ -315,7 +315,18 @@
     "title": "Find the service you need",
     "subtitle": "Thousands of professionals are ready to help you",
     "addService": "Add Service",
-    "postAd": "Post Ad"
+    "postAd": "Post Ad",
+    "heroLine1": "Find a pro.",
+    "heroLine2": "In 30 seconds.",
+    "searchCta": "Search",
+    "popularLabel": "Popular:",
+    "categoriesTitle": "Categories",
+    "allCategories": "All categories",
+    "recommendedTitle": "For you",
+    "featuredLabel": "Featured",
+    "viewAll": "View all",
+    "emptyTitle": "No listings yet",
+    "emptySubtitle": "Add your first listing"
   },
   "billboard": {
     "adLabel": "Ad",

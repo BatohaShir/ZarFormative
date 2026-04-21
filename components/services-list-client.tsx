@@ -95,6 +95,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
   const [providerType, setProviderType] = React.useState<ProviderType>(
     () => (searchParams.get("provider") as ProviderType) || "all"
   );
+  const [searchQuery, setSearchQuery] = React.useState(() => searchParams.get("q") || "");
   const [filtersOpen, setFiltersOpen] = React.useState(false);
   // Filter by specific listing IDs (from map cluster click)
   const [selectedListingIds, setSelectedListingIds] = React.useState<string[]>([]);
@@ -142,6 +143,35 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
       };
     }
 
+    // Текстовый поиск (q) — токенизируем по словам; каждое слово должно
+    // найтись в одном из полей (title, description, category.name,
+    // user.first_name / last_name / company_name). Все слова должны найтись.
+    const q = searchQuery.trim();
+    if (q.length >= 2) {
+      const tokens = q
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2);
+      const targets = tokens.length > 0 ? tokens : [q];
+      const ins = (field: string, token: string) => ({
+        [field]: { contains: token, mode: "insensitive" as const },
+      });
+      const perTokenAnd = targets.map((token) => ({
+        OR: [
+          ins("title", token),
+          ins("description", token),
+          { category: { name: { contains: token, mode: "insensitive" as const } } },
+          {
+            user: {
+              OR: [ins("first_name", token), ins("last_name", token), ins("company_name", token)],
+            },
+          },
+        ],
+      }));
+      const existingAnd = (conditions.AND as unknown[] | undefined) ?? [];
+      conditions.AND = [...existingAnd, ...perTokenAnd];
+    }
+
     return conditions;
   }, [
     selectedCategories,
@@ -150,6 +180,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     selectedDistrictId,
     providerType,
     selectedListingIds,
+    searchQuery,
   ]);
 
   // Строим orderBy для сортировки
@@ -178,7 +209,8 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     selectedDistrictId ||
     providerType !== "all" ||
     sortBy !== "newest" ||
-    selectedListingIds.length > 0;
+    selectedListingIds.length > 0 ||
+    searchQuery.trim().length >= 2;
 
   // Загружаем объявления с cursor-based пагинацией
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
@@ -328,6 +360,9 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
       if (providerType !== "all") {
         params.set("provider", providerType);
       }
+      if (searchQuery.trim()) {
+        params.set("q", searchQuery.trim());
+      }
 
       const queryString = params.toString();
       const newUrl = queryString ? `/services?${queryString}` : "/services";
@@ -349,6 +384,7 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
     selectedAimagId,
     selectedDistrictId,
     providerType,
+    searchQuery,
   ]);
 
   // Callback for CitySelect
@@ -504,7 +540,13 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
 
         {/* Desktop Search & City */}
         <div className="hidden md:flex w-full gap-2 mb-6">
-          <SearchInput className="flex-1" />
+          <SearchInput
+            className="flex-1"
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            onSubmit={(v) => setSearchQuery(v)}
+            showSubmit
+          />
           <CitySelect
             onSelect={handleLocationSelect}
             value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
@@ -514,7 +556,12 @@ function ServicesListContent({ initialListings, initialTotalCount }: ServicesLis
         {/* Mobile: Search, City (full width), Collapsible Filters */}
         <div className="md:hidden space-y-3 mb-4">
           {/* Search */}
-          <SearchInput />
+          <SearchInput
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            onSubmit={(v) => setSearchQuery(v)}
+            showSubmit
+          />
 
           {/* City Select - Full Width */}
           <CitySelect

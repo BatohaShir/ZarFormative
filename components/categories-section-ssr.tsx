@@ -1,48 +1,86 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ArrowUpRight, Grid3x3 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { CategoriesModal } from "@/components/categories-modal";
 import { isImageIcon, type CategoryWithChildren } from "@/lib/categories";
 
 interface CategoriesSectionSSRProps {
-  // Только root-категории (≤10 штук). Подкатегории подтягиваются
-  // лениво в <CategoriesModal> по open через client hook.
   categories: CategoryWithChildren[];
 }
 
-export function CategoriesSectionSSR({ categories }: CategoriesSectionSSRProps) {
-  const mainCategories = categories.slice(0, 10);
+function CategoryIcon({ cat }: { cat: CategoryWithChildren }) {
+  if (isImageIcon(cat.icon)) {
+    return (
+      <Image
+        src={cat.icon!}
+        alt=""
+        width={28}
+        height={28}
+        className="w-6 h-6 md:w-7 md:h-7 object-contain"
+      />
+    );
+  }
+  return <span className="text-xl md:text-2xl leading-none">{cat.icon || "📁"}</span>;
+}
+
+export async function CategoriesSectionSSR({ categories }: CategoriesSectionSSRProps) {
+  const t = await getTranslations("home");
+  // 7 категорий + 1 плитка "Все" = 8 → mobile 2×4, desktop 4×2
+  const tiles = categories.slice(0, 7);
 
   return (
-    <section className="container mx-auto px-4 py-4 md:py-6">
-      <h3 className="text-base md:text-lg font-semibold mb-3 md:mb-4">Ангилал</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-3">
-        {mainCategories.map((cat) => (
-          <Link
-            key={cat.id}
-            href={`/services?category=${encodeURIComponent(cat.slug)}`}
-            className="flex items-center gap-2 md:gap-3 py-3 md:py-5 px-3 md:px-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-          >
-            {isImageIcon(cat.icon) ? (
-              <Image
-                src={cat.icon!}
-                alt={cat.name}
-                width={32}
-                height={32}
-                className="w-6 h-6 md:w-10 md:h-10"
-              />
-            ) : (
-              <span className="text-xl md:text-3xl">{cat.icon || "📁"}</span>
-            )}
-            <span className="text-xs md:text-sm font-medium line-clamp-1">{cat.name}</span>
-          </Link>
-        ))}
+    <section className="container mx-auto px-4 md:px-6 py-8 md:py-12">
+      <div className="flex items-end justify-between mb-5 md:mb-6">
+        <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
+          {t("categoriesTitle")}
+        </h2>
         <CategoriesModal
           categories={categories}
           trigger={
-            <button className="col-span-2 sm:col-span-1 lg:col-span-2 flex items-center justify-center gap-2 py-3 md:py-5 px-3 md:px-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-              <span className="text-xs md:text-sm font-medium">Бүх ангилал</span>
-              <ChevronRight className="h-4 w-4 md:h-5 md:w-5" />
+            <button className="hidden md:flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <span>{t("allCategories")}</span>
+              <ArrowUpRight className="w-4 h-4" />
+            </button>
+          }
+        />
+      </div>
+
+      <div className="stagger grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
+        {tiles.map((cat, idx) => (
+          <Link
+            key={cat.id}
+            href={`/services?category=${encodeURIComponent(cat.slug)}`}
+            className="group relative flex items-center gap-3 h-14 md:h-16 px-3 md:px-4 rounded-xl bg-card ring-1 ring-border hover:ring-foreground hover:-translate-y-0.5 transition-all duration-200"
+            style={{ transitionTimingFunction: "var(--ease-brand)", ["--i" as string]: idx }}
+          >
+            <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+              <CategoryIcon cat={cat} />
+            </div>
+            <span className="text-sm md:text-[15px] font-medium leading-tight line-clamp-2 flex-1 min-w-0">
+              {cat.name}
+            </span>
+            <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all shrink-0 opacity-0 group-hover:opacity-100" />
+          </Link>
+        ))}
+
+        <CategoriesModal
+          categories={categories}
+          trigger={
+            <button
+              className="group relative flex items-center gap-3 h-14 md:h-16 px-3 md:px-4 rounded-xl bg-foreground text-background hover:-translate-y-0.5 transition-all duration-200"
+              style={{
+                transitionTimingFunction: "var(--ease-brand)",
+                ["--i" as string]: tiles.length,
+              }}
+            >
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-background/10 flex items-center justify-center shrink-0">
+                <Grid3x3 className="w-4 h-4" />
+              </div>
+              <span className="text-sm md:text-[15px] font-medium flex-1 text-left">
+                {t("allCategories")}
+              </span>
+              <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all shrink-0" />
             </button>
           }
         />

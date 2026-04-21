@@ -315,7 +315,18 @@
     "title": "Найдите нужную услугу",
     "subtitle": "Тысячи специалистов готовы вам помочь",
     "addService": "Добавить услугу",
-    "postAd": "Разместить объявление"
+    "postAd": "Разместить объявление",
+    "heroLine1": "Найдите мастера.",
+    "heroLine2": "За 30 секунд.",
+    "searchCta": "Найти",
+    "popularLabel": "Популярное:",
+    "categoriesTitle": "Категории",
+    "allCategories": "Все категории",
+    "recommendedTitle": "Для вас",
+    "featuredLabel": "Рекомендуем",
+    "viewAll": "Смотреть все",
+    "emptyTitle": "Пока нет объявлений",
+    "emptySubtitle": "Добавьте первое объявление"
   },
   "billboard": {
     "adLabel": "Реклама",

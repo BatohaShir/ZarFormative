@@ -1,11 +1,6 @@
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
-import { SearchInput } from "@/components/search-input";
-import { CitySelect } from "@/components/city-select";
+import { SiteHeader } from "@/components/site-header";
+import { HeroTitle } from "@/components/hero-title";
+import { HeroSearch } from "@/components/hero-search";
 import { Footer } from "@/components/footer";
 import { CategoriesSectionSSR } from "@/components/categories-section-ssr";
 import { RecommendedListingsSSR } from "@/components/recommended-listings-ssr";
@@ -182,41 +177,15 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <span className="text-lg md:text-2xl font-bold" aria-label="Tsogts.mn">
-            <span className="text-[#015197]">Tsogts</span>
-            <span className="text-[#c4272f]">.mn</span>
-          </span>
-          {/* Mobile Nav - theme toggle + notifications bell */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
-      {/* Hero */}
-      <section className="container mx-auto px-4 py-8 md:py-12 text-center">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3 md:mb-4">
-          {t("home.title")}
-        </h1>
-        <p className="text-sm md:text-base text-muted-foreground mb-6 md:mb-8 max-w-md mx-auto">
-          {t("home.subtitle")}
-        </p>
-        {/* Search - один компонент, responsive */}
-        <div className="flex flex-col md:flex-row gap-2 w-full">
-          <SearchInput className="flex-1" />
-          <CitySelect />
+      {/* Hero — editorial, search-first */}
+      <section className="container mx-auto px-4 md:px-6 pt-10 md:pt-20 pb-8 md:pb-14">
+        <div className="max-w-3xl mx-auto text-center mb-8 md:mb-12 reveal-up">
+          <HeroTitle line1={t("home.heroLine1")} line2={t("home.heroLine2")} />
+        </div>
+        <div className="reveal-up" style={{ animationDelay: "100ms" }}>
+          <HeroSearch />
         </div>
       </section>
 
@@ -230,33 +199,29 @@ export default async function Home() {
       {/* Recommendations - SSR с предзагруженными данными */}
       <RecommendedListingsSSR listings={listings} boostedIds={boostedIds} />
 
-      {/* Footer - Desktop only */}
-      <div className="hidden md:block">
-        <Footer />
-      </div>
+      <Footer />
 
-      {/* Create Service FAB - Desktop only */}
+      {/* Desktop FAB */}
       <Link
         href="/services/create"
-        className="hidden md:flex fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50 group"
+        aria-label={t("home.addService")}
+        className="hidden md:inline-flex fixed bottom-6 right-6 z-50 items-center gap-2 h-12 px-5 rounded-full bg-foreground text-background font-medium text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all"
+        style={{ transitionTimingFunction: "var(--ease-brand)" }}
       >
-        <div className="relative">
-          {/* Tooltip - Desktop only */}
-          <div className="hidden md:block absolute bottom-full right-0 mb-2 px-3 py-1.5 bg-foreground text-background text-sm font-medium rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
-            {t("home.addService")}
-            <div className="absolute top-full right-4 border-4 border-transparent border-t-foreground" />
-          </div>
-          {/* Button - Smaller on mobile */}
-          <Button
-            size="lg"
-            className="h-12 md:h-14 px-3 md:pl-4 md:pr-5 rounded-full shadow-lg hover:shadow-xl transition-all bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 gap-1.5 md:gap-2"
-          >
-            <Plus className="h-4 w-4 md:h-5 md:w-5" />
-            <span className="font-medium text-sm md:text-base">{t("home.postAd")}</span>
-          </Button>
-          {/* OPTIMIZATION: Убрана постоянная pulse animation для экономии GPU */}
-        </div>
+        <Plus className="h-4 w-4" />
+        <span>{t("home.postAd")}</span>
       </Link>
+
+      {/* Mobile sticky bottom CTA */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 bg-linear-to-t from-background via-background/90 to-transparent pointer-events-none">
+        <Link
+          href="/services/create"
+          className="pointer-events-auto flex items-center justify-center gap-2 h-12 rounded-full bg-foreground text-background font-medium shadow-xl active:scale-[0.98] transition-transform"
+        >
+          <Plus className="h-5 w-5" />
+          <span>{t("home.postAd")}</span>
+        </Link>
+      </div>
     </div>
   );
 }

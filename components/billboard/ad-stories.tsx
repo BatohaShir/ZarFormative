@@ -13,6 +13,7 @@ import {
   RotateCw,
   Sticker,
   Sun,
+  Sparkles,
 } from "lucide-react";
 import type { DbAdStory, EditorData } from "./types";
 import { cn } from "@/lib/utils";
@@ -154,7 +155,6 @@ const StoryCircle = React.memo(function StoryCircle({
   viewedIds: Set<string>;
   onClick: () => void;
 }) {
-  const hasNew = group.stories.some((s) => !viewedIds.has(s.id));
   const storyIds = group.stories.map((s) => s.id);
 
   return (
@@ -179,12 +179,7 @@ const StoryCircle = React.memo(function StoryCircle({
           />
         </div>
       </div>
-      {hasNew && (
-        <span className="text-[8px] md:text-[9px] text-white font-bold bg-blue-500 px-1.5 py-px rounded-full leading-none uppercase tracking-wide">
-          new
-        </span>
-      )}
-      <span className="text-[10px] md:text-xs text-foreground font-medium truncate w-full text-center leading-tight">
+      <span className="text-[10px] md:text-xs text-muted-foreground truncate w-full text-center leading-tight">
         {group.userName}
       </span>
     </button>
@@ -1132,27 +1127,38 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
   // Step: Success
   if (step === "success") {
     return (
-      <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-        <div className="bg-background rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden text-center p-8 relative">
+      <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="bg-background rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden text-center p-8 relative animate-in zoom-in-95 duration-300">
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
-          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-            <svg
-              className="w-8 h-8 text-green-600 dark:text-green-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.5}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
+          <div className="relative w-20 h-20 mx-auto mb-5">
+            <div className="absolute inset-0 rounded-full bg-accent/15 animate-ping" />
+            <div className="relative w-full h-full rounded-full bg-foreground text-background flex items-center justify-center">
+              <svg
+                className="w-9 h-9"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
           </div>
-          <h2 className="text-xl font-bold mb-2">Амжилттай!</h2>
-          <p className="text-sm text-muted-foreground">Таны реклам stories-д нэмэгдлээ</p>
+          <h2 className="font-display text-2xl font-bold mb-1.5 tracking-tight">Амжилттай!</h2>
+          <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+            Таны реклам stories-д нэмэгдлээ. Удахгүй хэрэглэгчдэд харагдана.
+          </p>
+          <button
+            onClick={onClose}
+            className="w-full h-11 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all"
+          >
+            Хаах
+          </button>
         </div>
       </div>
     );
@@ -1161,37 +1167,72 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
   // Step 1: upload
   if (step === "upload") {
     return (
-      <div className="fixed inset-0 z-100 flex items-end md:items-center justify-center bg-black/50 backdrop-blur-sm">
-        <div className="bg-background rounded-t-3xl md:rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
-          <div className="flex items-center justify-between px-5 pt-5 pb-2">
-            <div>
-              <h2 className="font-bold text-xl">Реклам нэмэх</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Stories зар үүсгэх</p>
+      <div className="fixed inset-0 z-100 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4">
+        <div className="bg-background rounded-t-3xl md:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 pt-6 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-foreground text-background flex items-center justify-center">
+                <ImageIcon className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="font-display font-bold text-lg leading-tight">Реклам нэмэх</h2>
+                <p className="text-xs text-muted-foreground">Stories зар үүсгэх</p>
+              </div>
             </div>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center transition-colors"
+              className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="px-5 py-4">
+
+          {/* Step indicator */}
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1 rounded-full bg-foreground" />
+              <div className="flex-1 h-1 rounded-full bg-muted" />
+              <div className="flex-1 h-1 rounded-full bg-muted" />
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[10px] uppercase tracking-wider font-semibold">Зураг</span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Засах
+              </span>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Төлбөр
+              </span>
+            </div>
+          </div>
+
+          {/* Dropzone */}
+          <div className="px-6 pb-6">
             <button
               onClick={handleFileSelect}
-              className="w-full aspect-3/4 rounded-2xl border-2 border-dashed border-muted-foreground/25 hover:border-primary/50 bg-muted/30 hover:bg-primary/5 flex flex-col items-center justify-center gap-4 transition-all group cursor-pointer"
+              className="relative w-full aspect-3/4 rounded-2xl border-2 border-dashed border-border hover:border-foreground bg-muted/40 hover:bg-muted flex flex-col items-center justify-center gap-4 transition-all group overflow-hidden"
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 group-hover:bg-primary/20 flex items-center justify-center transition-colors">
-                <ImageIcon className="h-8 w-8 text-primary" />
+              {/* Accent glow */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -inset-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-3xl bg-accent/20"
+              />
+
+              <div className="relative w-20 h-20 rounded-2xl bg-background ring-1 ring-border flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                <ImageIcon className="h-8 w-8 text-foreground" />
+                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-foreground text-background flex items-center justify-center">
+                  <Plus className="w-3.5 h-3.5" />
+                </div>
               </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">Зураг сонгох</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  9:16 хэмжээтэй зураг оруулна уу
+              <div className="relative text-center px-6">
+                <p className="font-display font-semibold text-base">Зураг сонгох</p>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  9:16 хөрөг зураг · PNG, JPG
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-semibold group-hover:shadow-lg transition-shadow">
-                <Plus className="w-4 h-4" />
-                Зураг оруулах
+              <div className="relative flex items-center gap-1.5 px-4 py-2 rounded-full bg-foreground text-background text-sm font-medium group-hover:shadow-lg transition-shadow">
+                Файл сонгох
+                <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </button>
             <input
@@ -1201,8 +1242,20 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
               onChange={handleFileChange}
               className="hidden"
             />
+
+            {/* Hints */}
+            <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-foreground" />
+                <span>24–48 цаг харагдана</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1 h-1 rounded-full bg-foreground" />
+                <span>Нэмэлт текст, эффектүүд</span>
+              </div>
+            </div>
           </div>
-          <div className="h-2 md:h-0" />
+          <div className="h-[max(env(safe-area-inset-bottom),0.5rem)] md:h-0" />
         </div>
       </div>
     );
@@ -1224,18 +1277,25 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
   }
 
   // Step 3: payment / plan selection
+  const planPrice = plan === "2day" ? 9000 : 5000;
+
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-background rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b">
+    <div className="fixed inset-0 z-100 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4">
+      <div className="bg-background rounded-t-3xl md:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setStep("preview")}
-              className="w-7 h-7 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
+              aria-label="Буцах"
+              className="w-8 h-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <h2 className="font-semibold text-lg">Төлбөр</h2>
+            <div>
+              <h2 className="font-display font-bold text-lg leading-tight">Багц сонгох</h2>
+              <p className="text-xs text-muted-foreground">Төлбөрөө баталгаажуулах</p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -1245,63 +1305,192 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium mb-1 block">Багц сонгох</label>
-            <label
-              className={cn(
-                "flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-colors",
-                plan === "1day"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
-              )}
-            >
-              <input
-                type="radio"
-                name="plan"
-                checked={plan === "1day"}
-                onChange={() => setPlan("1day")}
-                className="accent-primary"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-semibold">1 хоног</p>
-                <p className="text-xs text-muted-foreground">24 цагийн турш харагдана</p>
-              </div>
-              <span className="font-bold">5,000₮</span>
-            </label>
-            <label
-              className={cn(
-                "flex items-center gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-colors",
-                plan === "2day"
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
-              )}
-            >
-              <input
-                type="radio"
-                name="plan"
-                checked={plan === "2day"}
-                onChange={() => setPlan("2day")}
-                className="accent-primary"
-              />
-              <div className="flex-1">
-                <p className="text-sm font-semibold">2 хоног</p>
-                <p className="text-xs text-muted-foreground">48 цагийн турш харагдана</p>
-              </div>
-              <span className="font-bold">9,000₮</span>
-            </label>
+        {/* Step indicator */}
+        <div className="px-6 pb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full bg-foreground" />
+            <div className="flex-1 h-1 rounded-full bg-foreground" />
+            <div className="flex-1 h-1 rounded-full bg-foreground" />
+          </div>
+          <div className="flex items-center justify-between mt-1.5">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Зураг
+            </span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Засах
+            </span>
+            <span className="text-[10px] uppercase tracking-wider font-semibold">Төлбөр</span>
           </div>
         </div>
 
-        <div className="p-4 border-t">
+        {/* Plans */}
+        <div className="px-6 pb-5 space-y-2.5">
+          {/* 1 day */}
+          <label
+            className={cn(
+              "group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all",
+              plan === "1day"
+                ? "bg-foreground text-background"
+                : "bg-card ring-1 ring-border hover:ring-foreground"
+            )}
+          >
+            <input
+              type="radio"
+              name="plan"
+              checked={plan === "1day"}
+              onChange={() => setPlan("1day")}
+              className="sr-only"
+            />
+            <div
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                plan === "1day" ? "bg-background/10" : "bg-muted"
+              )}
+            >
+              <Sun className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-semibold text-base leading-tight">1 хоног</p>
+              <p
+                className={cn(
+                  "text-xs mt-0.5",
+                  plan === "1day" ? "text-background/70" : "text-muted-foreground"
+                )}
+              >
+                24 цагийн турш харагдана
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="font-display font-bold text-base tabular">5,000₮</p>
+            </div>
+            <div
+              className={cn(
+                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                plan === "1day" ? "border-background bg-background" : "border-border"
+              )}
+            >
+              {plan === "1day" && (
+                <svg viewBox="0 0 12 12" className="w-3 h-3 text-foreground" fill="none">
+                  <path
+                    d="M2.5 6.5L5 9l4.5-5.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </div>
+          </label>
+
+          {/* 2 days — popular */}
+          <label
+            className={cn(
+              "group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all",
+              plan === "2day"
+                ? "bg-foreground text-background"
+                : "bg-card ring-1 ring-border hover:ring-foreground"
+            )}
+          >
+            {/* Popular badge */}
+            <span
+              className={cn(
+                "absolute -top-2 right-4 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide",
+                plan === "2day"
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-accent text-accent-foreground"
+              )}
+            >
+              Хэмнэлттэй
+            </span>
+            <input
+              type="radio"
+              name="plan"
+              checked={plan === "2day"}
+              onChange={() => setPlan("2day")}
+              className="sr-only"
+            />
+            <div
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                plan === "2day" ? "bg-background/10" : "bg-muted"
+              )}
+            >
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-semibold text-base leading-tight">2 хоног</p>
+              <p
+                className={cn(
+                  "text-xs mt-0.5",
+                  plan === "2day" ? "text-background/70" : "text-muted-foreground"
+                )}
+              >
+                48 цагийн турш харагдана
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="font-display font-bold text-base tabular">9,000₮</p>
+              <p
+                className={cn(
+                  "text-[10px] tabular",
+                  plan === "2day" ? "text-background/60" : "text-muted-foreground"
+                )}
+              >
+                <span className="line-through">10,000₮</span>
+              </p>
+            </div>
+            <div
+              className={cn(
+                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
+                plan === "2day" ? "border-background bg-background" : "border-border"
+              )}
+            >
+              {plan === "2day" && (
+                <svg viewBox="0 0 12 12" className="w-3 h-3 text-foreground" fill="none">
+                  <path
+                    d="M2.5 6.5L5 9l4.5-5.5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </div>
+          </label>
+        </div>
+
+        {/* Footer: total + CTA */}
+        <div className="px-6 py-4 border-t border-border bg-muted/30">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-muted-foreground">Нийт дүн</span>
+            <span className="font-display font-bold text-xl tabular">
+              {planPrice.toLocaleString("mn-MN")}₮
+            </span>
+          </div>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="w-full h-11 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full h-12 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {isSubmitting ? "Оруулж байна..." : "Төлбөр төлөх"}
+            {isSubmitting ? (
+              <>
+                <span className="w-4 h-4 rounded-full border-2 border-background/30 border-t-background animate-spin" />
+                Оруулж байна…
+              </>
+            ) : (
+              <>
+                Төлбөр төлөх
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
+          <p className="text-[10px] text-muted-foreground text-center mt-2">
+            Төлбөр амжилттай төлөгдсөний дараа stories-д гарна
+          </p>
         </div>
+        <div className="h-[max(env(safe-area-inset-bottom),0)] md:h-0" />
       </div>
     </div>
   );
@@ -1394,19 +1583,20 @@ export function AdStories() {
 
   return (
     <>
-      <div className="container mx-auto px-4">
-        <div className="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide py-1">
+      <div className="container mx-auto px-4 md:px-6 py-3 md:py-4 relative">
+        {/* Edge fade masks */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-6 md:w-10 bg-linear-to-r from-background to-transparent z-10" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-6 md:w-10 bg-linear-to-l from-background to-transparent z-10" />
+        <div className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide py-1">
           {/* Add Story button */}
           <button
             onClick={handleAddStory}
-            className="flex flex-col items-center gap-1 w-17 md:w-19 shrink-0"
+            className="flex flex-col items-center gap-1.5 w-17 md:w-19 shrink-0 group"
           >
-            <div className="w-15.5 h-15.5 md:w-17 md:h-17 rounded-full border-2 border-dashed border-muted-foreground/40 flex items-center justify-center hover:border-primary/60 hover:bg-primary/5 transition-colors">
-              <Plus className="h-6 w-6 text-muted-foreground/60" />
+            <div className="w-15.5 h-15.5 md:w-17 md:h-17 rounded-full border border-dashed border-muted-foreground/40 group-hover:border-blue-500 flex items-center justify-center group-hover:bg-blue-500/5 transition-colors">
+              <Plus className="h-5 w-5 text-muted-foreground group-hover:text-blue-500 transition-colors" />
             </div>
-            <span className="text-[10px] md:text-xs text-muted-foreground font-medium">
-              Реклам авах
-            </span>
+            <span className="text-[10px] md:text-xs text-muted-foreground">Реклам авах</span>
           </button>
 
           {isLoading

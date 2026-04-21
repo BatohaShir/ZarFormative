@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { ListingCard, type ListingWithRelations } from "@/components/listing-card";
 
@@ -9,31 +10,34 @@ interface RecommendedListingsSSRProps {
   boostedIds?: string[];
 }
 
-export function RecommendedListingsSSR({ listings, boostedIds = [] }: RecommendedListingsSSRProps) {
+export async function RecommendedListingsSSR({
+  listings,
+  boostedIds = [],
+}: RecommendedListingsSSRProps) {
+  const t = await getTranslations("home");
   const hasListings = listings && listings.length > 0;
   const boostedSet = new Set(boostedIds);
   const vipListings = listings.filter((l) => boostedSet.has(l.id));
   const regularListings = listings.filter((l) => !boostedSet.has(l.id));
 
-  // Если нет объявлений - показываем пустое состояние
   if (!hasListings) {
     return (
-      <section className="container mx-auto px-4 py-6 md:py-8">
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <h3 className="text-base md:text-xl font-semibold">Танд зориулсан санал</h3>
-        </div>
-        <div className="flex flex-col items-center justify-center py-12 text-center">
+      <section className="container mx-auto px-4 md:px-6 py-8 md:py-14">
+        <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight mb-6 md:mb-8">
+          {t("recommendedTitle")}
+        </h2>
+        <div className="flex flex-col items-center justify-center py-16 text-center rounded-2xl bg-muted/40">
           <Image
             src="/icons/7486744.webp"
-            alt="Хоосон хайрцаг"
-            width={80}
-            height={80}
-            className="mb-4 opacity-70"
+            alt=""
+            width={72}
+            height={72}
+            className="mb-4 opacity-50"
           />
-          <p className="text-muted-foreground text-sm md:text-base">Одоогоор зар байхгүй байна</p>
-          <p className="text-muted-foreground/70 text-xs md:text-sm mt-1">Эхний зараа нэмээрэй!</p>
-          <Link href="/services/create" className="mt-4">
-            <Button>Зар нэмэх</Button>
+          <p className="font-display text-lg font-semibold">{t("emptyTitle")}</p>
+          <p className="text-muted-foreground text-sm mt-1">{t("emptySubtitle")}</p>
+          <Link href="/services/create" className="mt-5">
+            <Button>{t("postAd")}</Button>
           </Link>
         </div>
       </section>
@@ -41,25 +45,43 @@ export function RecommendedListingsSSR({ listings, boostedIds = [] }: Recommende
   }
 
   return (
-    <section className="container mx-auto px-4 py-6 md:py-8">
-      <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h3 className="text-base md:text-xl font-semibold">Танд зориулсан санал</h3>
-        <Link href="/services">
-          <Button variant="ghost" size="sm" className="text-muted-foreground text-xs md:text-sm">
-            Бүгдийг харах <ChevronRight className="h-3 w-3 md:h-4 md:w-4 ml-1" />
-          </Button>
+    <section className="container mx-auto px-4 md:px-6 py-8 md:py-14">
+      <div className="flex items-end justify-between mb-6 md:mb-8">
+        <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">
+          {t("recommendedTitle")}
+        </h2>
+        <Link
+          href="/services"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span>{t("viewAll")}</span>
+          <ArrowUpRight className="w-4 h-4" />
         </Link>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-        {vipListings.map((listing) => (
-          <ListingCard key={listing.id} listing={listing} priority isVip />
-        ))}
+
+      {vipListings.length > 0 && (
+        <div className="mb-6 md:mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-block w-6 h-px bg-accent" />
+            <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">
+              {t("featuredLabel")}
+            </span>
+          </div>
+          <div className="stagger grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+            {vipListings.map((listing, i) => (
+              <div key={listing.id} style={{ ["--i" as string]: i }}>
+                <ListingCard listing={listing} priority isVip />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="stagger grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
         {regularListings.map((listing, index) => (
-          <ListingCard
-            key={listing.id}
-            listing={listing}
-            priority={vipListings.length === 0 && index < 4}
-          />
+          <div key={listing.id} style={{ ["--i" as string]: index }}>
+            <ListingCard listing={listing} priority={vipListings.length === 0 && index < 4} />
+          </div>
         ))}
       </div>
     </section>
