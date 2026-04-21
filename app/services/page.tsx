@@ -1,5 +1,5 @@
 import { ServicesListClient } from "@/components/services-list-client";
-import { fetchServices, parseFilters } from "@/lib/services/query";
+import { fetchServices, fetchServicesReferenceData, parseFilters } from "@/lib/services/query";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -24,9 +24,16 @@ export default async function ServicesPage({
 }) {
   const params = await searchParams;
   const filters = parseFilters(params);
-  // Same CTE the /api/services route uses for client-side refetches, so
-  // SSR and client paths can never render different data for the same URL.
-  const { listings, boostedIds, nextCursor } = await fetchServices(filters);
+
+  // Run the listings CTE and the reference-data CTE in parallel. The
+  // latter feeds the filter UI (CitySelect, CategoryFilterModal) so it
+  // doesn't need to issue its own client-side findMany on mount —
+  // when the URL already pins an aimag we seed its districts too, so
+  // the aimag's sub-list is ready without a third round-trip.
+  const [{ listings, boostedIds, nextCursor }, referenceData] = await Promise.all([
+    fetchServices(filters),
+    fetchServicesReferenceData(filters.aimagId || undefined),
+  ]);
 
   return (
     <ServicesListClient
@@ -34,6 +41,7 @@ export default async function ServicesPage({
       initialBoostedIds={boostedIds}
       initialFilters={filters}
       initialNextCursor={nextCursor}
+      initialReferenceData={referenceData}
     />
   );
 }

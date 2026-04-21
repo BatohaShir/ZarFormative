@@ -19,6 +19,20 @@ interface CitySelectProps {
   trigger?: React.ReactNode | ((displayText: string) => React.ReactNode);
   onSelect?: (aimagId: string, aimagName: string, districtId: string, districtName: string) => void;
   value?: { aimagId: string; districtId: string };
+  /**
+   * Optional SSR-seeded aimags list. When provided, React Query uses
+   * it as initialData and skips the mount-time findMany — saves one
+   * round-trip on pages that can ship this data in the SSR payload
+   * (e.g. /services).
+   */
+  initialAimags?: aimags[];
+  /**
+   * Districts pre-fetched for a specific aimag. When the user lands on
+   * /services?aimag=X the page already knows which aimag; seeding its
+   * districts here means CitySelect doesn't fire its own findMany on
+   * mount. Ignored if the runtime-selected aimag differs.
+   */
+  initialDistrictsForAimag?: { aimagId: string; districts: districts[] };
 }
 
 const STORAGE_KEY = "tsogts_selected_location";
@@ -58,14 +72,23 @@ function clearStoredLocation() {
   }
 }
 
-export const CitySelect = React.memo(function CitySelect({ trigger, onSelect, value }: CitySelectProps) {
+export const CitySelect = React.memo(function CitySelect({
+  trigger,
+  onSelect,
+  value,
+  initialAimags,
+  initialDistrictsForAimag,
+}: CitySelectProps) {
   const [open, setOpen] = React.useState(false);
   const [selectedAimag, setSelectedAimag] = React.useState<aimags | null>(null);
   const [selectedDistrict, setSelectedDistrict] = React.useState<districts | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [showAimagList, setShowAimagList] = React.useState(true);
 
-  // Загружаем аймаги из БД (кэш 24 часа - редко меняются)
+  // Aimags are near-static; cache for 24h. When the parent has already
+  // fetched them in SSR (initialAimags prop), feed them as initialData
+  // so React Query considers the query fresh and skips the mount-time
+  // network request. One less round-trip on pages that can seed.
   const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags(
     {
       where: {
@@ -76,27 +99,36 @@ export const CitySelect = React.memo(function CitySelect({ trigger, onSelect, va
       },
     },
     {
-      staleTime: 24 * 60 * 60 * 1000, // 24 часа
-      gcTime: 48 * 60 * 60 * 1000, // 48 часов
+      staleTime: 24 * 60 * 60 * 1000,
+      gcTime: 48 * 60 * 60 * 1000,
+      initialData: initialAimags,
     }
   );
 
-  // OPTIMIZATION: Загружаем районы ТОЛЬКО для выбранного аймага (ленивая загрузка)
-  // Раньше загружались ВСЕ ~330 районов, теперь только нужные ~10-15
+  // Districts are fetched lazily only for the selected aimag (~10-15 rows).
+  // When the page already knows which aimag the URL pins and has seeded
+  // that aimag's districts via SSR, use them as initialData so the first
+  // render has the list ready with no client round-trip.
+  const seededDistricts =
+    initialDistrictsForAimag && initialDistrictsForAimag.aimagId === selectedAimag?.id
+      ? initialDistrictsForAimag.districts
+      : undefined;
+
   const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
     {
       where: {
         is_active: true,
-        aimag_id: selectedAimag?.id || "", // Загружаем только для выбранного аймага
+        aimag_id: selectedAimag?.id || "",
       },
       orderBy: {
         sort_order: "asc",
       },
     },
     {
-      enabled: !!selectedAimag?.id, // Запрос только когда выбран аймаг
-      staleTime: 24 * 60 * 60 * 1000, // 24 часа
-      gcTime: 48 * 60 * 60 * 1000, // 48 часов
+      enabled: !!selectedAimag?.id,
+      staleTime: 24 * 60 * 60 * 1000,
+      gcTime: 48 * 60 * 60 * 1000,
+      initialData: seededDistricts,
     }
   );
 
@@ -243,8 +275,8 @@ export const CitySelect = React.memo(function CitySelect({ trigger, onSelect, va
   const displayText = selectedDistrict
     ? `${selectedAimag?.name}, ${selectedDistrict.name}`
     : selectedAimag
-    ? selectedAimag.name
-    : "Бүх хот";
+      ? selectedAimag.name
+      : "Бүх хот";
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -298,13 +330,9 @@ export const CitySelect = React.memo(function CitySelect({ trigger, onSelect, va
           {/* Aimags list */}
           {showAimagList && !isLoadingAimags && (
             <div className="max-h-72 overflow-y-auto space-y-1">
-              <p className="text-sm font-medium text-muted-foreground px-2 py-1">
-                Аймаг, хотууд
-              </p>
+              <p className="text-sm font-medium text-muted-foreground px-2 py-1">Аймаг, хотууд</p>
               {filteredAimags.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Аймаг олдсонгүй
-                </p>
+                <p className="text-sm text-muted-foreground text-center py-4">Аймаг олдсонгүй</p>
               ) : (
                 filteredAimags.map((aimag) => (
                   <button

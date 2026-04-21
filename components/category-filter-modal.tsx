@@ -15,6 +15,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useFindManycategories } from "@/lib/hooks/categories";
+import type { categories } from "@prisma/client";
 import {
   isImageIcon,
   buildCategoryTree,
@@ -28,29 +29,45 @@ interface CategoryFilterModalProps {
   trigger?: React.ReactNode;
   selectedCategories: string[];
   onCategoriesChange: (categories: string[]) => void;
+  /**
+   * Optional SSR-seeded categories. Feeds React Query's initialData so
+   * the modal renders instantly without a findMany on mount.
+   *
+   * Pass a flat list if you have children too; the modal will call
+   * buildCategoryTree on it. Pass just roots to at least display the
+   * top level immediately and let the lazy query fill children in.
+   */
+  initialCategories?: categories[];
 }
 
 export function CategoryFilterModal({
   trigger,
   selectedCategories,
   onCategoriesChange,
+  initialCategories,
 }: CategoryFilterModalProps) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [tempSelectedCategories, setTempSelectedCategories] = React.useState<string[]>(selectedCategories);
-  const [expandedCategory, setExpandedCategory] = React.useState<CategoryWithChildren | Category | null>(null);
+  const [tempSelectedCategories, setTempSelectedCategories] =
+    React.useState<string[]>(selectedCategories);
+  const [expandedCategory, setExpandedCategory] = React.useState<
+    CategoryWithChildren | Category | null
+  >(null);
 
-  // Загружаем категории из БД (кэш 1 час - относительно редко меняются)
-  // OPTIMIZATION: Добавлен лимит для предотвращения загрузки слишком большого количества
+  // Categories change slowly; 1h stale. Seed with SSR-provided list
+  // when the parent page has one (e.g. /services fetches it in its
+  // SSR payload) so the modal skips the mount-time findMany entirely
+  // for the common case.
   const { data: fetchedCategories } = useFindManycategories(
     {
       where: { is_active: true },
       orderBy: { sort_order: "asc" },
-      take: 100, // OPTIMIZATION: Лимит на категории
+      take: 100,
     },
     {
-      staleTime: 60 * 60 * 1000, // 1 час
-      gcTime: 2 * 60 * 60 * 1000, // 2 часа
+      staleTime: 60 * 60 * 1000,
+      gcTime: 2 * 60 * 60 * 1000,
+      initialData: initialCategories,
     }
   );
 
@@ -64,7 +81,9 @@ export function CategoryFilterModal({
   // Получить дочерние категории
   const getChildren = React.useCallback(
     (parentId: string): (CategoryWithChildren | Category)[] => {
-      const parent = categoryTree.find((c) => c.id === parentId) as CategoryWithChildren | undefined;
+      const parent = categoryTree.find((c) => c.id === parentId) as
+        | CategoryWithChildren
+        | undefined;
       if (parent?.children && parent.children.length > 0) {
         return parent.children;
       }
@@ -162,8 +181,15 @@ export function CategoryFilterModal({
 
           {tempSelectedCategories.length > 0 && (
             <div className="flex items-center justify-between text-sm shrink-0">
-              <span className="text-muted-foreground">{tempSelectedCategories.length} сонгосон</span>
-              <Button variant="ghost" size="sm" onClick={handleReset} className="h-auto p-0 text-primary">
+              <span className="text-muted-foreground">
+                {tempSelectedCategories.length} сонгосон
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                className="h-auto p-0 text-primary"
+              >
                 Бүгдийг арилгах
               </Button>
             </div>
@@ -179,7 +205,9 @@ export function CategoryFilterModal({
                   <div
                     key={category.id}
                     className={`flex items-center gap-2 p-3 rounded-lg transition-colors border ${
-                      isSelected ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-muted"
+                      isSelected
+                        ? "bg-primary/10 border-primary/30"
+                        : "border-transparent hover:bg-muted"
                     }`}
                   >
                     <label
@@ -192,7 +220,13 @@ export function CategoryFilterModal({
                         onCheckedChange={() => toggleCategory(category.slug)}
                       />
                       {isImageIcon(category.icon) ? (
-                        <Image src={category.icon!} alt={category.name} width={24} height={24} className="shrink-0" />
+                        <Image
+                          src={category.icon!}
+                          alt={category.name}
+                          width={24}
+                          height={24}
+                          className="shrink-0"
+                        />
                       ) : (
                         <span className="text-lg shrink-0">{category.icon || "📁"}</span>
                       )}
@@ -223,13 +257,20 @@ export function CategoryFilterModal({
             <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-1 pr-2">
               <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg mb-2">
                 {isImageIcon(expandedCategory.icon) ? (
-                  <Image src={expandedCategory.icon!} alt={expandedCategory.name} width={32} height={32} />
+                  <Image
+                    src={expandedCategory.icon!}
+                    alt={expandedCategory.name}
+                    width={32}
+                    height={32}
+                  />
                 ) : (
                   <span className="text-2xl">{expandedCategory.icon || "📁"}</span>
                 )}
                 <div>
                   <p className="font-medium">{expandedCategory.name}</p>
-                  <p className="text-xs text-muted-foreground">{expandedChildren.length} дэд ангилал</p>
+                  <p className="text-xs text-muted-foreground">
+                    {expandedChildren.length} дэд ангилал
+                  </p>
                 </div>
               </div>
               {expandedChildren.map((sub) => {
@@ -239,7 +280,9 @@ export function CategoryFilterModal({
                     key={sub.id}
                     htmlFor={`filter-sub-${sub.id}`}
                     className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors border ${
-                      isSubSelected ? "bg-primary/10 border-primary/30" : "border-transparent hover:bg-muted"
+                      isSubSelected
+                        ? "bg-primary/10 border-primary/30"
+                        : "border-transparent hover:bg-muted"
                     }`}
                   >
                     <Checkbox

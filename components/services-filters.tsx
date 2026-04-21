@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import type { categories } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { CategoryFilterModal } from "@/components/category-filter-modal";
 import { Slider } from "@/components/ui/slider";
@@ -21,6 +22,8 @@ interface ServicesFiltersProps {
   onProviderTypeChange: (type: ProviderType) => void;
   onReset: () => void;
   variant: "desktop" | "mobile";
+  /** Forwarded to CategoryFilterModal so it skips its own findMany. */
+  initialCategories?: categories[];
 }
 
 /**
@@ -38,6 +41,7 @@ export const ServicesFilters = React.memo(function ServicesFilters({
   onProviderTypeChange,
   onReset,
   variant,
+  initialCategories,
 }: ServicesFiltersProps) {
   const isDesktop = variant === "desktop";
 
@@ -58,6 +62,7 @@ export const ServicesFilters = React.memo(function ServicesFilters({
         <CategoryFilterModal
           selectedCategories={selectedCategories}
           onCategoriesChange={onCategoriesChange}
+          initialCategories={initialCategories}
           trigger={
             <Button
               variant="outline"
@@ -148,7 +153,9 @@ export const ServicesFilters = React.memo(function ServicesFilters({
             step={10000}
             className="mb-2"
           />
-          <div className={`flex items-center justify-between text-muted-foreground ${isDesktop ? "text-sm" : "text-xs"}`}>
+          <div
+            className={`flex items-center justify-between text-muted-foreground ${isDesktop ? "text-sm" : "text-xs"}`}
+          >
             <span>{formatPrice(priceRange[0])}₮</span>
             <span>{formatPrice(priceRange[1])}₮</span>
           </div>

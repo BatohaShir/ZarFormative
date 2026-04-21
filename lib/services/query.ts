@@ -50,6 +50,34 @@ export interface ServicesQueryResult {
   nextCursor: { createdAt: string; id: string } | null;
 }
 
+/**
+ * Reference data the filter UI needs (aimags dropdown, full categories
+ * tree for the category filter modal). Embedded in the SSR payload so
+ * the client doesn't issue two extra findMany queries on mount.
+ *
+ * Sizes are small: ~22 aimags (~3 KB) and ~90 categories (~13 KB),
+ * both gzipped to under 2 KB in the HTML. That's well worth saving
+ * two 2-second round-trips on every page load.
+ */
+// Prisma row shapes — use the generated types so react-query
+// initialData lines up with what the model hooks expect.
+import type { aimags, categories, districts } from "@prisma/client";
+
+export interface ServicesReferenceData {
+  aimags: aimags[];
+  /** All active categories (roots + children) — needed by the filter modal. */
+  categories: categories[];
+  /**
+   * Districts for the currently-selected aimag (if any). Seeded so
+   * CitySelect doesn't issue its own findMany when the page loads
+   * with ?aimag=... already set in the URL.
+   */
+  districts: districts[];
+  /** Which aimag the districts above belong to; client compares
+   *  against selectedAimagId to know if it should use this seed. */
+  districtsAimagId: string | null;
+}
+
 interface RawListingRow {
   id: string;
   user_id: string;
@@ -190,6 +218,67 @@ function buildOrderByFragment(sort: SortOption): Prisma.Sql {
     case "newest":
     default:
       return Prisma.sql`ORDER BY l.created_at DESC, l.id DESC`;
+  }
+}
+
+/**
+ * Reference data for the filter UI (aimags list + root categories).
+ * Served separately from fetchServices because:
+ *   - near-static (aimags almost never change, categories slowly)
+ *   - cacheable for hours (vs 60s for the listing grid)
+ *   - SSR can fetch both in parallel, no serialization cost
+ *
+ * One small query, embedded in SSR props → removes two client-side
+ * findMany queries (useFindManyaimags, useFindManycategories) that
+ * otherwise fire on mount for every authenticated visit.
+ */
+export async function fetchServicesReferenceData(aimagId?: string): Promise<ServicesReferenceData> {
+  try {
+    // UUID guard — anything else becomes NULL and skips the districts CTE.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const selectedAimagId = aimagId && UUID_RE.test(aimagId) ? aimagId : null;
+
+    // to_jsonb(t.*) hands back every column; downstream the shape matches
+    // the Prisma `aimags` / `categories` / `districts` row types exactly,
+    // so the client hooks can use the result as initialData without extra
+    // mapping. Districts are only for the aimag the URL already selected
+    // (if any) so we don't ship the entire ~330-row district list.
+    const rows = await prisma.$queryRaw<
+      { aimags: aimags[]; categories: categories[]; districts: districts[] }[]
+    >`
+      WITH a AS (
+        SELECT COALESCE(jsonb_agg(to_jsonb(aa.*) ORDER BY aa.sort_order ASC), '[]'::jsonb) AS data
+        FROM (SELECT * FROM aimags WHERE is_active = true) aa
+      ),
+      c AS (
+        SELECT COALESCE(jsonb_agg(to_jsonb(cc.*) ORDER BY cc.sort_order ASC), '[]'::jsonb) AS data
+        FROM (SELECT * FROM categories WHERE is_active = true) cc
+      ),
+      d AS (
+        SELECT COALESCE(jsonb_agg(to_jsonb(dd.*) ORDER BY dd.sort_order ASC), '[]'::jsonb) AS data
+        FROM (
+          SELECT *
+          FROM districts
+          WHERE is_active = true
+            AND ${
+              selectedAimagId ? Prisma.sql`aimag_id = ${selectedAimagId}::uuid` : Prisma.sql`false`
+            }
+        ) dd
+      )
+      SELECT a.data AS aimags, c.data AS categories, d.data AS districts
+      FROM a, c, d
+    `;
+
+    const row = rows[0];
+    return {
+      aimags: row?.aimags ?? [],
+      categories: row?.categories ?? [],
+      districts: row?.districts ?? [],
+      districtsAimagId: selectedAimagId,
+    };
+  } catch (error) {
+    console.error("fetchServicesReferenceData failed:", error);
+    return { aimags: [], categories: [], districts: [], districtsAimagId: null };
   }
 }
 

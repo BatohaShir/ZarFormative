@@ -49,6 +49,7 @@ import {
   PAGE_SIZE as SERVER_PAGE_SIZE,
   type ServicesFilters,
   type ServicesQueryResult,
+  type ServicesReferenceData,
   type SortOption,
 } from "@/lib/services/query";
 
@@ -61,6 +62,7 @@ interface ServicesListClientProps {
   initialBoostedIds: string[];
   initialFilters: ServicesFilters;
   initialNextCursor: { createdAt: string; id: string } | null;
+  initialReferenceData: ServicesReferenceData;
 }
 
 function ServicesListContent({
@@ -68,6 +70,7 @@ function ServicesListContent({
   initialBoostedIds,
   initialFilters,
   initialNextCursor,
+  initialReferenceData,
 }: ServicesListClientProps) {
   const t = useTranslations("listings");
   const tCommon = useTranslations("common");
@@ -471,6 +474,15 @@ function ServicesListContent({
           <CitySelect
             onSelect={handleLocationSelect}
             value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
+            initialAimags={initialReferenceData.aimags}
+            initialDistrictsForAimag={
+              initialReferenceData.districtsAimagId
+                ? {
+                    aimagId: initialReferenceData.districtsAimagId,
+                    districts: initialReferenceData.districts,
+                  }
+                : undefined
+            }
           />
         </div>
 
@@ -488,6 +500,15 @@ function ServicesListContent({
           <CitySelect
             onSelect={handleLocationSelect}
             value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
+            initialAimags={initialReferenceData.aimags}
+            initialDistrictsForAimag={
+              initialReferenceData.districtsAimagId
+                ? {
+                    aimagId: initialReferenceData.districtsAimagId,
+                    districts: initialReferenceData.districts,
+                  }
+                : undefined
+            }
             trigger={(displayText) => (
               <Button variant="outline" className="w-full justify-between h-11">
                 <span className="flex items-center gap-2">
@@ -531,6 +552,7 @@ function ServicesListContent({
                   providerType={providerType}
                   onProviderTypeChange={setProviderType}
                   onReset={resetFilters}
+                  initialCategories={initialReferenceData.categories}
                 />
               </div>
             </CollapsibleContent>
@@ -560,6 +582,7 @@ function ServicesListContent({
                 providerType={providerType}
                 onProviderTypeChange={setProviderType}
                 onReset={resetFilters}
+                initialCategories={initialReferenceData.categories}
               />
             </div>
           </aside>
