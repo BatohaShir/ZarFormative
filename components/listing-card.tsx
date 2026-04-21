@@ -100,7 +100,10 @@ export const ListingCard = React.memo(function ListingCard({
   return (
     <Link
       href={`/services/${listing.slug}`}
-      prefetch={true}
+      // Default hover-prefetch: with 8+ cards in viewport, prefetch=true
+      // would kick off a full RSC payload download per card on mount.
+      // Hover is enough for the common path and keeps the idle network quiet.
+      prefetch={null}
       className={cn(
         "cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300",
         isVip

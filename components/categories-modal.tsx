@@ -26,7 +26,10 @@ import type { categories } from "@prisma/client";
 
 interface CategoriesModalProps {
   onSelectCategory?: (category: CategoryWithChildren | Category) => void;
-  onSelectSubcategory?: (category: CategoryWithChildren | Category, subcategory: CategoryWithChildren | Category) => void;
+  onSelectSubcategory?: (
+    category: CategoryWithChildren | Category,
+    subcategory: CategoryWithChildren | Category
+  ) => void;
   trigger?: React.ReactNode;
   // Данные можно передать извне или загрузить внутри
   categories?: CategoryWithChildren[];
@@ -43,21 +46,33 @@ export function CategoriesModal({
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [selectedCategory, setSelectedCategory] = React.useState<CategoryWithChildren | Category | null>(null);
+  const [selectedCategory, setSelectedCategory] = React.useState<
+    CategoryWithChildren | Category | null
+  >(null);
 
-  // Если данные не переданы, загружаем из БД
+  // Lazy fetch: only hit the DB once the user actually opens the modal.
+  // Without open-gating we paid a categories findMany on every page that
+  // mounts this modal, even if the user never touches it. When the parent
+  // already provides a full flat list (propAllCategories), we skip the
+  // fetch entirely since there is nothing to discover.
   const { data: fetchedCategories } = useFindManycategories(
     {
       where: { is_active: true },
       orderBy: { sort_order: "asc" },
     },
     {
-      enabled: !propCategories && !propAllCategories,
+      enabled: open && !propAllCategories,
+      staleTime: 10 * 60 * 1000, // 10 min — categories rarely change
     }
   );
 
+  // Subcategories live in fetchedCategories; propCategories (root-only from
+  // SSR) is rendered instantly while the lazy fetch fills in children.
   const allCategoriesFlat = propAllCategories || fetchedCategories || [];
-  const categoryTree = propCategories || (fetchedCategories ? buildCategoryTree(fetchedCategories) : []);
+  const categoryTree =
+    fetchedCategories && fetchedCategories.length > 0
+      ? buildCategoryTree(fetchedCategories)
+      : propCategories || [];
 
   // Если БД пустая, используем fallback
   const rootCategories: (CategoryWithChildren | Category)[] =
@@ -67,7 +82,9 @@ export function CategoriesModal({
   const getChildren = React.useCallback(
     (parentId: string): (CategoryWithChildren | Category)[] => {
       // Сначала проверяем в дереве
-      const parent = categoryTree.find((c) => c.id === parentId) as CategoryWithChildren | undefined;
+      const parent = categoryTree.find((c) => c.id === parentId) as
+        | CategoryWithChildren
+        | undefined;
       if (parent?.children && parent.children.length > 0) {
         return parent.children;
       }
@@ -102,7 +119,9 @@ export function CategoriesModal({
         if (onSelectSubcategory) {
           onSelectSubcategory(selectedCategory, subcategory);
         } else {
-          router.push(`/services?category=${encodeURIComponent(subcategory.slug)}`, { scroll: false });
+          router.push(`/services?category=${encodeURIComponent(subcategory.slug)}`, {
+            scroll: false,
+          });
         }
         setOpen(false);
         setSelectedCategory(null);
@@ -116,7 +135,9 @@ export function CategoriesModal({
       if (onSelectCategory) {
         onSelectCategory(selectedCategory);
       } else {
-        router.push(`/services?category=${encodeURIComponent(selectedCategory.slug)}`, { scroll: false });
+        router.push(`/services?category=${encodeURIComponent(selectedCategory.slug)}`, {
+          scroll: false,
+        });
       }
       setOpen(false);
       setSelectedCategory(null);
@@ -140,7 +161,9 @@ export function CategoriesModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{trigger || <Button variant="outline">Бүх ангилал</Button>}</DialogTrigger>
+      <DialogTrigger asChild>
+        {trigger || <Button variant="outline">Бүх ангилал</Button>}
+      </DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -201,13 +224,20 @@ export function CategoriesModal({
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
               {isImageIcon(selectedCategory.icon) ? (
-                <Image src={selectedCategory.icon!} alt={selectedCategory.name} width={40} height={40} />
+                <Image
+                  src={selectedCategory.icon!}
+                  alt={selectedCategory.name}
+                  width={40}
+                  height={40}
+                />
               ) : (
                 <span className="text-3xl">{selectedCategory.icon || "📁"}</span>
               )}
               <div>
                 <p className="font-medium">{selectedCategory.name}</p>
-                <p className="text-xs text-muted-foreground">{selectedChildren.length} дэд ангилал</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedChildren.length} дэд ангилал
+                </p>
               </div>
             </div>
 

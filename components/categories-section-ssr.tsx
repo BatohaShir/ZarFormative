@@ -3,15 +3,14 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { CategoriesModal } from "@/components/categories-modal";
 import { isImageIcon, type CategoryWithChildren } from "@/lib/categories";
-import type { categories } from "@prisma/client";
 
 interface CategoriesSectionSSRProps {
+  // Только root-категории (≤10 штук). Подкатегории подтягиваются
+  // лениво в <CategoriesModal> по open через client hook.
   categories: CategoryWithChildren[];
-  allCategories: categories[];
 }
 
-export function CategoriesSectionSSR({ categories, allCategories }: CategoriesSectionSSRProps) {
-  // Показываем первые 10 категорий на главной
+export function CategoriesSectionSSR({ categories }: CategoriesSectionSSRProps) {
   const mainCategories = categories.slice(0, 10);
 
   return (
@@ -40,7 +39,6 @@ export function CategoriesSectionSSR({ categories, allCategories }: CategoriesSe
         ))}
         <CategoriesModal
           categories={categories}
-          allCategories={allCategories}
           trigger={
             <button className="col-span-2 sm:col-span-1 lg:col-span-2 flex items-center justify-center gap-2 py-3 md:py-5 px-3 md:px-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
               <span className="text-xs md:text-sm font-medium">Бүх ангилал</span>

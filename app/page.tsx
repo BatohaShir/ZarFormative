@@ -13,7 +13,7 @@ import { AdStories } from "@/components/billboard";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { buildCategoryTree, fallbackCategories, type CategoryWithChildren } from "@/lib/categories";
+import { fallbackCategories, type CategoryWithChildren } from "@/lib/categories";
 import type { ListingWithRelations } from "@/components/listing-card";
 import { getTranslations } from "next-intl/server";
 
@@ -21,24 +21,45 @@ import { getTranslations } from "next-intl/server";
 // Это кэширует страницу и снижает нагрузку на БД
 export const revalidate = 60;
 
-// Функция загрузки данных на сервере
+// Description preview length for card — with line-clamp-1 we never show more.
+const DESCRIPTION_PREVIEW_LEN = 140;
+
+// Данные для главной: только то, что реально видно в карточках/секциях.
+// Любое лишнее поле улетает в HTML payload (serialized RSC props) и замедляет
+// гидратацию, поэтому SELECT жёстко совпадает с тем, что читает ListingCard.
 async function getHomePageData() {
   try {
-    // Параллельно загружаем категории, объявления и VIP бусты
-    const [categoriesData, listingsData, boostedListingIds] = await Promise.all([
+    const [rootCategories, listingsData, activeBoosts] = await Promise.all([
+      // Для главной показываем только root (parent_id IS NULL) — 10 штук.
+      // Подкатегории грузит <CategoriesModal> по open через client hook, поэтому
+      // нет смысла таскать 80+ строк в HTML каждый раз.
       prisma.categories.findMany({
-        where: { is_active: true },
-        orderBy: [
-          { parent_id: "asc" }, // Родительские категории (null) идут первыми
-          { sort_order: "asc" },
-        ],
+        where: { is_active: true, parent_id: null },
+        orderBy: { sort_order: "asc" },
+        take: 10,
       }),
+      // Narrow select: 25+ колонок listings (description full, search_vector,
+      // completion_photos, proposed_price, рабочие часы и т.д.) не нужны
+      // карточке. Урезаем примерно в 2-3 раза transfer от БД.
       prisma.listings.findMany({
-        where: {
-          status: "active",
-          is_active: true,
-        },
-        include: {
+        where: { status: "active", is_active: true },
+        select: {
+          id: true,
+          user_id: true,
+          title: true,
+          slug: true,
+          // description — обрезаем ниже в map до DESCRIPTION_PREVIEW_LEN
+          description: true,
+          price: true,
+          currency: true,
+          is_negotiable: true,
+          service_type: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+          views_count: true,
+          favorites_count: true,
+          created_at: true,
           user: {
             select: {
               id: true,
@@ -49,88 +70,62 @@ async function getHomePageData() {
               is_company: true,
             },
           },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          },
+          category: { select: { id: true, name: true, slug: true } },
+          aimag: { select: { id: true, name: true } },
+          district: { select: { id: true, name: true } },
+          khoroo: { select: { id: true, name: true } },
+          // Cover image (единственная) — без sort_order, без лишних полей.
           images: {
-            where: {
-              is_cover: true,
-            },
-            select: {
-              id: true,
-              url: true,
-              sort_order: true,
-            },
+            where: { is_cover: true },
+            select: { id: true, url: true },
             take: 1,
           },
-          aimag: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          district: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
         },
-        orderBy: {
-          created_at: "desc",
-        },
+        orderBy: { created_at: "desc" },
         take: 8,
       }),
-      prisma.listing_boosts
-        .findMany({
-          where: {
-            status: "boost_active",
-            expires_at: { gt: new Date() },
-          },
-          select: { listing_id: true },
-          distinct: ["listing_id"],
-        })
-        .then((boosts) => new Set(boosts.map((b) => b.listing_id))),
+      prisma.listing_boosts.findMany({
+        where: { status: "boost_active", expires_at: { gt: new Date() } },
+        select: { listing_id: true },
+        distinct: ["listing_id"],
+      }),
     ]);
 
-    // Строим дерево категорий
-    const categoryTree =
-      categoriesData.length > 0
-        ? buildCategoryTree(categoriesData)
-        : (fallbackCategories as unknown as CategoryWithChildren[]);
+    const boostedIds = activeBoosts.map((b) => b.listing_id);
 
-    // Сериализуем Decimal в number для Client Components
-    const serializedListings = listingsData.map((listing) => ({
-      ...listing,
-      price: listing.price ? Number(listing.price) : null,
-      latitude: listing.latitude ? Number(listing.latitude) : null,
-      longitude: listing.longitude ? Number(listing.longitude) : null,
-    }));
+    // Decimal → number + обрезка description до DESCRIPTION_PREVIEW_LEN.
+    // ListingCard использует line-clamp-1, поэтому смысла слать полный
+    // description (до нескольких KB) в RSC payload нет.
+    const listings = listingsData.map((l) => ({
+      ...l,
+      description:
+        l.description.length > DESCRIPTION_PREVIEW_LEN
+          ? l.description.slice(0, DESCRIPTION_PREVIEW_LEN) + "…"
+          : l.description,
+      price: l.price ? Number(l.price) : null,
+      latitude: l.latitude ? Number(l.latitude) : null,
+      longitude: l.longitude ? Number(l.longitude) : null,
+      // images приходят без sort_order — добавляем 0 для совместимости с типом.
+      images: l.images.map((img) => ({ ...img, sort_order: 0 })),
+    })) as unknown as ListingWithRelations[];
 
     return {
-      categories: categoryTree,
-      allCategories: categoriesData,
-      listings: serializedListings as ListingWithRelations[],
-      boostedIds: boostedListingIds,
+      categories: rootCategories as unknown as CategoryWithChildren[],
+      listings,
+      boostedIds,
     };
   } catch (error) {
     console.error("Failed to load home page data:", error);
-    // Возвращаем fallback данные при ошибке вместо белого экрана
     return {
       categories: fallbackCategories as unknown as CategoryWithChildren[],
-      allCategories: [],
       listings: [] as ListingWithRelations[],
-      boostedIds: new Set<string>(),
+      boostedIds: [] as string[],
     };
   }
 }
 
 export default async function Home() {
-  const [{ categories, allCategories, listings, boostedIds }, t] = await Promise.all([
+  const [{ categories, listings, boostedIds }, t] = await Promise.all([
     getHomePageData(),
     getTranslations(),
   ]);
@@ -178,11 +173,12 @@ export default async function Home() {
       {/* Ad Stories — Instagram-style */}
       <AdStories />
 
-      {/* Categories - SSR с предзагруженными данными */}
-      <CategoriesSectionSSR categories={categories} allCategories={allCategories} />
+      {/* Categories - SSR с предзагруженными данными (только roots; модалка
+          с подкатегориями лениво тянет остальное client-side) */}
+      <CategoriesSectionSSR categories={categories} />
 
       {/* Recommendations - SSR с предзагруженными данными */}
-      <RecommendedListingsSSR listings={listings} boostedIds={[...boostedIds]} />
+      <RecommendedListingsSSR listings={listings} boostedIds={boostedIds} />
 
       {/* Footer - Desktop only */}
       <div className="hidden md:block">
