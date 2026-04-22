@@ -80,7 +80,15 @@
     "confirmNewPassword": "Повторите новый пароль",
     "newPasswordSave": "Сохранить пароль",
     "newPasswordSuccess": "Пароль успешно изменён",
-    "newPasswordInvalidLink": "Ссылка недействительна или истекла"
+    "newPasswordInvalidLink": "Ссылка недействительна или истекла",
+    "errorEmailNotConfirmed": "Подтвердите свой email",
+    "errorUserAlreadyExists": "Этот email уже зарегистрирован",
+    "errorTooManyRequests": "Слишком много попыток. Попробуйте позже",
+    "errorNetwork": "Ошибка сети. Проверьте подключение",
+    "errorWeakPassword": "Пароль слишком простой",
+    "errorInvalidEmail": "Неверный email",
+    "errorUserNotFound": "Пользователь не найден",
+    "errorGeneric": "Произошла ошибка. Попробуйте ещё раз"
   },
   "settings": {
     "title": "Настройки",

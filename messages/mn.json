@@ -80,7 +80,15 @@
     "confirmNewPassword": "Шинэ нууц үг давтах",
     "newPasswordSave": "Нууц үг хадгалах",
     "newPasswordSuccess": "Нууц үг амжилттай солигдлоо",
-    "newPasswordInvalidLink": "Холбоос хүчингүй эсвэл хугацаа нь дууссан байна"
+    "newPasswordInvalidLink": "Холбоос хүчингүй эсвэл хугацаа нь дууссан байна",
+    "errorEmailNotConfirmed": "Имэйл хаягаа баталгаажуулна уу",
+    "errorUserAlreadyExists": "Энэ имэйл аль хэдийн бүртгэгдсэн байна",
+    "errorTooManyRequests": "Хэт олон оролдлого. Хэсэг хугацааны дараа дахин оролдоно уу",
+    "errorNetwork": "Сүлжээний алдаа. Холболтоо шалгана уу",
+    "errorWeakPassword": "Нууц үг хэт энгийн байна",
+    "errorInvalidEmail": "И-мэйл хаяг буруу",
+    "errorUserNotFound": "Ийм хэрэглэгч олдсонгүй",
+    "errorGeneric": "Алдаа гарлаа. Дахин оролдоно уу"
   },
   "settings": {
     "title": "Тохиргоо",

@@ -184,7 +184,7 @@ export const ListingCard = React.memo(function ListingCard({
           <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
             {listing.category.name}
           </span>
-          <h4 className="font-display font-semibold text-[15px] md:text-base leading-snug line-clamp-2">
+          <h4 className="font-display font-semibold text-[15px] md:text-base leading-snug line-clamp-2 min-h-10">
             {listing.title}
           </h4>
         </div>

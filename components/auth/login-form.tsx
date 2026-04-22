@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { translateAuthError } from "@/lib/auth-error";
 
 interface LoginFormProps {
   onSuccess: () => void;
@@ -16,6 +17,7 @@ type Mode = "login" | "reset";
 
 export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
   const t = useTranslations("auth");
+  const tRoot = useTranslations();
   const tCommon = useTranslations("common");
   const { requestPasswordReset } = useAuth();
   const [mode, setMode] = React.useState<Mode>("login");
@@ -38,14 +40,14 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
     try {
       const { error } = await signIn(email, password);
       if (error) {
-        setError(error);
+        setError(translateAuthError(error, tRoot));
         return;
       }
       onSuccess();
     } finally {
       setIsSubmitting(false);
     }
-  }, [email, password, signIn, onSuccess, t]);
+  }, [email, password, signIn, onSuccess, t, tRoot]);
 
   const handleReset = React.useCallback(async () => {
     if (!email) {
@@ -57,14 +59,14 @@ export function LoginForm({ onSuccess, signIn }: LoginFormProps) {
     try {
       const { error } = await requestPasswordReset(email);
       if (error) {
-        setError(error);
+        setError(translateAuthError(error, tRoot));
         return;
       }
       setResetSent(true);
     } finally {
       setIsSubmitting(false);
     }
-  }, [email, requestPasswordReset, t]);
+  }, [email, requestPasswordReset, t, tRoot]);
 
   if (mode === "reset") {
     return (

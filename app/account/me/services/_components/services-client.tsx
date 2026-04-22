@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { InnerHeader } from "@/components/app-header";
+import { SiteHeader } from "@/components/site-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -206,108 +205,105 @@ const ServiceCard = React.memo(function ServiceCard({
   return (
     <Link
       href={`/services/${listing.slug}`}
-      className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/30 hover:shadow-xl transition-all duration-300"
+      className="group relative block bg-card rounded-2xl overflow-hidden ring-1 ring-border transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
+      style={{ transitionTimingFunction: "var(--ease-brand)" }}
     >
-      {/* Image */}
-      <div className="aspect-4/3 relative overflow-hidden">
+      {/* Image — square */}
+      <div className="aspect-square relative overflow-hidden bg-muted">
         <Image
           src={imageUrl}
           alt={listing.title}
           fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover group-hover:scale-110 transition-transform duration-500"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
         />
-        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
 
-        {/* Category badge */}
-        {listing.category && (
-          <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
-            {listing.category.name}
-          </span>
-        )}
-
-        {/* Status indicator */}
+        {/* Status pill */}
         <div
-          className={`absolute top-2 right-2 md:top-3 md:right-3 px-2 py-0.5 rounded-full text-[10px] md:text-[11px] font-medium ${
-            isActive ? "bg-green-500/90 text-white" : "bg-orange-500/90 text-white"
+          className={`absolute top-2.5 right-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium backdrop-blur-sm ${
+            isActive ? "bg-emerald-500/90 text-white" : "bg-orange-500/90 text-white"
           }`}
         >
+          <span
+            className={`w-1 h-1 rounded-full ${isActive ? "bg-white animate-pulse" : "bg-white"}`}
+          />
           {isActive ? "Идэвхтэй" : "Идэвхгүй"}
-        </div>
-
-        {/* Price */}
-        <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3">
-          <p className="text-white font-bold text-base md:text-lg drop-shadow-lg">{priceDisplay}</p>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-3 md:p-4">
-        <h4 className="font-semibold text-xs md:text-sm line-clamp-1">{listing.title}</h4>
-        <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 mt-0.5 md:mt-1">
-          {listing.description}
+      <div className="p-2.5 md:p-3 space-y-1.5">
+        {listing.category && (
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+            {listing.category.name}
+          </span>
+        )}
+
+        <h4 className="font-display font-semibold text-sm leading-snug line-clamp-2 min-h-10">
+          {listing.title}
+        </h4>
+
+        <p className="font-display text-base md:text-[17px] font-bold tabular tracking-tight">
+          {priceDisplay}
         </p>
 
-        {/* Stats */}
-        <div className="flex items-center justify-between mt-2 gap-2">
-          <div className="flex items-center gap-1.5 md:gap-2 text-[9px] md:text-[10px] text-muted-foreground">
+        {/* Stats + location */}
+        <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground pt-1.5 tabular">
             <span className="flex items-center gap-0.5">
-              <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              <Eye className="w-2.5 h-2.5" />
               {listing.views_count || 0}
             </span>
-            <span className="flex items-center gap-0.5 text-pink-500">
-              <Heart className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
+            <span className="flex items-center gap-0.5">
+              <Heart className="w-2.5 h-2.5 fill-brand text-brand" />
               {listing.favorites_count || 0}
             </span>
           </div>
           {listing.aimag && (
-            <div className="flex items-center gap-1 text-muted-foreground">
-              <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
-              <span className="text-[10px] md:text-[11px] line-clamp-1">{listing.aimag.name}</span>
+            <div className="flex items-center gap-1 text-muted-foreground pt-1.5 min-w-0">
+              <MapPin className="w-2.5 h-2.5 shrink-0" />
+              <span className="text-[10px] truncate">{listing.aimag.name}</span>
             </div>
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t">
-          <div className="flex items-center gap-1">
+        {/* Actions row */}
+        <div className="flex items-center justify-between pt-2 border-t border-border">
+          <div className="flex items-center gap-1 pt-2">
             <button
               onClick={handleEdit}
               onMouseEnter={handleEditMouseEnter}
               onFocus={handleEditMouseEnter}
-              className="p-1.5 md:p-2 rounded-lg hover:bg-muted transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               title="Засварлах"
             >
-              <Pencil className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground hover:text-foreground" />
+              <Pencil className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleDelete}
-              className="p-1.5 md:p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-destructive transition-colors"
               title="Устгах"
             >
-              <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4 text-red-500" />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="flex items-center gap-2" onClick={handleToggle}>
-            <span className="text-[10px] md:text-xs text-muted-foreground">
-              {isActive ? "Идэвхтэй" : "Идэвхгүй"}
-            </span>
-            <Switch checked={isActive} className="data-[state=checked]:bg-green-500" />
+          <div className="flex items-center gap-1.5 pt-2" onClick={handleToggle}>
+            <Switch checked={isActive} className="data-[state=checked]:bg-emerald-500 scale-90" />
           </div>
         </div>
       </div>
 
-      {/* VIP Boost section under card */}
+      {/* VIP Boost section */}
       {isActive && (
-        <div className="border-t px-3 md:px-4 py-2.5">
+        <div className="border-t border-border px-3 py-2">
           {activeBoost ? (
             <BoostCountdown expiresAt={activeBoost.expires_at} />
           ) : (
             <button
               onClick={handleBoost}
-              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-600 dark:text-amber-400 text-xs font-semibold transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 py-1 rounded-full bg-muted hover:bg-foreground hover:text-background text-foreground text-[11px] font-semibold transition-colors"
             >
-              <Crown className="w-3.5 h-3.5" />
+              <Crown className="w-3 h-3 fill-amber-400 text-amber-400" />
               VIP зар болгох
             </button>
           )}
@@ -331,19 +327,20 @@ const EmptyState = React.memo(function EmptyState({ filter }: { filter: FilterSt
   };
 
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mb-6">
-        <Package className="h-10 w-10 text-white" />
+    <div className="flex flex-col items-center justify-center py-20 md:py-24 text-center rounded-2xl bg-muted/40">
+      <div className="h-14 w-14 rounded-2xl bg-card ring-1 ring-border flex items-center justify-center mb-5">
+        <Package className="h-6 w-6 text-foreground" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">{getMessage()}</h3>
-      <p className="text-muted-foreground text-sm mb-6 max-w-sm">
+      <p className="font-display text-lg font-semibold">{getMessage()}</p>
+      <p className="text-muted-foreground text-sm mt-1 max-w-sm">
         Өөрийн үйлчилгээг нэмж, олон хүнд хүргээрэй
       </p>
-      <Link href="/services/create">
-        <Button className="bg-linear-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-lg shadow-primary/25">
-          <Plus className="h-4 w-4 mr-2" />
-          Зар нэмэх
-        </Button>
+      <Link
+        href="/services/create"
+        className="mt-5 inline-flex items-center gap-2 h-10 px-5 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all"
+      >
+        <Plus className="h-4 w-4" />
+        Зар нэмэх
       </Link>
     </div>
   );
@@ -719,10 +716,10 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
       <>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <div className="text-center max-w-md">
-            <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25 mx-auto mb-6">
-              <Package className="h-10 w-10 text-white" />
+            <div className="h-16 w-16 rounded-2xl bg-foreground text-background flex items-center justify-center mx-auto mb-6">
+              <Package className="h-7 w-7" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
+            <h2 className="font-display text-2xl font-bold tracking-tight mb-2">Нэвтэрнэ үү</h2>
             <p className="text-muted-foreground text-sm">
               Өөрийн зарууддаа хандахын тулд нэвтрэх шаардлагатай
             </p>
@@ -744,65 +741,64 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Shared header — same markup as loading.tsx, so there's no
-          layout shift when the CTE resolves and this client renders. */}
-      <InnerHeader />
+      <SiteHeader backHref="/" />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Page Title + primary CTA */}
-        <div className="flex items-center gap-4 mb-6 md:mb-8">
-          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
-            <Package className="h-6 w-6 md:h-7 md:w-7 text-white" />
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* Editorial page title + CTA */}
+        <div className="flex items-end justify-between gap-3 mb-6 md:mb-8">
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight">
+              Миний зарууд
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1.5 tabular">{counts.all} зар байна</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl md:text-2xl font-bold">Миний зарууд</h2>
-            <p className="text-sm text-muted-foreground">{counts.all} зар байна</p>
-          </div>
-          <Button asChild className="shrink-0">
-            <Link href="/services/create" prefetch>
-              <Plus className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Шинэ зар</span>
-            </Link>
-          </Button>
+          <Link
+            href="/services/create"
+            prefetch
+            className="shrink-0 inline-flex items-center justify-center gap-2 h-10 md:h-11 px-4 md:px-5 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden md:inline">Шинэ зар</span>
+          </Link>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs — editorial pill row */}
         {counts.all > 0 && (
           <Tabs
             value={filterStatus}
             onValueChange={(v) => setFilterStatus(v as FilterStatus)}
             className="mb-6"
           >
-            <TabsList className="w-full grid grid-cols-3 p-1 h-9 md:h-10 bg-muted/50 rounded-full">
+            <TabsList className="w-full grid grid-cols-3 p-1 h-10 md:h-11 bg-muted rounded-full">
               <TabsTrigger
                 value="all"
-                className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
+                className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-foreground data-[state=active]:text-background text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
               >
                 <LayoutGrid className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4" />
                 Бүгд
-                <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[9px] sm:text-[10px] md:text-xs font-semibold">
+                <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-background/15 text-[9px] sm:text-[10px] md:text-xs font-semibold tabular">
                   {counts.all}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="active"
-                className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
+                className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-foreground data-[state=active]:text-background text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
               >
-                <CheckCircle className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4 text-green-500" />
+                <CheckCircle className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4 text-emerald-500" />
                 <span className="hidden sm:inline">Идэвхтэй</span>
                 <span className="sm:hidden">Идэвх</span>
-                <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-600 text-[9px] sm:text-[10px] md:text-xs font-semibold">
+                <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-background/15 text-[9px] sm:text-[10px] md:text-xs font-semibold tabular">
                   {counts.active}
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="paused"
-                className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-background data-[state=active]:shadow-sm text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
+                className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-foreground data-[state=active]:text-background text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
               >
                 <PauseCircle className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4 text-orange-500" />
                 <span className="hidden sm:inline">Зогсоосон</span>
                 <span className="sm:hidden">Зогс</span>
-                <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-600 text-[9px] sm:text-[10px] md:text-xs font-semibold">
+                <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-background/15 text-[9px] sm:text-[10px] md:text-xs font-semibold tabular">
                   {counts.paused}
                 </span>
               </TabsTrigger>
@@ -815,7 +811,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
             go straight to grid or empty state. Next.js loading.tsx
             covers the window while the server CTE is in flight. */}
         {filteredListings.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {filteredListings.map((listing) => (
               <ServiceCard
                 key={listing.id}

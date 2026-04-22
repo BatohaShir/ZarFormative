@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Phone, Mail, User, Lock, Eye, EyeOff, Building2, Briefcase } from "lucide-react";
+import { translateAuthError } from "@/lib/auth-error";
 
 interface RegisterFormProps {
   onSuccess: () => void;
@@ -19,6 +20,7 @@ interface RegisterFormProps {
 
 export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
   const t = useTranslations("auth");
+  const tRoot = useTranslations();
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -149,7 +151,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
       const { error } = await signUp(regEmail, regPassword, metadata);
 
       if (error) {
-        setRegErrors({ general: error });
+        setRegErrors({ general: translateAuthError(error, tRoot) });
         return;
       }
 
@@ -169,6 +171,7 @@ export function RegisterForm({ onSuccess, signUp }: RegisterFormProps) {
     regPassword,
     signUp,
     onSuccess,
+    tRoot,
   ]);
 
   const clearRegError = React.useCallback((field: string) => {

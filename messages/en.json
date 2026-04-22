@@ -80,7 +80,15 @@
     "confirmNewPassword": "Confirm new password",
     "newPasswordSave": "Save password",
     "newPasswordSuccess": "Password changed successfully",
-    "newPasswordInvalidLink": "Link is invalid or expired"
+    "newPasswordInvalidLink": "Link is invalid or expired",
+    "errorEmailNotConfirmed": "Please confirm your email first",
+    "errorUserAlreadyExists": "This email is already registered",
+    "errorTooManyRequests": "Too many attempts. Please try again later",
+    "errorNetwork": "Network error. Please check your connection",
+    "errorWeakPassword": "Password is too weak",
+    "errorInvalidEmail": "Invalid email address",
+    "errorUserNotFound": "User not found",
+    "errorGeneric": "Something went wrong. Please try again"
   },
   "settings": {
     "title": "Settings",
