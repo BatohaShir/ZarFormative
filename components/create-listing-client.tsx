@@ -95,13 +95,24 @@ interface Category {
 
 interface CreateListingClientProps {
   categories: Category[];
+  /**
+   * User's draft listings pre-fetched on SSR in the same round-trip
+   * as categories. Feeds React Query's initialData so the drafts
+   * banner renders on first paint without a client-side findMany.
+   *
+   * Shape is intentionally `unknown[]` at the boundary: the ZenStack
+   * hook's type is wider than what the SSR CTE produces (no timestamps
+   * hydrated back into Date objects, etc.) and the client code only
+   * reads a handful of fields, so structural compatibility is enough.
+   */
+  initialDrafts?: unknown[];
 }
 
 /**
  * Client component for creating/editing listings
  * Categories are prefetched on server
  */
-export function CreateListingClient({ categories }: CreateListingClientProps) {
+export function CreateListingClient({ categories, initialDrafts }: CreateListingClientProps) {
   const router = useRouter();
   const { user } = useCurrentUser();
   const [images, setImages] = useState<ImageFile[]>([]);
@@ -151,34 +162,89 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>("");
 
-  // Fetch user's draft listings
-  // OPTIMIZATION: Добавлен staleTime - черновики не меняются часто извне
-  const { data: drafts, refetch: refetchDrafts } = useFindManylistings(
+  // Fetch user's draft listings. Seeded from SSR via initialDrafts so
+  // first paint has the list ready and the mount-time findMany is a
+  // no-op (staleTime keeps it fresh for 5 min).
+  //
+  // The ZenStack hook types `data` via a conditional that collapses to
+  // `{}` once we widen its initialData. The UI here reads many fields
+  // (loadDraft uses the full row shape) so we re-cast to the full
+  // Prisma type at the boundary via `unknown`. SSR payload has ISO
+  // strings instead of Date where the type says Date — downstream code
+  // tolerates that (only uses `new Date(updated_at).toLocaleDateString`
+  // and the form fill sets strings anyway).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type DraftRow = any;
+  const { data: draftsRaw, refetch: refetchDrafts } = useFindManylistings(
     user?.id
       ? {
-          where: {
-            user_id: user.id,
-            status: "draft",
-          },
-          include: {
-            category: true,
-            images: true,
-          },
+          where: { user_id: user.id, status: "draft" },
+          include: { category: true, images: true },
           orderBy: { updated_at: "desc" },
-          take: 10, // OPTIMIZATION: Лимит на черновики
+          take: 10,
         }
       : undefined,
     {
       enabled: !!user?.id,
-      staleTime: 2 * 60 * 1000, // 2 минуты - черновики редко меняются извне
-      gcTime: 10 * 60 * 1000, // 10 минут в кэше
+      staleTime: 5 * 60 * 1000,
+      gcTime: 15 * 60 * 1000,
+      initialData: initialDrafts as never,
     }
   );
+  const drafts = draftsRaw as unknown as DraftRow[] | undefined;
 
   const createListing = useCreatelistings();
   const updateListing = useUpdatelistings();
   const deleteListing = useDeletelistings();
   const batchCreateImages = useBatchCreateImages();
+
+  /**
+   * Shared helper to resolve image uploads + write the metadata rows.
+   *
+   * Images added via the ImageUpload component start uploading in
+   * the background the moment the user picks them, so by the time
+   * onSubmit / saveDraft runs we're almost always just awaiting an
+   * already-resolved promise. Pre-existing images loaded from a draft
+   * have no uploadPromise so we upload them at submit time as fallback.
+   *
+   * Returns the count of successfully linked images.
+   */
+  const resolveAndLinkImages = useCallback(
+    async (
+      listingId: string,
+      imagesToLink: ImageFile[],
+      existingImagesCount: number = 0
+    ): Promise<number> => {
+      if (!user?.id || imagesToLink.length === 0) return 0;
+
+      const uploadedResults = await Promise.all(
+        imagesToLink.map(async (image) => {
+          if (image.uploadPromise) return image.uploadPromise;
+          const uuid = crypto.randomUUID();
+          return uploadListingImage(user.id, listingId, image.file, uuid);
+        })
+      );
+
+      const validImages = uploadedResults
+        .map((res, i) => ({ res, i }))
+        .filter(({ res }) => Boolean(res.url))
+        .map(({ res, i }) => ({
+          url: res.url as string,
+          sort_order: existingImagesCount + i,
+          is_cover: existingImagesCount === 0 && i === 0,
+        }));
+
+      if (validImages.length > 0) {
+        await batchCreateImages.mutateAsync({
+          listing_id: listingId,
+          images: validImages,
+        });
+      }
+
+      return validImages.length;
+    },
+    [user?.id, batchCreateImages]
+  );
 
   const {
     register,
@@ -380,14 +446,18 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     [drafts, user?.id, deleteListing, refetchDrafts, editingDraftId, reset]
   );
 
-  // Auto-save draft with debounce
+  // Auto-save draft: diff-only update fires 6s after the user stops
+  // changing the form. Previously the debounce was 3s and the payload
+  // was the full form every time, so fast typists could sustain a
+  // 2s-round-trip-per-keystroke pipeline. Now we send only the fields
+  // that actually changed since the last successful save.
   const autoSaveDraft = useCallback(async () => {
     if (!user?.id || !editingDraftId) return;
 
     const data = getValues();
     const dataString = JSON.stringify(data);
 
-    // Don't save if data hasn't changed
+    // Bail fast when nothing has moved since the last save.
     if (dataString === lastSavedDataRef.current) return;
 
     // Rate limit check
@@ -395,38 +465,69 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     if (!rateLimitResult.allowed) return;
 
     try {
-      const slug = generateUniqueSlug(data.title || "draft");
+      // Rebuild the saved snapshot for diffing; if we have no previous
+      // snapshot this is the first autosave after load, send the full row.
+      const prev = lastSavedDataRef.current
+        ? (JSON.parse(lastSavedDataRef.current) as Partial<ListingFormData>)
+        : null;
+
       const addressStr = formatAddress(selectedAddress);
+      const fullPatch: Record<string, unknown> = {
+        title: data.title || "Ноорог",
+        description: data.description || "",
+        address: data.service_type === "remote" ? data.address_detail : addressStr,
+        aimag_id: selectedAddress?.cityId || null,
+        district_id: selectedAddress?.districtId || null,
+        khoroo_id: selectedAddress?.khorooId || null,
+        price: data.price ? parseFloat(data.price) : null,
+        is_negotiable: data.is_negotiable || false,
+        duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
+        service_type: data.service_type,
+        phone: data.phone || null,
+        latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
+        longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
+        work_hours_start: data.work_hours_start || "09:00",
+        work_hours_end: data.work_hours_end || "18:00",
+      };
+      if (data.category_id) fullPatch.category_id = data.category_id;
+
+      // Only include title/slug in the patch when the title actually
+      // changed — regenerateUniqueSlug is CPU-heavy (transliteration)
+      // and rotating the slug invalidates any outstanding prefetch of
+      // the detail page.
+      const titleChanged = !prev || prev.title !== data.title;
+      if (titleChanged) {
+        fullPatch.slug = generateUniqueSlug(data.title || "draft");
+      }
+
+      // Diff: keep only keys whose JSON representation differs from the
+      // previous snapshot. First autosave sends everything.
+      let patch: Record<string, unknown>;
+      if (prev) {
+        patch = {};
+        for (const [key, value] of Object.entries(fullPatch)) {
+          const prevValue = (prev as Record<string, unknown>)[key];
+          if (JSON.stringify(prevValue) !== JSON.stringify(value)) {
+            patch[key] = value;
+          }
+        }
+        if (Object.keys(patch).length === 0) {
+          lastSavedDataRef.current = dataString;
+          return;
+        }
+      } else {
+        patch = fullPatch;
+      }
 
       await updateListing.mutateAsync({
         where: { id: editingDraftId },
-        data: {
-          title: data.title || "Ноорог",
-          slug,
-          description: data.description || "",
-          ...(data.category_id && { category_id: data.category_id }),
-          // remote = "Миний газар" (клиент приходит к исполнителю) - сохраняем адрес исполнителя
-          address: data.service_type === "remote" ? data.address_detail : addressStr,
-          aimag_id: selectedAddress?.cityId || null,
-          district_id: selectedAddress?.districtId || null,
-          khoroo_id: selectedAddress?.khorooId || null,
-          price: data.price ? parseFloat(data.price) : null,
-          is_negotiable: data.is_negotiable || false,
-          duration_minutes: data.duration_minutes ? parseInt(data.duration_minutes) : null,
-          service_type: data.service_type,
-          phone: data.phone || null,
-          latitude: data.service_type === "remote" ? locationCoordinates?.[0] : null,
-          longitude: data.service_type === "remote" ? locationCoordinates?.[1] : null,
-          work_hours_start: data.work_hours_start || "09:00",
-          work_hours_end: data.work_hours_end || "18:00",
-        },
+        data: patch,
       });
 
       lastSavedDataRef.current = dataString;
-      // Show subtle toast for auto-save success
       toast.success("Автоматаар хадгалагдлаа", {
         duration: 2000,
-        id: "auto-save", // Prevent duplicate toasts
+        id: "auto-save",
       });
     } catch {
       toast.error("Автоматаар хадгалахад алдаа гарлаа", {
@@ -444,7 +545,18 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     updateListing,
   ]);
 
-  // Watch form changes for auto-save
+  // Stable ref so the beforeunload handler always calls the latest
+  // closure without re-attaching the listener on every render.
+  const autoSaveDraftRef = useRef(autoSaveDraft);
+  useEffect(() => {
+    autoSaveDraftRef.current = autoSaveDraft;
+  }, [autoSaveDraft]);
+
+  // Watch form changes for auto-save.
+  // Debounce raised from 3s to 6s: text fields trigger watch() on every
+  // keystroke, so a shorter window lets fast typists sustain one DB
+  // round-trip per word. 6s covers natural pauses without losing data.
+  // We also flush on beforeunload below so nothing is lost on close.
   useEffect(() => {
     if (!editingDraftId) return;
 
@@ -452,7 +564,7 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
       }
-      autoSaveTimeoutRef.current = setTimeout(autoSaveDraft, 3000); // 3 second debounce
+      autoSaveTimeoutRef.current = setTimeout(autoSaveDraft, 6000);
     });
 
     return () => {
@@ -462,6 +574,25 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       }
     };
   }, [editingDraftId, watch, autoSaveDraft]);
+
+  // Flush pending autosave when the user navigates away / closes the tab.
+  // keepalive-style sendBeacon would be ideal, but ZenStack's REST path
+  // needs auth cookies the browser sends automatically with fetch —
+  // firing the save synchronously on beforeunload is good enough for
+  // our rate of abandonment (text-only, no attachments at this point).
+  useEffect(() => {
+    if (!editingDraftId) return;
+    const handler = () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+        autoSaveTimeoutRef.current = null;
+      }
+      // Don't await — browser is about to tear us down.
+      autoSaveDraftRef.current();
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [editingDraftId]);
 
   // Save as draft
   const saveDraft = useCallback(async () => {
@@ -513,34 +644,18 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           },
         });
 
-        if (images.length > 0) {
-          const uploadResults = await Promise.all(
-            images.map(async (image, i) => {
-              const uuid = crypto.randomUUID();
-              const { url, error } = await uploadListingImage(
-                user.id,
-                editingDraftId,
-                image.file,
-                uuid
-              );
-              if (error || !url) return null;
-              return { url, sort_order: i, is_cover: i === 0 };
-            })
-          );
-
-          const validImages = uploadResults.filter(
-            (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
-          );
-          if (validImages.length > 0) {
-            await batchCreateImages.mutateAsync({
-              listing_id: editingDraftId,
-              images: validImages,
-            });
-          }
-        }
+        // Reuse background-uploaded URLs via the shared helper. For
+        // pre-existing draft images without an uploadPromise the
+        // helper falls back to uploading now.
+        await resolveAndLinkImages(editingDraftId, images);
       } else {
+        // Use the pre-warmed id so any photos the user already picked
+        // have been uploading to listings/{user}/{newId}/* in the
+        // background while the draft was being written.
+        const newListingId = getPrewarmListingId();
         const listing = await createListing.mutateAsync({
           data: {
+            id: newListingId,
             title: data.title,
             slug,
             description: data.description || "",
@@ -565,33 +680,10 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           },
         });
 
-        if (listing && images.length > 0) {
-          const uploadResults = await Promise.all(
-            images.map(async (image, i) => {
-              const uuid = crypto.randomUUID();
-              const { url, error } = await uploadListingImage(
-                user.id,
-                listing.id,
-                image.file,
-                uuid
-              );
-              if (error || !url) return null;
-              return { url, sort_order: i, is_cover: i === 0 };
-            })
-          );
-
-          const validImages = uploadResults.filter(
-            (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
-          );
-          if (validImages.length > 0) {
-            await batchCreateImages.mutateAsync({
-              listing_id: listing.id,
-              images: validImages,
-            });
-          }
+        if (listing) {
+          await resolveAndLinkImages(listing.id, images);
+          setEditingDraftId(listing.id);
         }
-
-        setEditingDraftId(listing?.id || null);
       }
 
       setImages([]);
@@ -611,7 +703,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     updateListing,
     createListing,
     images,
-    batchCreateImages,
+    locationCoordinates,
+    resolveAndLinkImages,
+    getPrewarmListingId,
     refetchDrafts,
   ]);
 
@@ -639,28 +733,12 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
         let listingId: string;
         let listingSlug: string;
 
-        // Resolve uploads FIRST (in parallel with ID generation below).
-        // Most uploads finished while the user was still filling the
-        // form — we're almost always just reading already-resolved
-        // promises here.
-        const uploadedResults = await Promise.all(
-          images.map(async (image, i) => {
-            // If background upload already started, wait on it;
-            // otherwise fall back to uploading now (editing draft
-            // added pre-existing images without uploadPromise).
-            if (image.uploadPromise) {
-              const res = await image.uploadPromise;
-              return { ...res, sort_order: i };
-            }
-            const targetListingId = editingDraftId ?? getPrewarmListingId();
-            const uuid = crypto.randomUUID();
-            const res = await uploadListingImage(user.id, targetListingId, image.file, uuid);
-            return { ...res, sort_order: i };
-          })
-        );
+        // Uploads that started when the user picked photos may already
+        // be done; resolveAndLinkImages awaits whatever's still in flight.
+        // We don't need to serialise against the listing mutation — both
+        // can run in parallel because uploads land under the pre-warmed
+        // listing id (or editingDraftId) regardless.
 
-        // Now kick the listing mutation. Uploads are either done or
-        // will finish independently of this round-trip.
         if (editingDraftId) {
           const updated = await updateListing.mutateAsync({
             where: { id: editingDraftId },
@@ -695,27 +773,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           // Same prefetch trick for the edit→publish path.
           router.prefetch(`/services/${listingSlug}`);
 
-          if (uploadedResults.length > 0) {
-            const existingImages =
-              drafts?.find((d) => d.id === editingDraftId)?.images?.length || 0;
-
-            const validImages = uploadedResults
-              .filter((r): r is { url: string; error: string | null; sort_order: number } =>
-                Boolean(r.url)
-              )
-              .map((r, i) => ({
-                url: r.url,
-                sort_order: existingImages + i,
-                is_cover: existingImages === 0 && i === 0,
-              }));
-
-            if (validImages.length > 0) {
-              await batchCreateImages.mutateAsync({
-                listing_id: listingId,
-                images: validImages,
-              });
-            }
-          }
+          const existingImages = drafts?.find((d) => d.id === editingDraftId)?.images?.length || 0;
+          await resolveAndLinkImages(listingId, images, existingImages);
         } else {
           // Use the pre-warmed id so uploads already live under the
           // right folder path. Without this we'd either have to copy
@@ -762,27 +821,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           // RSC chunk is often already in the Next.js cache.
           router.prefetch(`/services/${listingSlug}`);
 
-          if (uploadedResults.length > 0) {
-            const validImages = uploadedResults
-              .filter((r): r is { url: string; error: string | null; sort_order: number } =>
-                Boolean(r.url)
-              )
-              .map((r, i) => ({
-                url: r.url,
-                sort_order: i,
-                is_cover: i === 0,
-              }));
-
-            if (validImages.length === 0 && images.length > 0) {
-              throw new Error("Зураг оруулахад алдаа гарлаа! Storage-д хандах эрх шалгана уу.");
-            }
-
-            if (validImages.length > 0) {
-              await batchCreateImages.mutateAsync({
-                listing_id: listingId,
-                images: validImages,
-              });
-            }
+          const linked = await resolveAndLinkImages(listingId, images);
+          if (linked === 0 && images.length > 0) {
+            throw new Error("Зураг оруулахад алдаа гарлаа! Storage-д хандах эрх шалгана уу.");
           }
         }
 
@@ -802,10 +843,10 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       createListing,
       images,
       drafts,
-      batchCreateImages,
       router,
       getPrewarmListingId,
       locationCoordinates,
+      resolveAndLinkImages,
     ]
   );
 
