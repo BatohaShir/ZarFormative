@@ -185,6 +185,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const { unreadCount, hasNewNotification } = useNotificationsCount();
 
   const isDark = resolvedTheme === "dark";
+  const hasUnread = unreadCount > 0;
 
   const handleClose = React.useCallback(() => setOpen(false), []);
 
@@ -207,9 +208,15 @@ export function NotificationBell({ className }: NotificationBellProps) {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className={`relative ${className}`}>
           <Bell
-            className={`h-5 w-5 ${hasNewNotification ? "animate-[bell-ring_0.5s_ease-in-out]" : ""}`}
+            className={`h-5 w-5 ${hasUnread ? "fill-amber-400 text-amber-500" : ""} ${
+              hasNewNotification
+                ? "animate-[bell-ring_0.5s_ease-in-out]"
+                : hasUnread
+                  ? "animate-bell-wobble"
+                  : ""
+            }`}
           />
-          {unreadCount > 0 && (
+          {hasUnread && (
             <span
               className={`absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 bg-red-500 text-white text-[10px] font-semibold rounded-full flex items-center justify-center leading-none shadow-sm ${hasNewNotification ? "animate-pulse" : ""}`}
             >

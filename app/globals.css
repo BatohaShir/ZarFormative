@@ -236,6 +236,21 @@ html:not(.dark) {
   90% { transform: rotate(0deg); }
 }
 
+/* Continuous subtle wobble while there are unread notifications.
+   Quick double-wobble every 2.5s so it's noticed but not annoying. */
+@keyframes bell-wobble {
+  0%, 85%, 100% { transform: rotate(0deg); }
+  88% { transform: rotate(10deg); }
+  91% { transform: rotate(-8deg); }
+  94% { transform: rotate(5deg); }
+  97% { transform: rotate(-3deg); }
+}
+
+.animate-bell-wobble {
+  animation: bell-wobble 2.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
 /* Shimmer animation for hidden content */
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
