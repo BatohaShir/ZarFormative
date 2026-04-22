@@ -72,19 +72,19 @@ const NotificationsDataContext = React.createContext<NotificationsDataContextTyp
   undefined
 );
 
+// Any notifications findMany cache entry, regardless of select/orderBy
+// args. We surgically patch every matching cache slot instead of
+// invalidating the whole ["notifications"] key — invalidation kicks
+// off a full findMany + 2 joins round-trip (~2s from MN→Seoul) on
+// every mark-as-read, and we already know exactly what to change.
+const NOTIFICATIONS_FINDMANY_KEY = { queryKey: ["notifications", "findMany"] };
+
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  // useTransition for non-blocking UI when marking all as read
-  const [isPendingMarkAll, startMarkAllTransition] = React.useTransition();
-
-  // Optimistic state для мгновенного UI
-  const [optimisticReadIds, setOptimisticReadIds] = React.useState<Set<string>>(new Set());
-
   // State для отслеживания новых уведомлений (для анимации)
   const [hasNewNotification, setHasNewNotification] = React.useState(false);
-  const prevUnreadCountRef = React.useRef<number>(0);
 
   // Загрузка уведомлений из БД
   const {
@@ -152,7 +152,16 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [refetch]);
 
   // ========== SUPABASE REALTIME SUBSCRIPTION ==========
-  // Подписка на новые уведомления для моментального обновления UI
+  //
+  // INSERT: still refetches once, because the realtime payload doesn't
+  // include the actor/listing joins we render in the dropdown. New
+  // notifications are rare enough that one round-trip per arrival is
+  // fine — the badge flips instantly, the card fills in shortly after.
+  //
+  // UPDATE: patched directly into every notifications findMany cache
+  // entry. The common case is mark-as-read, which happens on every
+  // dropdown interaction — hitting the server again for data we just
+  // told the server to change would be silly.
   React.useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
@@ -197,8 +206,25 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             table: "notifications",
             filter: `user_id=eq.${user.id}`,
           },
-          () => {
-            refetchRef.current();
+          (payload: { new: Record<string, unknown> }) => {
+            // Patch in place. If our own optimistic cache write already
+            // flipped is_read to true, this is a no-op — the values
+            // match and React Query's structural sharing skips the
+            // re-render.
+            const fresh = payload.new as Partial<NotificationWithRelations> & { id: string };
+            queryClient.setQueriesData<NotificationWithRelations[]>(
+              NOTIFICATIONS_FINDMANY_KEY,
+              (old) => {
+                if (!old) return old;
+                let changed = false;
+                const next = old.map((n) => {
+                  if (n.id !== fresh.id) return n;
+                  changed = true;
+                  return { ...n, ...fresh };
+                });
+                return changed ? next : old;
+              }
+            );
           }
         )
         .subscribe();
@@ -211,7 +237,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         supabase.removeChannel(channel);
       }
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, queryClient]);
 
   // Сбрасываем флаг новых уведомлений через 3 секунды
   React.useEffect(() => {
@@ -224,91 +250,143 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return undefined;
   }, [hasNewNotification]);
 
-  // Мутации
-  const updateNotification = useUpdatenotifications({
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    },
-  });
+  // Мутации. No onSettled invalidate — we already write the target
+  // state into the cache before the mutation fires, and realtime
+  // patches from other tabs / server-side actors keep us honest.
+  // Invalidating here would kick off a redundant findMany that we've
+  // spent the rest of this file avoiding.
+  const updateNotification = useUpdatenotifications();
+  const updateManyNotifications = useUpdateManynotifications();
 
-  const updateManyNotifications = useUpdateManynotifications({
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["notifications"] });
-    },
-  });
+  const notifications = dbNotifications as NotificationWithRelations[];
 
-  // Применяем optimistic updates к данным
-  const notifications = React.useMemo(() => {
-    return (dbNotifications as NotificationWithRelations[]).map((n) => ({
-      ...n,
-      is_read: n.is_read || optimisticReadIds.has(n.id),
-    }));
-  }, [dbNotifications, optimisticReadIds]);
-
-  // Подсчёт непрочитанных
-  const unreadCount = React.useMemo(() => {
-    return notifications.filter((n) => !n.is_read).length;
-  }, [notifications]);
+  // Подсчёт непрочитанных. Cheap for a 50-item list, so we don't
+  // bother with a denormalized counter — a single pass on re-render
+  // is measured in microseconds.
+  const unreadCount = React.useMemo(
+    () => notifications.reduce((n, x) => n + (x.is_read ? 0 : 1), 0),
+    [notifications]
+  );
 
   const totalCount = notifications.length;
 
-  // Ref для стабильных callbacks
-  const notificationsRef = React.useRef(notifications);
-  React.useEffect(() => {
-    notificationsRef.current = notifications;
-  }, [notifications]);
+  // ========== BATCHED mark-as-read ==========
+  //
+  // The old path fired one REST updateNotification per card the user
+  // glanced at. Opening a dropdown with 5 unread and clicking through
+  // burned 5 round-trips. Now we collect ids for 150ms after the
+  // first mark and flush them as a single updateMany — the UI is
+  // already optimistic (the cache flip happens synchronously below),
+  // the server just needs one call to catch up.
+  const pendingMarkIdsRef = React.useRef<Set<string>>(new Set());
+  const flushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Mark single notification as read
+  const flushMarkAsRead = React.useCallback(() => {
+    flushTimerRef.current = null;
+    const ids = Array.from(pendingMarkIdsRef.current);
+    if (ids.length === 0) return;
+    pendingMarkIdsRef.current = new Set();
+
+    updateManyNotifications.mutate(
+      {
+        where: { id: { in: ids } },
+        data: { is_read: true, read_at: new Date() },
+      },
+      {
+        onError: () => {
+          // Roll back: re-flag the cards as unread in the cache.
+          queryClient.setQueriesData<NotificationWithRelations[]>(
+            NOTIFICATIONS_FINDMANY_KEY,
+            (old) => {
+              if (!old) return old;
+              const idSet = new Set(ids);
+              return old.map((n) =>
+                idSet.has(n.id) ? { ...n, is_read: false, read_at: null } : n
+              );
+            }
+          );
+        },
+      }
+    );
+  }, [updateManyNotifications, queryClient]);
+
+  // Flush any pending batch on unmount so "read" state doesn't get
+  // dropped if the user navigates away within the debounce window.
+  React.useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushMarkAsRead();
+      }
+    };
+  }, [flushMarkAsRead]);
+
   const markAsRead = React.useCallback(
     (notificationId: string) => {
-      // Optimistic update
-      setOptimisticReadIds((prev) => new Set(prev).add(notificationId));
-
-      // Background sync
-      updateNotification.mutate({
-        where: { id: notificationId },
-        data: {
-          is_read: true,
-          read_at: new Date(),
-        },
+      // Optimistic: write straight into every findMany cache. No
+      // component-local "optimisticIds" Set that grows forever — the
+      // cache is the source of truth and the realtime UPDATE echo
+      // patches the same row later (a no-op by then).
+      const readAt = new Date();
+      queryClient.setQueriesData<NotificationWithRelations[]>(NOTIFICATIONS_FINDMANY_KEY, (old) => {
+        if (!old) return old;
+        let changed = false;
+        const next = old.map((n) => {
+          if (n.id !== notificationId || n.is_read) return n;
+          changed = true;
+          return { ...n, is_read: true, read_at: readAt };
+        });
+        return changed ? next : old;
       });
-    },
-    [updateNotification]
-  );
 
-  // Mark all as read with useTransition for non-blocking UI
+      // Batch: collect id, flush after a short debounce.
+      pendingMarkIdsRef.current.add(notificationId);
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = setTimeout(flushMarkAsRead, 150);
+    },
+    [queryClient, flushMarkAsRead]
+  );
 
   const markAllAsRead = React.useCallback(() => {
     if (!user?.id) return;
 
-    // Use startTransition to prevent UI blocking with 50+ notifications
-    startMarkAllTransition(() => {
-      // Optimistic: mark all unread as read
-      const unreadIds = notificationsRef.current.filter((n) => !n.is_read).map((n) => n.id);
-      const previousOptimisticIds = new Set(optimisticReadIds);
-      setOptimisticReadIds((prev) => new Set([...prev, ...unreadIds]));
-
-      // Background sync with rollback on error
-      updateManyNotifications.mutate(
-        {
-          where: {
-            user_id: user.id,
-            is_read: false,
-          },
-          data: {
-            is_read: true,
-            read_at: new Date(),
-          },
-        },
-        {
-          onError: () => {
-            // Rollback optimistic update on error
-            setOptimisticReadIds(previousOptimisticIds);
-          },
-        }
-      );
+    // Optimistic: flip every unread card's is_read in the cache.
+    const now = new Date();
+    const snapshotUnreadIds: string[] = [];
+    queryClient.setQueriesData<NotificationWithRelations[]>(NOTIFICATIONS_FINDMANY_KEY, (old) => {
+      if (!old) return old;
+      let changed = false;
+      const next = old.map((n) => {
+        if (n.is_read) return n;
+        changed = true;
+        snapshotUnreadIds.push(n.id);
+        return { ...n, is_read: true, read_at: now };
+      });
+      return changed ? next : old;
     });
-  }, [user, updateManyNotifications, optimisticReadIds]);
+    if (snapshotUnreadIds.length === 0) return;
+
+    updateManyNotifications.mutate(
+      {
+        where: { user_id: user.id, is_read: false },
+        data: { is_read: true, read_at: now },
+      },
+      {
+        onError: () => {
+          queryClient.setQueriesData<NotificationWithRelations[]>(
+            NOTIFICATIONS_FINDMANY_KEY,
+            (old) => {
+              if (!old) return old;
+              const idSet = new Set(snapshotUnreadIds);
+              return old.map((n) =>
+                idSet.has(n.id) ? { ...n, is_read: false, read_at: null } : n
+              );
+            }
+          );
+        },
+      }
+    );
+  }, [user, updateManyNotifications, queryClient]);
 
   // ========== МЕМОИЗИРОВАННЫЕ ЗНАЧЕНИЯ ==========
 
@@ -321,20 +399,19 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     [unreadCount, totalCount, hasNewNotification]
   );
 
+  // isMarking / isMarkingAll are preserved for API back-compat but
+  // always false now: both mark-as-read flows are synchronous at the
+  // cache level. Callers that still pass these to a disabled prop end
+  // up with a button that's always enabled, which is what we want —
+  // there is no work to wait on.
   const actionsValue = React.useMemo<NotificationsActionsContextType>(
     () => ({
       markAsRead,
       markAllAsRead,
-      isMarking: updateNotification.isPending || updateManyNotifications.isPending,
-      isMarkingAll: isPendingMarkAll || updateManyNotifications.isPending,
+      isMarking: false,
+      isMarkingAll: false,
     }),
-    [
-      markAsRead,
-      markAllAsRead,
-      updateNotification.isPending,
-      updateManyNotifications.isPending,
-      isPendingMarkAll,
-    ]
+    [markAsRead, markAllAsRead]
   );
 
   const dataValue = React.useMemo<NotificationsDataContextType>(

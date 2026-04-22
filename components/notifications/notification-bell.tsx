@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Bell, CheckCheck, Loader2, ChevronRight } from "lucide-react";
+import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import {
   useNotificationsCount,
   useNotificationsActions,
@@ -32,7 +31,7 @@ function NotificationDropdownContent({
   isDark: boolean;
   onClose: () => void;
 }) {
-  const { markAllAsRead, isMarking } = useNotificationsActions();
+  const { markAllAsRead } = useNotificationsActions();
   const { unreadCount } = useNotificationsCount();
   const { notifications, isLoading } = useNotificationsData();
 
@@ -52,19 +51,12 @@ function NotificationDropdownContent({
         {unreadCount > 0 && (
           <button
             onClick={() => markAllAsRead()}
-            disabled={isMarking}
-            className={`flex items-center gap-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
               isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
             }`}
           >
-            {isMarking ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <>
-                <CheckCheck className="h-3.5 w-3.5" />
-                <span>Бүгдийг уншсан</span>
-              </>
-            )}
+            <CheckCheck className="h-3.5 w-3.5" />
+            <span>Бүгдийг уншсан</span>
           </button>
         )}
       </div>
@@ -117,28 +109,19 @@ function NotificationDropdownContent({
         )}
       </div>
 
-      {/* Footer - link to full page */}
-      {notifications.length > 0 && (
-        <div className={`border-t ${isDark ? "border-white/10" : "border-gray-100"}`}>
-          <Link
-            href="/account/me/notifications"
-            onClick={onClose}
-            className={`flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors ${
-              isDark
-                ? "text-slate-400 hover:text-white hover:bg-white/5"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-            }`}
-          >
-            <span>Бүх мэдэгдэл харах</span>
-            <span
-              className={`px-1.5 py-0.5 rounded-md text-xs ${
-                isDark ? "bg-slate-800" : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              {notifications.length}
-            </span>
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+      {/* Footer — showing the 5 most recent. If more exist, make it
+          visible so users know they haven't seen all of them. The
+          previous "Бүх мэдэгдэл харах" link pointed at
+          /account/me/notifications, which is the *settings* page —
+          a broken navigation we've removed. When a dedicated full
+          list view lands, drop a link here. */}
+      {notifications.length > 5 && (
+        <div
+          className={`border-t px-5 py-3 text-center text-xs ${
+            isDark ? "border-white/10 text-slate-500" : "border-gray-100 text-gray-500"
+          }`}
+        >
+          Сүүлийн 5 мэдэгдэл
         </div>
       )}
     </>
