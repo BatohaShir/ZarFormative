@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useInfiniteQuery } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   filtersToSearchParams,
   PAGE_SIZE as SERVER_PAGE_SIZE,
@@ -100,10 +101,19 @@ function ServicesListContent({
   // Filter by specific listing IDs (from map cluster click)
   const [selectedListingIds, setSelectedListingIds] = React.useState<string[]>([]);
 
+  // Debounce search typing before it reaches the query key. Without this
+  // each keystroke spawned a /api/services fetch — typing "Сантехник"
+  // used to fire 9 serial ~2s round-trips. 400ms covers fast typists
+  // and still keeps the feedback loop snappy once they pause.
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 400);
+
   // Active filters shape mirrors ServicesFilters so we can feed the same
   // values into filtersToSearchParams() for both the API call and the
   // URL sync effect. The listingIds field is client-only (from cluster
   // map click) and travels as its own request parameter.
+  //
+  // `q` uses the debounced value specifically so intermediate keystrokes
+  // don't invalidate the query cache.
   const activeFilters: ServicesFilters = React.useMemo(
     () => ({
       categorySlugs: selectedCategories,
@@ -113,7 +123,7 @@ function ServicesListContent({
       aimagId: selectedAimagId,
       districtId: selectedDistrictId,
       provider: providerType,
-      q: searchQuery.trim(),
+      q: debouncedSearchQuery.trim(),
     }),
     [
       selectedCategories,
@@ -122,7 +132,7 @@ function ServicesListContent({
       selectedAimagId,
       selectedDistrictId,
       providerType,
-      searchQuery,
+      debouncedSearchQuery,
     ]
   );
 
@@ -135,7 +145,7 @@ function ServicesListContent({
   // fresh query.
   const matchesInitialFilters =
     selectedListingIds.length === 0 &&
-    searchQuery === initialFilters.q &&
+    debouncedSearchQuery === initialFilters.q &&
     sortBy === initialFilters.sort &&
     selectedAimagId === initialFilters.aimagId &&
     selectedDistrictId === initialFilters.districtId &&
@@ -188,8 +198,11 @@ function ServicesListContent({
       return (await res.json()) as ServicesQueryResult;
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    // 5 min staleTime — listings don't need sub-minute freshness for
+    // the "Сантехник → Хол → Сантехник" typing cycle to hit cache
+    // instantly on repeat queries.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
     // Seed from SSR whenever current filter state still matches what
     // SSR rendered with. Previously we only seeded on "no filters",
     // so /services?q=X landed cold and paid an extra client round-trip

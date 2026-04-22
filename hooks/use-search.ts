@@ -44,12 +44,7 @@ interface UseSearchOptions {
  * Хук для полнотекстового поиска объявлений
  * Использует PostgreSQL tsvector для быстрого поиска с ранжированием
  */
-export function useSearch({
-  query,
-  limit = 20,
-  offset = 0,
-  enabled = true,
-}: UseSearchOptions) {
+export function useSearch({ query, limit = 20, offset = 0, enabled = true }: UseSearchOptions) {
   return useQuery<SearchResponse>({
     queryKey: ["search", query, limit, offset],
     queryFn: async ({ signal }) => {
@@ -72,8 +67,13 @@ export function useSearch({
       return response.json();
     },
     enabled: enabled && query.length >= 2,
-    staleTime: 30 * 1000, // 30 секунд - результаты поиска кэшируются ненадолго
-    gcTime: 5 * 60 * 1000, // 5 минут
+    // 5 min — same as the /api/services client cache. The user's typing
+    // cycle ("Сан" → "Санте" → "Сантехник") never leaves cache, and
+    // revisiting a query a minute later is free.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    // Keep showing previous results while the new query is inflight —
+    // no empty flash on every keystroke.
     placeholderData: (previousData) => previousData,
   });
 }

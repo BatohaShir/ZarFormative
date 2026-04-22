@@ -152,7 +152,10 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=120",
+          // Popular queries ("Сантехник", "Засвар" etc) are hammered by
+          // the homepage autocomplete. Keep them in the edge for 5 min
+          // with a 10 min SWR window — repeats land instantly.
+          "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
         },
       }
     );

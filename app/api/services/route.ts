@@ -39,12 +39,14 @@ export async function GET(request: NextRequest) {
       listingIds: listingIds.length > 0 ? listingIds : undefined,
     });
 
-    // 30s browser / 60s CDN cache with SWR. The grid is not user-specific
-    // (RBAC public), so a small shared cache pays off — many users hit
-    // /services with no filters or the same popular filters.
+    // 1m browser / 5m CDN / 10m SWR. Listings change slowly and the
+    // grid is public (no RBAC), so popular filter/search combinations
+    // can and should serve from edge cache. Search for "Сантехник"
+    // repeated across users now hits Vercel's edge in ~20ms instead
+    // of a fresh 2s Postgres round-trip every time.
     const response = NextResponse.json(result, {
       headers: {
-        "Cache-Control": "public, max-age=30, s-maxage=60, stale-while-revalidate=120",
+        "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
       },
     });
     return addRateLimitHeaders(response, rateLimitResult);
