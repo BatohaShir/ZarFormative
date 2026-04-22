@@ -167,6 +167,19 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
   });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+  // Local blob-URL preview shown the moment the user picks a file, so
+  // the avatar flips to the chosen image immediately instead of sitting
+  // under a spinner for the 1–3s upload on MN→Seoul. Cleared when the
+  // server-side profile.avatar_url lands and React re-renders with the
+  // canonical URL.
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = React.useState<string | null>(null);
+  // Revoke the blob when the preview no longer matches what the UI
+  // shows — otherwise the blob leaks until the tab closes.
+  React.useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    };
+  }, [avatarPreviewUrl]);
 
   // Profile editing modal state
   const [showEditProfileModal, setShowEditProfileModal] = React.useState(false);
@@ -262,14 +275,19 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
   const handleAvatarChange = React.useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (file) {
-        setIsUploadingAvatar(true);
-        try {
-          await uploadAvatar(file);
-          // Errors are handled by the uploadAvatar function (shows toast)
-        } finally {
-          setIsUploadingAvatar(false);
-        }
+      if (!file) return;
+      // Show the chosen file immediately. Upload runs in the background;
+      // when it resolves the parent profile.avatar_url updates and the
+      // <Image src> falls back to the canonical URL. isUploadingAvatar
+      // still drives a small busy indicator, but the picture itself
+      // flips on the spot.
+      const localUrl = URL.createObjectURL(file);
+      setAvatarPreviewUrl(localUrl);
+      setIsUploadingAvatar(true);
+      try {
+        await uploadAvatar(file);
+      } finally {
+        setIsUploadingAvatar(false);
       }
     },
     [uploadAvatar]
@@ -493,26 +511,36 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
             <div className="relative group">
               <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl">
                 <Image
-                  src={avatarUrl}
+                  // Prefer the local blob while the real upload is in
+                  // flight — user sees their pick instantly. When the
+                  // canonical avatar_url comes back we swap to it.
+                  src={avatarPreviewUrl ?? avatarUrl}
                   alt={displayName}
                   width={160}
                   height={160}
-                  unoptimized={avatarUrl.includes("dicebear")}
+                  // next/image can't optimize blob: URLs, so bypass it
+                  // while we're showing the local preview.
+                  unoptimized={avatarPreviewUrl !== null || avatarUrl.includes("dicebear")}
                   className="w-full h-full object-cover"
                   priority
                 />
               </div>
-              {isUploadingAvatar ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full">
-                  <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+              {/* Click-to-upload overlay stays interactive during upload.
+                  We nudge users with a small busy badge in the corner
+                  instead of covering the image, so they still see the
+                  photo they picked. */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                disabled={isUploadingAvatar}
+                aria-busy={isUploadingAvatar}
+              >
+                <Camera className="h-8 w-8 text-white" />
+              </button>
+              {isUploadingAvatar && (
+                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 shadow-md ring-1 ring-border">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
-              ) : (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                >
-                  <Camera className="h-8 w-8 text-white" />
-                </button>
               )}
               <input
                 ref={fileInputRef}

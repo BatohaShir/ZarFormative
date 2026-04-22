@@ -16,6 +16,7 @@
  * Educations / work are skipped for company accounts — they aren't
  * shown on the page.
  */
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 
 export interface MyProfileSsrData {
@@ -63,7 +64,30 @@ interface RawRow {
   work_experiences: MyProfileSsrData["workExperiences"] | null;
 }
 
+/**
+ * Per-user short-TTL cache so that flipping between /account/me and
+ * neighbouring pages (or rapid re-entry) doesn't re-hit the DB each
+ * time. 30s is short enough that profile edits show up within a tab
+ * switch; anything fresher than that is also pushed via the realtime
+ * subscription on the client side.
+ *
+ * unstable_cache keys by the function arguments, so two different
+ * users get independent cache entries. Tagged with `my-profile:<id>`
+ * so a server action (e.g. an edit handler) can call
+ * revalidateTag(`my-profile:${userId}`) and blow away just this
+ * user's entry without waiting for the 30s TTL.
+ */
+export const myProfileCacheTag = (userId: string) => `my-profile:${userId}`;
+
 export async function fetchMyProfileData(userId: string): Promise<MyProfileSsrData> {
+  const cached = unstable_cache(async () => runQuery(userId), ["my-profile-ssr", userId], {
+    revalidate: 30,
+    tags: [myProfileCacheTag(userId)],
+  });
+  return cached();
+}
+
+async function runQuery(userId: string): Promise<MyProfileSsrData> {
   try {
     const rows = await prisma.$queryRaw<RawRow[]>`
       WITH p AS (
