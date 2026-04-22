@@ -136,10 +136,23 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   // OPTIMIZATION: Сначала загружаем ТОЛЬКО IDs для быстрой проверки isFavorite
   // Полные данные загружаются отдельно только на странице /favorites
+  //
+  // Filter out favorites whose listing the owner has archived or
+  // deactivated. Otherwise the header count includes "dead" favorites
+  // the user can no longer see on /favorites (SSR CTE already filters
+  // status='active' AND is_active=true), and the heart state stays
+  // lit on pages that happen to show the card. The favorite row is
+  // kept in the DB so a re-activation brings it back.
   const { data: dbFavoritesRaw = [], isLoading } = useFindManyuser_favorites(
     {
       where: {
         user_id: user?.id,
+        listing: {
+          is: {
+            status: "active",
+            is_active: true,
+          },
+        },
       },
       select: {
         id: true,
@@ -446,6 +459,16 @@ export function useFavoritesFullData(options?: { initialData?: unknown[] }) {
     {
       where: {
         user_id: user?.id,
+        // Mirror the SSR CTE so the grid stays consistent after a
+        // refetch — otherwise archived/deactivated listings would
+        // reappear once React Query invalidates and re-hits the
+        // ZenStack endpoint.
+        listing: {
+          is: {
+            status: "active",
+            is_active: true,
+          },
+        },
       },
       select: {
         id: true,
