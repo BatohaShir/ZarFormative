@@ -40,9 +40,38 @@ interface FavoritesIdsContextType {
   count: number;
 }
 
+/**
+ * Snapshot of the listing a card already knows about. Passing this to
+ * toggleFavorite lets us optimistically insert a row into the cached
+ * favorites list, so the user sees the new card on /favorites before
+ * the server round-trip settles. If omitted, the header count still
+ * updates instantly (via optimisticIds) but the /favorites grid waits
+ * for the background refetch to discover the new row.
+ */
+export interface ListingSnapshot {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  price: number | string | null;
+  currency: string;
+  is_negotiable: boolean;
+  views_count: number;
+  favorites_count: number;
+  category?: { id: string; name: string; slug: string } | null;
+  aimag?: { id: string; name: string } | null;
+  images?: { id: string; url: string }[];
+  user: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
 // Контекст 2: Действия (мутации)
 interface FavoritesActionsContextType {
-  toggleFavorite: (listingId: string) => void;
+  toggleFavorite: (listingId: string, listingSnapshot?: ListingSnapshot) => void;
   isToggling: boolean;
 }
 
@@ -207,7 +236,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   // Используем useRef для стабильной ссылки на функцию
 
   const toggleFavorite = React.useCallback(
-    (listingId: string) => {
+    (listingId: string, listingSnapshot?: ListingSnapshot) => {
       if (!isAuthenticated || !user?.id) {
         // Для гостей сохраняем в localStorage - мгновенно
         setGuestFavoritesState((prev) => {
@@ -236,6 +265,48 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
 
+      // Also touch the cached full-favorites list that /favorites
+      // reads — so a user who likes a card on /services and then
+      // navigates to /favorites sees their new row immediately
+      // instead of after the create + refetch round-trip (~4s cold
+      // on a remote Supabase link).
+      if (isCurrentlyFavorite) {
+        // Remove matching rows from every user_favorites cache entry.
+        queryClient.setQueriesData<unknown>({ queryKey: ["user_favorites"] }, (prev: unknown) => {
+          if (!Array.isArray(prev)) return prev;
+          return (prev as { listing_id: string }[]).filter((f) => f.listing_id !== listingId);
+        });
+      } else if (listingSnapshot) {
+        // Insert a provisional row at the top. id is synthetic; when
+        // the real row lands via refetch onSettled below it replaces
+        // this one. Rows without `listing` (e.g. the minimal
+        // `{id, listing_id}` cache in favorites-context itself) get a
+        // reduced placeholder — the UI that consumes that shape only
+        // needs listing_id anyway.
+        const provisionalId = `optimistic-${listingId}`;
+        queryClient.setQueriesData<unknown>({ queryKey: ["user_favorites"] }, (prev: unknown) => {
+          if (!Array.isArray(prev)) return prev;
+          const list = prev as Array<Record<string, unknown>>;
+          if (list.some((f) => f.listing_id === listingId)) return list;
+          const hasListingShape = list[0] && "listing" in list[0];
+          const provisional = hasListingShape
+            ? {
+                id: provisionalId,
+                user_id: user.id,
+                listing_id: listingId,
+                created_at: new Date().toISOString(),
+                listing: listingSnapshot,
+              }
+            : {
+                id: provisionalId,
+                user_id: user.id,
+                listing_id: listingId,
+                created_at: new Date().toISOString(),
+              };
+          return [provisional, ...list];
+        });
+      }
+
       // Фоновая синхронизация с сервером (без await)
       if (isCurrentlyFavorite) {
         // Удаляем - ищем в dbFavorites (теперь только id и listing_id)
@@ -255,7 +326,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         });
       }
     },
-    [isAuthenticated, user, createFavorite, deleteFavorite]
+    [isAuthenticated, user, createFavorite, deleteFavorite, queryClient]
   );
 
   // Количество избранных

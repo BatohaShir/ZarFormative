@@ -75,11 +75,32 @@ export const ListingCard = React.memo(function ListingCard({
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!isTogglingRef.current) {
-        toggleFavorite(listing.id);
-      }
+      if (isTogglingRef.current) return;
+      // Hand a snapshot of what the card already has to the context
+      // so the /favorites grid can render this new row optimistically
+      // before the create mutation settles.
+      toggleFavorite(listing.id, {
+        id: listing.id,
+        title: listing.title,
+        slug: listing.slug,
+        description: listing.description,
+        price: listing.price as unknown as number | string | null,
+        currency: listing.currency,
+        is_negotiable: listing.is_negotiable,
+        views_count: listing.views_count,
+        favorites_count: listing.favorites_count,
+        category: listing.category,
+        aimag: listing.aimag ? { id: listing.aimag.id, name: listing.aimag.name } : null,
+        images: listing.images.map((img) => ({ id: img.id, url: img.url })),
+        user: {
+          id: listing.user.id,
+          first_name: listing.user.first_name,
+          last_name: listing.user.last_name,
+          avatar_url: listing.user.avatar_url,
+        },
+      });
     },
-    [toggleFavorite, listing.id]
+    [toggleFavorite, listing]
   );
 
   const handleShowMap = React.useCallback((e: React.MouseEvent) => {

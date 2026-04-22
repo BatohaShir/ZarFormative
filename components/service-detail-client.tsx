@@ -150,7 +150,30 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
   }, [listing.slug, queryClient]);
 
   const handleSave = () => {
-    toggleFavorite(listing.id);
+    // Pass a listing snapshot so the /favorites grid can show the new
+    // card optimistically without waiting for a round-trip. favorites_count
+    // isn't available on this page's shape — UI shows a small badge we can
+    // live without for the optimistic state; the refetch replaces it.
+    toggleFavorite(listing.id, {
+      id: listing.id,
+      title: listing.title,
+      slug: listing.slug,
+      description: listing.description,
+      price: listing.price,
+      currency: listing.currency,
+      is_negotiable: listing.is_negotiable,
+      views_count: listing.views_count,
+      favorites_count: 0,
+      category: listing.category,
+      aimag: listing.aimag,
+      images: listing.images.map((img) => ({ id: img.id, url: img.url })),
+      user: {
+        id: listing.user.id,
+        first_name: listing.user.first_name,
+        last_name: listing.user.last_name,
+        avatar_url: listing.user.avatar_url,
+      },
+    });
   };
 
   const providerName = getProviderName(listing.user);
