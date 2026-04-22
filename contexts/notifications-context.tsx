@@ -4,11 +4,7 @@ import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import {
-  useCountnotifications,
-  useUpdatenotifications,
-  useUpdateManynotifications,
-} from "@/lib/hooks/notifications";
+import { useCountnotifications, useUpdateManynotifications } from "@/lib/hooks/notifications";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import type { NotificationType, profiles, listings } from "@prisma/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -258,11 +254,12 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [hasNewNotification]);
 
   // ========== MUTATIONS ==========
-
+  //
+  // Only updateMany is used now — single-row updates are batched into
+  // it via the pendingMarkIds ref below. No onSettled invalidation:
+  // the cache is already in the target state before the mutation
+  // fires, so invalidating would just ask for a redundant refetch.
   const updateManyNotifications = useUpdateManynotifications();
-  // Kept for API parity with older callers. No-op onSettled — we
-  // write directly to the cache and trust Supabase realtime to echo.
-  useUpdatenotifications();
 
   // ========== BATCHED mark-as-read ==========
   //
