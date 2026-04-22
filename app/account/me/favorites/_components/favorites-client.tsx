@@ -55,9 +55,12 @@ function FavoriteCardSkeleton() {
 const FavoriteCard = React.memo(function FavoriteCard({
   favorite,
   onRemove,
+  priority = false,
 }: {
   favorite: FavoriteWithListing;
   onRemove: (id: string, title: string) => void;
+  /** LCP-priority image for the first few above-the-fold cards. */
+  priority?: boolean;
 }) {
   const listing = favorite.listing;
   const imageUrl = listing.images?.[0]?.url || PLACEHOLDER_IMAGE;
@@ -84,6 +87,10 @@ const FavoriteCard = React.memo(function FavoriteCard({
   return (
     <Link
       href={`/services/${listing.slug}`}
+      // Hover-prefetch only. Default (eager) starts 8+ RSC payloads
+      // for detail pages as soon as the grid mounts, which drowns the
+      // network for data the user may never click. Hover is enough.
+      prefetch={null}
       className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/30 hover:shadow-xl transition-all duration-300"
     >
       {/* Image */}
@@ -93,6 +100,8 @@ const FavoriteCard = React.memo(function FavoriteCard({
           alt={listing.title}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
           className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
@@ -368,8 +377,16 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps = {})
         ) : favorites.length > 0 ? (
           /* Favorites Grid */
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {favorites.map((favorite) => (
-              <FavoriteCard key={favorite.id} favorite={favorite} onRemove={handleRemoveFavorite} />
+            {favorites.map((favorite, i) => (
+              <FavoriteCard
+                key={favorite.id}
+                favorite={favorite}
+                onRemove={handleRemoveFavorite}
+                // Eager-load images for the first 4 — they're above the
+                // fold on every viewport and Image's default lazy
+                // waits for IntersectionObserver which can stall LCP.
+                priority={i < 4}
+              />
             ))}
           </div>
         ) : (

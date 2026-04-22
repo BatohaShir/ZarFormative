@@ -14,6 +14,10 @@
 
 import { prisma } from "@/lib/prisma";
 
+// Card uses line-clamp-1 on description — anything past this length is
+// invisible in the UI but still inflates the SSR HTML payload.
+const DESCRIPTION_PREVIEW_LEN = 140;
+
 export interface FavoritePageRow {
   id: string;
   listing_id: string;
@@ -63,7 +67,11 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
               'id', l.id,
               'title', l.title,
               'slug', l.slug,
-              'description', l.description,
+              'description', CASE
+                WHEN length(l.description) > ${DESCRIPTION_PREVIEW_LEN}::int
+                  THEN left(l.description, ${DESCRIPTION_PREVIEW_LEN}::int) || '…'
+                ELSE l.description
+              END,
               'price', l.price,
               'currency', l.currency,
               'is_negotiable', l.is_negotiable,
