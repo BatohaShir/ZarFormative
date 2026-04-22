@@ -117,6 +117,36 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
   const [deletingDraftId, setDeletingDraftId] = useState<string | null>(null);
   const [locationCoordinates, setLocationCoordinates] = useState<[number, number] | null>(null);
 
+  // Pre-generated listing UUID used as the upload folder. We commit to
+  // an id the moment the user adds a photo so background uploads can
+  // start immediately; at submit time we pass this same id to Prisma
+  // instead of letting the DB generate one. Uploaded files that never
+  // reach a saved row are swept by the cleanup-orphaned-files cron.
+  const prewarmListingIdRef = useRef<string | null>(null);
+  const getPrewarmListingId = useCallback(() => {
+    if (!prewarmListingIdRef.current) {
+      prewarmListingIdRef.current = crypto.randomUUID();
+    }
+    return prewarmListingIdRef.current;
+  }, []);
+
+  // Background upload for a single processed file. Returns a promise
+  // that ImageUpload stores on the ImageFile; onSubmit awaits them.
+  const handleBackgroundUpload = useCallback(
+    async (file: File) => {
+      if (!user?.id) {
+        return { url: null, error: "Нэвтрэх шаардлагатай" };
+      }
+      // Editing a draft? Re-use the draft's own id so the upload
+      // lands in its folder. Otherwise use the prewarm id that will
+      // become the new listing's id on submit.
+      const listingId = editingDraftId ?? getPrewarmListingId();
+      const uuid = crypto.randomUUID();
+      return uploadListingImage(user.id, listingId, file, uuid);
+    },
+    [user?.id, editingDraftId, getPrewarmListingId]
+  );
+
   // Auto-save ref for debounce
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedDataRef = useRef<string>("");
@@ -609,6 +639,28 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
         let listingId: string;
         let listingSlug: string;
 
+        // Resolve uploads FIRST (in parallel with ID generation below).
+        // Most uploads finished while the user was still filling the
+        // form — we're almost always just reading already-resolved
+        // promises here.
+        const uploadedResults = await Promise.all(
+          images.map(async (image, i) => {
+            // If background upload already started, wait on it;
+            // otherwise fall back to uploading now (editing draft
+            // added pre-existing images without uploadPromise).
+            if (image.uploadPromise) {
+              const res = await image.uploadPromise;
+              return { ...res, sort_order: i };
+            }
+            const targetListingId = editingDraftId ?? getPrewarmListingId();
+            const uuid = crypto.randomUUID();
+            const res = await uploadListingImage(user.id, targetListingId, image.file, uuid);
+            return { ...res, sort_order: i };
+          })
+        );
+
+        // Now kick the listing mutation. Uploads are either done or
+        // will finish independently of this round-trip.
         if (editingDraftId) {
           const updated = await updateListing.mutateAsync({
             where: { id: editingDraftId },
@@ -640,31 +692,23 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           listingId = editingDraftId;
           listingSlug = updated?.slug || slug;
 
-          if (images.length > 0) {
+          // Same prefetch trick for the edit→publish path.
+          router.prefetch(`/services/${listingSlug}`);
+
+          if (uploadedResults.length > 0) {
             const existingImages =
               drafts?.find((d) => d.id === editingDraftId)?.images?.length || 0;
 
-            const uploadResults = await Promise.all(
-              images.map(async (image, i) => {
-                const uuid = crypto.randomUUID();
-                const { url, error } = await uploadListingImage(
-                  user.id,
-                  listingId,
-                  image.file,
-                  uuid
-                );
-                if (error || !url) return null;
-                return {
-                  url,
-                  sort_order: existingImages + i,
-                  is_cover: existingImages === 0 && i === 0,
-                };
-              })
-            );
+            const validImages = uploadedResults
+              .filter((r): r is { url: string; error: string | null; sort_order: number } =>
+                Boolean(r.url)
+              )
+              .map((r, i) => ({
+                url: r.url,
+                sort_order: existingImages + i,
+                is_cover: existingImages === 0 && i === 0,
+              }));
 
-            const validImages = uploadResults.filter(
-              (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
-            );
             if (validImages.length > 0) {
               await batchCreateImages.mutateAsync({
                 listing_id: listingId,
@@ -673,8 +717,13 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
             }
           }
         } else {
+          // Use the pre-warmed id so uploads already live under the
+          // right folder path. Without this we'd either have to copy
+          // files to the real listing folder or orphan them.
+          const newListingId = getPrewarmListingId();
           const listing = await createListing.mutateAsync({
             data: {
+              id: newListingId,
               title: data.title,
               slug,
               description: data.description,
@@ -707,24 +756,22 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
           listingId = listing.id;
           listingSlug = listing.slug;
 
-          if (images.length > 0) {
-            const uploadResults = await Promise.all(
-              images.map(async (image, i) => {
-                const uuid = crypto.randomUUID();
-                const { url, error } = await uploadListingImage(
-                  user.id,
-                  listingId,
-                  image.file,
-                  uuid
-                );
-                if (error || !url) return null;
-                return { url, sort_order: i, is_cover: i === 0 };
-              })
-            );
+          // The listing row now exists — start the detail-page SSR
+          // payload landing on the wire in parallel with the image-
+          // metadata INSERT below. By the time router.push fires the
+          // RSC chunk is often already in the Next.js cache.
+          router.prefetch(`/services/${listingSlug}`);
 
-            const validImages = uploadResults.filter(
-              (r): r is { url: string; sort_order: number; is_cover: boolean } => r !== null
-            );
+          if (uploadedResults.length > 0) {
+            const validImages = uploadedResults
+              .filter((r): r is { url: string; error: string | null; sort_order: number } =>
+                Boolean(r.url)
+              )
+              .map((r, i) => ({
+                url: r.url,
+                sort_order: i,
+                is_cover: i === 0,
+              }));
 
             if (validImages.length === 0 && images.length > 0) {
               throw new Error("Зураг оруулахад алдаа гарлаа! Storage-д хандах эрх шалгана уу.");
@@ -757,6 +804,8 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
       drafts,
       batchCreateImages,
       router,
+      getPrewarmListingId,
+      locationCoordinates,
     ]
   );
 
@@ -769,6 +818,9 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
     setDisplayPrice("");
     setLocationCoordinates(null);
     setShowDraftBanner(true);
+    // Drop the pre-warmed listing id so the next creation gets a
+    // fresh folder and old uploads become orphans for the cleanup cron.
+    prewarmListingIdRef.current = null;
   }, [reset]);
 
   if (!user) {
@@ -1312,7 +1364,12 @@ export function CreateListingClient({ categories }: CreateListingClientProps) {
               </div>
             </div>
             <div className="p-5">
-              <ImageUpload images={images} onChange={setImages} maxImages={3} />
+              <ImageUpload
+                images={images}
+                onChange={setImages}
+                maxImages={3}
+                onUpload={handleBackgroundUpload}
+              />
               {images.length === 0 && (
                 <div className="mt-4 flex items-center gap-2 text-amber-600 dark:text-amber-500 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3">
                   <AlertCircle className="h-4 w-4 shrink-0" />

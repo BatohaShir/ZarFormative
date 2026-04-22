@@ -12,6 +12,15 @@ export interface ImageFile {
   file: File;
   preview: string;
   sortOrder: number;
+  /**
+   * Background upload progress. When the parent wires onUpload, each
+   * newly added image can start uploading in the background before
+   * the user hits submit — by the time they do, the URL is already
+   * in storage and we skip the wait.
+   */
+  uploadPromise?: Promise<{ url: string | null; error: string | null }>;
+  uploadedUrl?: string;
+  uploadError?: string;
 }
 
 interface ImageUploadProps {
@@ -25,6 +34,13 @@ interface ImageUploadProps {
   maxDimension?: number;
   /** Compression quality 0-1 (default: 0.85) */
   compressionQuality?: number;
+  /**
+   * Called once per freshly-compressed file. The parent is expected to
+   * kick off a background upload and return the resulting promise;
+   * we attach it to the ImageFile so that submit can just await the
+   * already-inflight work instead of starting uploads at submit time.
+   */
+  onUpload?: (file: File) => Promise<{ url: string | null; error: string | null }>;
 }
 
 export function ImageUpload({
@@ -35,6 +51,7 @@ export function ImageUpload({
   compress = true,
   maxDimension = 1920,
   compressionQuality = 0.85,
+  onUpload,
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -61,35 +78,43 @@ export function ImageUpload({
     const remainingSlots = maxImages - images.length;
     const filesToAdd = Array.from(files).slice(0, remainingSlots);
 
-    const newImages: ImageFile[] = [];
-
-    // Show compression indicator
-    if (compress && filesToAdd.length > 0) {
-      setIsCompressing(true);
-    }
-
-    for (let i = 0; i < filesToAdd.length; i++) {
-      const file = filesToAdd[i];
-
-      // Update progress
-      setCompressionProgress(`${i + 1}/${filesToAdd.length}`);
-
-      // Валидация типа
+    // Pre-validate synchronously so toast errors fire immediately,
+    // not after compression kicks off.
+    const validated = filesToAdd.filter((file) => {
       if (!file.type.startsWith("image/")) {
         toast.error(`${file.name} зураг биш байна`);
-        continue;
+        return false;
       }
-
-      // Валидация размера (before compression)
       if (file.size > maxSizeMB * 1024 * 1024) {
         toast.error(`${file.name} ${maxSizeMB}MB-ээс их байна`);
-        continue;
+        return false;
       }
+      return true;
+    });
 
-      let processedFile = file;
+    if (validated.length === 0) return;
 
-      // Compress image if enabled
-      if (compress) {
+    if (compress) {
+      setIsCompressing(true);
+      setCompressionProgress(`0/${validated.length}`);
+    }
+
+    // Compress in parallel. Each compressImage does its own canvas
+    // work off the critical path, and small images short-circuit to
+    // the original file. Was a serial for-loop before (3 × 300ms =
+    // ~900ms); parallel brings it closer to ~300ms total.
+    let doneCount = 0;
+    const tick = () => {
+      doneCount++;
+      setCompressionProgress(`${doneCount}/${validated.length}`);
+    };
+
+    const processed = await Promise.all(
+      validated.map(async (file) => {
+        if (!compress) {
+          tick();
+          return file;
+        }
         try {
           const result = await compressImage(file, {
             maxWidth: maxDimension,
@@ -97,39 +122,45 @@ export function ImageUpload({
             quality: compressionQuality,
             outputFormat: "webp",
           });
-
-          processedFile = result.file;
-
-          // Log compression savings
           if (result.compressionRatio < 0.8) {
             const savings = Math.round((1 - result.compressionRatio) * 100);
             console.log(
               `[ImageUpload] Compressed: ${formatBytes(result.originalSize)} → ${formatBytes(result.compressedSize)} (${savings}% savings)`
             );
           }
+          tick();
+          return result.file;
         } catch (err) {
           console.error("[ImageUpload] Compression error:", err);
-          // Use original file if compression fails
+          tick();
+          return file;
         }
-      }
-
-      const id = Math.random().toString(36).substring(7);
-      const preview = URL.createObjectURL(processedFile);
-
-      newImages.push({
-        id,
-        file: processedFile,
-        preview,
-        sortOrder: images.length + newImages.length,
-      });
-    }
+      })
+    );
 
     setIsCompressing(false);
     setCompressionProgress("");
 
-    if (newImages.length > 0) {
-      onChange([...images, ...newImages]);
-    }
+    const newImages: ImageFile[] = processed.map((processedFile, i) => {
+      const id = Math.random().toString(36).substring(7);
+      const preview = URL.createObjectURL(processedFile);
+
+      // Kick off background upload NOW, not at submit time. By the
+      // time the user finishes the form, the file is already in
+      // Supabase Storage and submit just needs to wait on the DB
+      // INSERT (or nothing, if the promise already resolved).
+      const uploadPromise = onUpload?.(processedFile);
+
+      return {
+        id,
+        file: processedFile,
+        preview,
+        sortOrder: images.length + i,
+        uploadPromise,
+      };
+    });
+
+    onChange([...images, ...newImages]);
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -230,9 +261,7 @@ export function ImageUpload({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            isDragging
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50"
+            isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
           }`}
         >
           <input
@@ -253,18 +282,14 @@ export function ImageUpload({
                   <p className="text-sm font-medium text-primary">
                     Зураг шахаж байна... {compressionProgress}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Хүлээнэ үү
-                  </p>
+                  <p className="text-xs text-muted-foreground">Хүлээнэ үү</p>
                 </div>
               </>
             ) : images.length === 0 ? (
               <>
                 <ImageIcon className="h-12 w-12 text-muted-foreground" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">
-                    Зураг чирж оруулах эсвэл дарж сонгоно уу
-                  </p>
+                  <p className="text-sm font-medium">Зураг чирж оруулах эсвэл дарж сонгоно уу</p>
                   <p className="text-xs text-muted-foreground">
                     {images.length}/{maxImages} зураг • Дээд хэмжээ {maxSizeMB}MB
                   </p>
