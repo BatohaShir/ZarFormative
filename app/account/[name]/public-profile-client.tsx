@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Share2,
 } from "lucide-react";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 interface ProfileData {
   id: string;
@@ -36,6 +37,7 @@ interface ProfileData {
   avg_rating: number | null;
   reviews_count: number;
   completed_jobs_count: number;
+  is_verified: boolean;
 }
 
 interface ListingData {
@@ -146,7 +148,10 @@ export function PublicProfileClient({ profile, listings, stats }: PublicProfileC
 
             {/* User Info */}
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">{providerName}</h2>
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 inline-flex items-center gap-2 flex-wrap justify-center md:justify-start">
+                <span>{providerName}</span>
+                <VerifiedBadge verified={profile.is_verified} size="lg" />
+              </h2>
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-muted-foreground mb-4">
                 <span className="flex items-center gap-1">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />

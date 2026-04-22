@@ -4,6 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import { StarRating } from "./star-rating";
 import { cn } from "@/lib/utils";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 export interface ReviewWithClient {
   id: string;
@@ -17,6 +18,7 @@ export interface ReviewWithClient {
     avatar_url: string | null;
     is_company: boolean;
     company_name: string | null;
+    is_verified: boolean;
   };
 }
 
@@ -26,7 +28,11 @@ export interface ReviewItemProps {
   className?: string;
 }
 
-export const ReviewItem = React.memo(function ReviewItem({ review, compact = false, className }: ReviewItemProps) {
+export const ReviewItem = React.memo(function ReviewItem({
+  review,
+  compact = false,
+  className,
+}: ReviewItemProps) {
   const reviewerName = review.client.is_company
     ? review.client.company_name || "Компани"
     : [review.client.first_name, review.client.last_name].filter(Boolean).join(" ") || "Хэрэглэгч";
@@ -53,24 +59,38 @@ export const ReviewItem = React.memo(function ReviewItem({ review, compact = fal
             )}
           />
         ) : (
-          <div className={cn(
-            "rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-medium text-primary",
-            compact ? "w-9 h-9" : "w-10 h-10"
-          )}>
+          <div
+            className={cn(
+              "rounded-full bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center text-xs font-medium text-primary",
+              compact ? "w-9 h-9" : "w-10 h-10"
+            )}
+          >
             {reviewerName.charAt(0).toUpperCase()}
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className={cn("font-medium truncate", compact ? "text-sm" : "text-sm")}>{reviewerName}</span>
+            <span
+              className={cn(
+                "font-medium truncate inline-flex items-center gap-1",
+                compact ? "text-sm" : "text-sm"
+              )}
+            >
+              <span className="truncate">{reviewerName}</span>
+              <VerifiedBadge verified={review.client.is_verified} size="sm" />
+            </span>
             <span className="text-xs text-muted-foreground shrink-0">{formattedDate}</span>
           </div>
           <StarRating rating={review.rating} size="sm" />
           {review.comment && (
-            <p className={cn(
-              "text-muted-foreground mt-1.5 whitespace-pre-wrap",
-              compact ? "text-xs" : "text-sm"
-            )}>{review.comment}</p>
+            <p
+              className={cn(
+                "text-muted-foreground mt-1.5 whitespace-pre-wrap",
+                compact ? "text-xs" : "text-sm"
+              )}
+            >
+              {review.comment}
+            </p>
           )}
         </div>
       </div>

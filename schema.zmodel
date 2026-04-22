@@ -287,6 +287,12 @@ model profiles {
   avg_rating          Decimal? @db.Decimal(2, 1)  // Средний рейтинг (1.0 - 5.0)
   reviews_count       Int      @default(0)        // Количество отзывов
   completed_jobs_count Int     @default(0)        // Количество выполненных заказов
+  // Verified badge. Maintained by the completed_jobs_counter trigger:
+  // flips to true when completed_jobs_count crosses the threshold from
+  // app_settings.verified_threshold, flips back if a completed job is
+  // later undone. Clients read this boolean directly instead of
+  // computing completed_jobs_count >= N on every render.
+  is_verified         Boolean  @default(false)
 
   // Relations
   push_subscriptions     profiles_push_subscriptions[]
@@ -312,6 +318,9 @@ model profiles {
   @@index([is_company]) // For filtering by account type
   @@index([created_at]) // For sorting by registration date
   @@index([role])       // For filtering by role
+  // Partial index on is_verified is defined in SQL (WHERE is_verified = true)
+  // — Prisma/ZenStack doesn't express partial indexes, but the runtime
+  // index is present thanks to the migration.
 
   @@map("profiles")
   @@auth()

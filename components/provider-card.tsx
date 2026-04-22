@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Clock, UserCircle } from "lucide-react";
 import { RequestForm } from "@/components/request-form";
 import { ReviewsList } from "@/components/reviews-list";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 interface ProviderUser {
   id: string;
@@ -15,6 +16,7 @@ interface ProviderUser {
   avatar_url: string | null;
   company_name: string | null;
   is_company: boolean;
+  is_verified: boolean;
   created_at: Date;
 }
 
@@ -43,7 +45,9 @@ export const ProviderCard = React.memo(function ProviderCard({
   const avatarSize = isDesktop ? 64 : 48;
 
   return (
-    <div className={`border ${isDesktop ? "rounded-2xl p-6" : "rounded-xl p-4"} space-y-${isDesktop ? "4" : "3"}`}>
+    <div
+      className={`border ${isDesktop ? "rounded-2xl p-6" : "rounded-xl p-4"} space-y-${isDesktop ? "4" : "3"}`}
+    >
       <div className={`flex items-center gap-${isDesktop ? "4" : "3"}`}>
         <div className="relative">
           {user.avatar_url ? (
@@ -64,10 +68,21 @@ export const ProviderCard = React.memo(function ProviderCard({
           )}
         </div>
         <div className={isDesktop ? "" : "flex-1"}>
-          <h3 className={`font-semibold ${isDesktop ? "" : "text-sm"}`}>{providerName}</h3>
-          <div className={`flex items-center gap-${isDesktop ? "2" : "1.5"} text-${isDesktop ? "sm" : "xs"} text-muted-foreground`}>
+          <h3
+            className={`font-semibold inline-flex items-center gap-1.5 ${
+              isDesktop ? "" : "text-sm"
+            }`}
+          >
+            <span>{providerName}</span>
+            <VerifiedBadge verified={user.is_verified} size={isDesktop ? "md" : "sm"} />
+          </h3>
+          <div
+            className={`flex items-center gap-${isDesktop ? "2" : "1.5"} text-${isDesktop ? "sm" : "xs"} text-muted-foreground`}
+          >
             <Clock className={`${isDesktop ? "h-4 w-4" : "h-3 w-3"}`} />
-            <span>{memberSince} оноос хойш{isDesktop && " гишүүн"}</span>
+            <span>
+              {memberSince} оноос хойш{isDesktop && " гишүүн"}
+            </span>
           </div>
         </div>
       </div>
@@ -103,9 +118,7 @@ export const ProviderCard = React.memo(function ProviderCard({
         )
       )}
 
-      {isDesktop && (
-        <ReviewsList listingId={listingId} variant="desktop" />
-      )}
+      {isDesktop && <ReviewsList listingId={listingId} variant="desktop" />}
     </div>
   );
 });

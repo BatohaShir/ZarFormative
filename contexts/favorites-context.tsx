@@ -23,7 +23,7 @@ export interface FavoriteWithListing {
     category: categories;
     aimag: aimags | null;
     images: listings_images[];
-    user: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url">;
+    user: Pick<profiles, "id" | "first_name" | "last_name" | "avatar_url" | "is_verified">;
   };
 }
 
@@ -66,6 +66,7 @@ export interface ListingSnapshot {
     first_name: string | null;
     last_name: string | null;
     avatar_url: string | null;
+    is_verified: boolean;
   };
 }
 
@@ -503,6 +504,7 @@ export function useFavoritesFullData(options?: { initialData?: unknown[] }) {
                 first_name: true,
                 last_name: true,
                 avatar_url: true,
+                is_verified: true,
               },
             },
           },

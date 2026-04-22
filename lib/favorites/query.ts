@@ -41,6 +41,7 @@ export interface FavoritePageRow {
       first_name: string | null;
       last_name: string | null;
       avatar_url: string | null;
+      is_verified: boolean;
     } | null;
   };
 }
@@ -87,7 +88,8 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
                 'id', u.id,
                 'first_name', u.first_name,
                 'last_name', u.last_name,
-                'avatar_url', u.avatar_url
+                'avatar_url', u.avatar_url,
+                'is_verified', u.is_verified
               ) END,
               'images', COALESCE(
                 (SELECT jsonb_agg(jsonb_build_object('id', li.id, 'url', li.url))

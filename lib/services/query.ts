@@ -101,6 +101,7 @@ interface RawListingRow {
     avatar_url: string | null;
     company_name: string | null;
     is_company: boolean;
+    is_verified: boolean;
   } | null;
   category: { id: string; name: string; slug: string } | null;
   aimag: {
@@ -385,7 +386,8 @@ export async function fetchServices(
             'last_name', u.last_name,
             'avatar_url', u.avatar_url,
             'company_name', u.company_name,
-            'is_company', u.is_company
+            'is_company', u.is_company,
+            'is_verified', u.is_verified
           ) END AS "user",
           CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
             'id', c.id, 'name', c.name, 'slug', c.slug
@@ -558,7 +560,8 @@ export async function fetchServicesPageData(
               'last_name', u.last_name,
               'avatar_url', u.avatar_url,
               'company_name', u.company_name,
-              'is_company', u.is_company
+              'is_company', u.is_company,
+              'is_verified', u.is_verified
             ) END AS "user",
             CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
               'id', c.id, 'name', c.name, 'slug', c.slug

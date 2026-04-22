@@ -35,6 +35,7 @@ export interface MyProfileSsrData {
     avg_rating: number | null;
     reviews_count: number;
     completed_jobs_count: number;
+    is_verified: boolean;
   } | null;
   educations: {
     id: string;
@@ -95,7 +96,8 @@ async function runQuery(userId: string): Promise<MyProfileSsrData> {
           id, first_name, last_name, phone_number, is_company,
           avatar_url, about, company_name, registration_number,
           is_deleted, preferred_language,
-          avg_rating, reviews_count, completed_jobs_count
+          avg_rating, reviews_count, completed_jobs_count,
+          is_verified
         FROM profiles
         WHERE id = ${userId}::uuid
         LIMIT 1

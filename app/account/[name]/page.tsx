@@ -22,6 +22,7 @@ interface ProfileData {
   avg_rating: number | null;
   reviews_count: number;
   completed_jobs_count: number;
+  is_verified: boolean;
 }
 
 interface ListingData {
@@ -55,6 +56,7 @@ const getProfileById = unstable_cache(
         avg_rating: true,
         reviews_count: true,
         completed_jobs_count: true,
+        is_verified: true,
       },
     });
 
@@ -159,11 +161,5 @@ export default async function AccountPage({ params }: PageProps) {
     failedCount: failedJobsCount,
   };
 
-  return (
-    <PublicProfileClient
-      profile={profile}
-      listings={listings}
-      stats={stats}
-    />
-  );
+  return <PublicProfileClient profile={profile} listings={listings} stats={stats} />;
 }

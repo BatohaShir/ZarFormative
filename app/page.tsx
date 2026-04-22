@@ -45,6 +45,7 @@ interface RawListingRow {
     avatar_url: string | null;
     company_name: string | null;
     is_company: boolean;
+    is_verified: boolean;
   } | null;
   category: { id: string; name: string; slug: string } | null;
   aimag: { id: string; name: string } | null;
@@ -95,7 +96,8 @@ async function getHomePageData() {
               'last_name', u.last_name,
               'avatar_url', u.avatar_url,
               'company_name', u.company_name,
-              'is_company', u.is_company
+              'is_company', u.is_company,
+              'is_verified', u.is_verified
             ) END AS "user",
             CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
               'id', c.id, 'name', c.name, 'slug', c.slug
@@ -148,7 +150,8 @@ async function getHomePageData() {
               'last_name', su.last_name,
               'avatar_url', su.avatar_url,
               'company_name', su.company_name,
-              'is_company', su.is_company
+              'is_company', su.is_company,
+              'is_verified', su.is_verified
             ) AS "user"
           FROM ad_stories s
           LEFT JOIN profiles su ON su.id = s.user_id

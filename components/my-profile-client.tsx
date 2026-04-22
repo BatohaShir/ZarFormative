@@ -55,6 +55,7 @@ import {
   formatWorkDate,
 } from "@/lib/data/suggestions";
 import type { MyProfileSsrData } from "@/lib/profile/my-profile-query";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 // Lazy load EditProfileModal - not loaded until opened
 const EditProfileModal = dynamic(
@@ -507,8 +508,9 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
 
             {/* User Info */}
             <div className="flex-1 text-center md:text-left min-w-0">
-              <h1 className="font-display font-bold tracking-tight text-3xl md:text-4xl lg:text-5xl">
-                {displayName}
+              <h1 className="font-display font-bold tracking-tight text-3xl md:text-4xl lg:text-5xl inline-flex items-center gap-2 flex-wrap justify-center md:justify-start">
+                <span>{displayName}</span>
+                <VerifiedBadge verified={profile?.is_verified} size="lg" />
               </h1>
               <p className="text-sm text-muted-foreground mt-1.5 truncate">{user?.email}</p>
 
@@ -603,46 +605,51 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
           </Link>
         </div>
 
-        {/* Verification Goal */}
-        {(() => {
-          const GOAL = 20;
-          const done = Math.min(completedCount, GOAL);
-          const progress = (done / GOAL) * 100;
-          const remaining = Math.max(GOAL - done, 0);
-          return (
-            <div className="rounded-2xl ring-1 ring-border bg-card p-5 md:p-6 mb-6 md:mb-8">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                  <BadgeCheck className="h-5 w-5 text-blue-500" />
+        {/* Verification Goal — hidden once the account is verified.
+            The blue check next to the name already signals the status,
+            a 20/20 progress bar would just be noise. */}
+        {!profile?.is_verified &&
+          (() => {
+            const GOAL = 20;
+            const done = Math.min(completedCount, GOAL);
+            const progress = (done / GOAL) * 100;
+            const remaining = Math.max(GOAL - done, 0);
+            return (
+              <div className="rounded-2xl ring-1 ring-border bg-card p-5 md:p-6 mb-6 md:mb-8">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                    <BadgeCheck className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-display font-semibold text-base">
+                      {t("stats.verifiedTitle")}
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {t("stats.verifiedDesc")}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <h2 className="font-display font-semibold text-base">
-                    {t("stats.verifiedTitle")}
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t("stats.verifiedDesc")}</p>
+
+                <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-3">
+                  <div
+                    className="absolute inset-y-0 left-0 bg-linear-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700 ease-out"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-display font-semibold text-blue-500 tabular">
+                    {done}/{GOAL}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {remaining > 0
+                      ? t("stats.remaining", { count: remaining })
+                      : t("stats.goalReached")}
+                  </span>
                 </div>
               </div>
-
-              <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-3">
-                <div
-                  className="absolute inset-y-0 left-0 bg-linear-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-display font-semibold text-blue-500 tabular">
-                  {done}/{GOAL}
-                </span>
-                <span className="text-muted-foreground">
-                  {remaining > 0
-                    ? t("stats.remaining", { count: remaining })
-                    : t("stats.goalReached")}
-                </span>
-              </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">

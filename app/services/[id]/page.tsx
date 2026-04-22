@@ -2,12 +2,16 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
-import { ServiceDetailClient, ServiceNotFound, type ServiceDetailListing } from "@/components/service-detail-client";
+import {
+  ServiceDetailClient,
+  ServiceNotFound,
+  type ServiceDetailListing,
+} from "@/components/service-detail-client";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, getFirstImageUrl } from "@/lib/formatters";
 
 // SSR на каждый запрос
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -27,6 +31,7 @@ const getListingBySlug = cache(async function getListingBySlug(slug: string) {
           avatar_url: true,
           company_name: true,
           is_company: true,
+          is_verified: true,
           created_at: true,
         },
       },
@@ -102,9 +107,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const fullUrl = `${siteUrl}/services/${listing.slug}`;
 
   // Краткое описание для meta
-  const metaDescription = listing.description.length > 160
-    ? listing.description.substring(0, 157) + "..."
-    : listing.description;
+  const metaDescription =
+    listing.description.length > 160
+      ? listing.description.substring(0, 157) + "..."
+      : listing.description;
 
   return {
     title: listing.title,
@@ -141,10 +147,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: {
       canonical: fullUrl,
     },
-    other: listing.price ? {
-      "product:price:amount": listing.price.toString(),
-      "product:price:currency": listing.currency,
-    } : undefined,
+    other: listing.price
+      ? {
+          "product:price:amount": listing.price.toString(),
+          "product:price:currency": listing.currency,
+        }
+      : undefined,
   };
 }
 
@@ -169,7 +177,10 @@ function ServiceJsonLd({ listing }: { listing: ServiceDetailListing }) {
     },
     areaServed: {
       "@type": "Place",
-      name: [listing.aimag?.name, listing.district?.name, listing.khoroo?.name].filter(Boolean).join(", ") || "Монгол",
+      name:
+        [listing.aimag?.name, listing.district?.name, listing.khoroo?.name]
+          .filter(Boolean)
+          .join(", ") || "Монгол",
     },
     category: listing.category?.name,
     offers: {
@@ -201,7 +212,7 @@ export default async function ServicePage({ params }: PageProps) {
     <>
       {/* JSON-LD Structured Data */}
       <ServiceJsonLd listing={listing} />
-      
+
       {/* Preload главного изображения */}
       <link
         rel="preload"
@@ -210,7 +221,7 @@ export default async function ServicePage({ params }: PageProps) {
         // @ts-expect-error - fetchpriority is valid but not typed
         fetchpriority="high"
       />
-      
+
       {/* Client Component с интерактивностью */}
       <ServiceDetailClient listing={listing} />
     </>

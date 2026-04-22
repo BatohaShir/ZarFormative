@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { Heart, MapPin, Eye, User, Navigation, Crown } from "lucide-react";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
+import { VerifiedBadge } from "@/components/verified-badge";
 import type {
   listings,
   profiles,
@@ -29,7 +30,7 @@ const LocationMapModal = dynamic(
 export type ListingWithRelations = listings & {
   user: Pick<
     profiles,
-    "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company"
+    "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company" | "is_verified"
   >;
   category: Pick<categories, "id" | "name" | "slug">;
   images: Pick<listings_images, "id" | "url" | "sort_order">[];
@@ -97,6 +98,7 @@ export const ListingCard = React.memo(function ListingCard({
           first_name: listing.user.first_name,
           last_name: listing.user.last_name,
           avatar_url: listing.user.avatar_url,
+          is_verified: listing.user.is_verified,
         },
       });
     },
@@ -210,6 +212,7 @@ export const ListingCard = React.memo(function ListingCard({
               </div>
             )}
             <span className="text-xs text-muted-foreground truncate">{providerName}</span>
+            <VerifiedBadge verified={listing.user.is_verified} size="sm" />
           </div>
           <div className="flex items-center gap-2.5 text-[11px] text-muted-foreground shrink-0 pt-2 tabular">
             <span className="flex items-center gap-1">

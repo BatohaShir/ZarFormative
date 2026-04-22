@@ -66,6 +66,7 @@ export interface ServiceDetailListing {
     avatar_url: string | null;
     company_name: string | null;
     is_company: boolean;
+    is_verified: boolean;
     created_at: Date;
   };
   category: {
@@ -172,6 +173,7 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
         first_name: listing.user.first_name,
         last_name: listing.user.last_name,
         avatar_url: listing.user.avatar_url,
+        is_verified: listing.user.is_verified,
       },
     });
   };

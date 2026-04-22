@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, MapPin, Eye, Loader2, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { VerifiedBadge } from "@/components/verified-badge";
 import {
   useFavoriteIds,
   useFavoriteActions,
@@ -156,6 +157,7 @@ const FavoriteCard = React.memo(function FavoriteCard({
               </div>
             )}
             <span className="text-[11px] text-muted-foreground truncate">{providerName}</span>
+            <VerifiedBadge verified={listing.user.is_verified} size="sm" />
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground shrink-0 pt-1.5 tabular">
             <span className="flex items-center gap-0.5">

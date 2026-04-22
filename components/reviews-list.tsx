@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 // OPTIMIZATION: Increased cache times for reviews - they rarely change
 const REVIEWS_CACHE = {
   staleTime: 30 * 60 * 1000, // 30 минут - отзывы редко меняются
-  gcTime: 60 * 60 * 1000,    // 1 час в кэше
+  gcTime: 60 * 60 * 1000, // 1 час в кэше
 };
 
 const PAGE_SIZE = 10;
@@ -24,7 +24,7 @@ interface ReviewsListProps {
 
 export const ReviewsList = React.memo(function ReviewsList({
   listingId,
-  variant
+  variant,
 }: ReviewsListProps) {
   // OPTIMIZATION: Pagination state for "Load More" functionality
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
@@ -34,20 +34,24 @@ export const ReviewsList = React.memo(function ReviewsList({
     {
       where: {
         request: {
-          listing_id: listingId
-        }
+          listing_id: listingId,
+        },
       },
     },
     REVIEWS_CACHE
   );
 
   // Fetch reviews with pagination
-  const { data: reviews, isLoading, isFetching } = useFindManyreviews(
+  const {
+    data: reviews,
+    isLoading,
+    isFetching,
+  } = useFindManyreviews(
     {
       where: {
         request: {
-          listing_id: listingId
-        }
+          listing_id: listingId,
+        },
       },
       include: {
         client: {
@@ -58,6 +62,7 @@ export const ReviewsList = React.memo(function ReviewsList({
             avatar_url: true,
             is_company: true,
             company_name: true,
+            is_verified: true,
           },
         },
       },
@@ -93,20 +98,19 @@ export const ReviewsList = React.memo(function ReviewsList({
   }
 
   // Rating color based on score
-  const ratingColor = averageRating >= 4
-    ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
-    : averageRating >= 3
-    ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30"
-    : "text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30";
+  const ratingColor =
+    averageRating >= 4
+      ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30"
+      : averageRating >= 3
+        ? "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30"
+        : "text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/30";
 
   return (
     <div className={`${isDesktop ? "border-t pt-4 mt-4" : ""} space-y-3`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          <h3 className={cn("font-semibold", isDesktop ? "text-sm" : "text-base")}>
-            Үнэлгээ
-          </h3>
+          <h3 className={cn("font-semibold", isDesktop ? "text-sm" : "text-base")}>Үнэлгээ</h3>
           {reviewCount > 0 && (
             <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground">
               {reviewCount}
@@ -114,10 +118,7 @@ export const ReviewsList = React.memo(function ReviewsList({
           )}
         </div>
         {reviewCount > 0 && (
-          <div className={cn(
-            "flex items-center gap-1.5 px-2 py-1 rounded-lg",
-            ratingColor
-          )}>
+          <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-lg", ratingColor)}>
             <Star className="h-3.5 w-3.5 fill-current" />
             <span className="text-sm font-semibold">{averageRating.toFixed(1)}</span>
           </div>
@@ -125,8 +126,12 @@ export const ReviewsList = React.memo(function ReviewsList({
       </div>
 
       {reviewCount === 0 ? (
-        <div className={`text-center ${isDesktop ? "py-6" : "py-8"} border border-dashed rounded-xl`}>
-          <MessageSquare className={`${isDesktop ? "h-10 w-10" : "h-12 w-12"} mx-auto mb-2 text-muted-foreground/40`} />
+        <div
+          className={`text-center ${isDesktop ? "py-6" : "py-8"} border border-dashed rounded-xl`}
+        >
+          <MessageSquare
+            className={`${isDesktop ? "h-10 w-10" : "h-12 w-12"} mx-auto mb-2 text-muted-foreground/40`}
+          />
           <p className={`${isDesktop ? "text-xs" : "text-sm"} text-muted-foreground`}>
             Одоогоор үнэлгээ байхгүй байна
           </p>

@@ -23,6 +23,9 @@ export type Profile = {
   avg_rating: number | null;
   reviews_count: number;
   completed_jobs_count: number;
+  // Badge flipped by the same completed_jobs_counter_trigger once
+  // completed_jobs_count crosses app_settings.verified_threshold.
+  is_verified: boolean;
 };
 
 // Cache profile in localStorage for instant display on page load
@@ -61,6 +64,7 @@ const SAFE_CACHE_FIELDS = [
   "avg_rating",
   "reviews_count",
   "completed_jobs_count",
+  "is_verified",
 ] as const;
 
 function setCachedProfile(userId: string, profile: Profile) {
@@ -130,6 +134,7 @@ export function useCurrentUser() {
         avg_rating: true,
         reviews_count: true,
         completed_jobs_count: true,
+        is_verified: true,
         // Исключаем created_at и updated_at - не нужны для отображения
       },
     },

@@ -477,6 +477,11 @@ const metadata: ModelMeta = {
           type: "Int",
           attributes: [{ name: "@default", args: [{ name: "value", value: 0 }] }],
         },
+        is_verified: {
+          name: "is_verified",
+          type: "Boolean",
+          attributes: [{ name: "@default", args: [{ name: "value", value: false }] }],
+        },
         push_subscriptions: {
           name: "push_subscriptions",
           type: "profiles_push_subscriptions",
