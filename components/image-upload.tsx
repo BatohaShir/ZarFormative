@@ -308,7 +308,7 @@ export function ImageUpload({
                 <Upload className="h-8 w-8 text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium">
-                    Дахиж {maxImages - images.length} зураг нэмнэ үү
+                    Дахиж {maxImages - images.length} зураг нэмэх боломжтой
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {images.length}/{maxImages} зураг • Дээд хэмжээ {maxSizeMB}MB
