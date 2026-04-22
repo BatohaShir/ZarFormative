@@ -19,6 +19,7 @@ import type { DbAdStory, EditorData } from "./types";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { LoginPromptModal } from "@/components/login-prompt-modal";
+import { VerifiedBadge } from "@/components/verified-badge";
 import { uploadStoryImage } from "@/lib/storage/ad-stories";
 import { useFindManyad_stories, useCreatead_stories } from "@/lib/hooks/ad-stories";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,6 +35,7 @@ interface GroupedStory {
   userId: string;
   userName: string;
   userAvatar: string;
+  isVerified: boolean;
   stories: DbAdStory[];
 }
 
@@ -51,6 +53,7 @@ function groupStoriesByUser(stories: DbAdStory[]): GroupedStory[] {
         userAvatar:
           story.user.avatar_url ||
           `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
+        isVerified: !!story.user.is_verified,
         stories: [story],
       });
     }
@@ -185,8 +188,9 @@ const StoryCircle = React.memo(function StoryCircle({
           />
         </div>
       </div>
-      <span className="text-[10px] md:text-xs text-muted-foreground truncate w-full text-center leading-tight">
-        {group.userName}
+      <span className="text-[10px] md:text-xs text-muted-foreground w-full text-center leading-tight inline-flex items-center justify-center gap-0.5 min-w-0">
+        <span className="truncate">{group.userName}</span>
+        {group.isVerified && <VerifiedBadge verified size="sm" className="w-3 h-3" />}
       </span>
     </button>
   );
@@ -417,8 +421,9 @@ function StoryViewer({
               unoptimized
               className="w-8 h-8 rounded-full ring-2 ring-white/30"
             />
-            <span className="text-white text-sm font-semibold drop-shadow-lg">
-              {group.userName}
+            <span className="text-white text-sm font-semibold drop-shadow-lg inline-flex items-center gap-1">
+              <span>{group.userName}</span>
+              {group.isVerified && <VerifiedBadge verified size="sm" />}
             </span>
             <span className="text-white/60 text-xs">Реклам</span>
           </div>
@@ -1135,6 +1140,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
           avatar_url: user.user_metadata?.avatar_url ?? null,
           company_name: user.user_metadata?.company_name ?? null,
           is_company: Boolean(user.user_metadata?.is_company),
+          is_verified: Boolean(user.user_metadata?.is_verified),
         },
       };
 

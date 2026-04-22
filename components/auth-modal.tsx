@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/auth-context";
+import { VerifiedBadge } from "@/components/verified-badge";
 
 // OPTIMIZATION: Lazy-load auth forms — only loaded when modal is opened
 // Saves ~15-20KB from initial bundle (zod resolvers, react-hook-form validators)
@@ -35,7 +36,8 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = {}) {
   const t = useTranslations();
-  const { user, signIn, signUp, isAuthenticated, isLoading, displayName, avatarUrl } = useAuth();
+  const { user, profile, signIn, signUp, isAuthenticated, isLoading, displayName, avatarUrl } =
+    useAuth();
 
   const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -76,11 +78,14 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
             width={36}
             height={36}
             unoptimized={avatarUrl.includes("dicebear")}
-            className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover border-2 border-primary"
+            className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover ring-1 ring-border"
           />
           <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-background" />
         </div>
-        <span className="hidden md:block text-sm font-medium max-w-24 truncate">{displayName}</span>
+        <span className="hidden md:inline-flex items-center gap-1 text-sm font-medium max-w-32 min-w-0">
+          <span className="truncate">{displayName}</span>
+          <VerifiedBadge verified={profile?.is_verified} size="sm" />
+        </span>
       </Link>
     );
   }

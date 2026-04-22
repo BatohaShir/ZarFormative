@@ -35,7 +35,11 @@ export function VerifiedBadge({
   if (!verified) return null;
   return (
     <BadgeCheck
-      className={cn("inline-block shrink-0 text-brand fill-brand/10", SIZE_MAP[size], className)}
+      className={cn(
+        "inline-block shrink-0 text-blue-500 fill-blue-500/15",
+        SIZE_MAP[size],
+        className
+      )}
       aria-label={title}
       role="img"
     />

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatCreatedAt } from "@/app/account/me/requests/_components/utils";
 import { useNotificationsActions } from "@/contexts/notifications-context";
 import type { NotificationWithRelations } from "@/contexts/notifications-context";
+import { VerifiedBadge } from "@/components/verified-badge";
 import {
   CheckCircle,
   XCircle,
@@ -70,12 +71,18 @@ interface NotificationItemProps {
   inDropdown?: boolean;
 }
 
-export function NotificationItem({ notification, onClick, variant = "light", inDropdown = false }: NotificationItemProps) {
+export function NotificationItem({
+  notification,
+  onClick,
+  variant = "light",
+  inDropdown = false,
+}: NotificationItemProps) {
   const { markAsRead } = useNotificationsActions();
   const Icon = NOTIFICATION_ICONS[notification.type] || Bell;
-  const colorClasses = variant === "dark"
-    ? NOTIFICATION_COLORS_DARK[notification.type] || "text-slate-400 bg-slate-700/50"
-    : NOTIFICATION_COLORS[notification.type] || "text-muted-foreground bg-muted";
+  const colorClasses =
+    variant === "dark"
+      ? NOTIFICATION_COLORS_DARK[notification.type] || "text-slate-400 bg-slate-700/50"
+      : NOTIFICATION_COLORS[notification.type] || "text-muted-foreground bg-muted";
 
   // Build link based on notification type and request
   // For new_message notifications, add openChat param to open chat modal directly
@@ -96,7 +103,8 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
   const actorName = notification.actor
     ? notification.actor.is_company && notification.actor.company_name
       ? notification.actor.company_name
-      : [notification.actor.first_name, notification.actor.last_name].filter(Boolean).join(" ") || "Хэрэглэгч"
+      : [notification.actor.first_name, notification.actor.last_name].filter(Boolean).join(" ") ||
+        "Хэрэглэгч"
     : null;
 
   // Dark variant (для dropdown)
@@ -124,18 +132,22 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
                 unoptimized={notification.actor.avatar_url.includes("dicebear")}
               />
               {/* Small icon overlay */}
-              <div className={cn(
-                "absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-slate-900",
-                colorClasses
-              )}>
+              <div
+                className={cn(
+                  "absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-slate-900",
+                  colorClasses
+                )}
+              >
                 <Icon className="h-2.5 w-2.5" />
               </div>
             </div>
           ) : (
-            <div className={cn(
-              "w-11 h-11 rounded-full flex items-center justify-center",
-              colorClasses
-            )}>
+            <div
+              className={cn(
+                "w-11 h-11 rounded-full flex items-center justify-center",
+                colorClasses
+              )}
+            >
               <Icon className="h-4 w-4" />
             </div>
           )}
@@ -143,22 +155,23 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
 
         {/* Content */}
         <div className="flex-1 min-w-0 pr-4">
-          <p className={cn(
-            "text-sm leading-snug line-clamp-2",
-            !notification.is_read ? "text-white font-medium" : "text-slate-300"
-          )}>
+          <p
+            className={cn(
+              "text-sm leading-snug line-clamp-2",
+              !notification.is_read ? "text-white font-medium" : "text-slate-300"
+            )}
+          >
             {notification.message}
           </p>
           <div className="flex items-center gap-2 mt-1.5">
-            <p className="text-xs text-slate-500">
-              {formatCreatedAt(notification.created_at)}
-            </p>
+            <p className="text-xs text-slate-500">{formatCreatedAt(notification.created_at)}</p>
             {actorName && (
               <>
                 <span className="text-slate-700">•</span>
                 <p className="text-xs text-slate-500 truncate flex items-center gap-1">
                   <User className="h-3 w-3" />
-                  {actorName}
+                  <span className="truncate">{actorName}</span>
+                  <VerifiedBadge verified={notification.actor?.is_verified} size="sm" />
                 </p>
               </>
             )}
@@ -183,11 +196,7 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
       className={cn(
         "flex gap-3.5 transition-all duration-200 group",
         inDropdown
-          ? cn(
-              "px-5 py-3.5",
-              "hover:bg-gray-50",
-              !notification.is_read && "bg-blue-50/50"
-            )
+          ? cn("px-5 py-3.5", "hover:bg-gray-50", !notification.is_read && "bg-blue-50/50")
           : cn(
               "px-4 py-3.5 rounded-xl",
               "hover:bg-muted/70 hover:shadow-sm",
@@ -211,20 +220,24 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
               unoptimized={notification.actor.avatar_url.includes("dicebear")}
             />
             {/* Small icon overlay */}
-            <div className={cn(
-              "absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2",
-              inDropdown ? "ring-white" : "ring-background",
-              colorClasses
-            )}>
+            <div
+              className={cn(
+                "absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-2",
+                inDropdown ? "ring-white" : "ring-background",
+                colorClasses
+              )}
+            >
               <Icon className="h-2.5 w-2.5" />
             </div>
           </div>
         ) : (
-          <div className={cn(
-            "rounded-full flex items-center justify-center",
-            inDropdown ? "w-11 h-11" : "w-12 h-12",
-            colorClasses
-          )}>
+          <div
+            className={cn(
+              "rounded-full flex items-center justify-center",
+              inDropdown ? "w-11 h-11" : "w-12 h-12",
+              colorClasses
+            )}
+          >
             <Icon className="h-4 w-4" />
           </div>
         )}
@@ -232,33 +245,38 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
 
       {/* Content */}
       <div className={cn("flex-1 min-w-0", inDropdown && "pr-4")}>
-        <p className={cn(
-          "text-sm leading-snug line-clamp-2",
-          inDropdown
-            ? (!notification.is_read ? "text-gray-900 font-medium" : "text-gray-700")
-            : (!notification.is_read && "font-medium")
-        )}>
+        <p
+          className={cn(
+            "text-sm leading-snug line-clamp-2",
+            inDropdown
+              ? !notification.is_read
+                ? "text-gray-900 font-medium"
+                : "text-gray-700"
+              : !notification.is_read && "font-medium"
+          )}
+        >
           {notification.message}
         </p>
         <div className="flex items-center gap-2 mt-1.5">
-          <p className={cn(
-            "text-xs",
-            inDropdown ? "text-gray-500" : "text-muted-foreground"
-          )}>
+          <p className={cn("text-xs", inDropdown ? "text-gray-500" : "text-muted-foreground")}>
             {formatCreatedAt(notification.created_at)}
           </p>
           {actorName && (
             <>
-              <span className={cn(
-                "text-xs",
-                inDropdown ? "text-gray-300" : "text-muted-foreground/50"
-              )}>•</span>
-              <p className={cn(
-                "text-xs truncate flex items-center gap-1",
-                inDropdown ? "text-gray-500" : "text-muted-foreground"
-              )}>
+              <span
+                className={cn("text-xs", inDropdown ? "text-gray-300" : "text-muted-foreground/50")}
+              >
+                •
+              </span>
+              <p
+                className={cn(
+                  "text-xs truncate flex items-center gap-1",
+                  inDropdown ? "text-gray-500" : "text-muted-foreground"
+                )}
+              >
                 <User className="h-3 w-3" />
-                {actorName}
+                <span className="truncate">{actorName}</span>
+                <VerifiedBadge verified={notification.actor?.is_verified} size="sm" />
               </p>
             </>
           )}
@@ -268,12 +286,14 @@ export function NotificationItem({ notification, onClick, variant = "light", inD
       {/* Unread indicator */}
       {!notification.is_read && (
         <div className="shrink-0 self-center">
-          <div className={cn(
-            "w-2.5 h-2.5 rounded-full",
-            inDropdown
-              ? "bg-blue-500 shadow-lg shadow-blue-500/30"
-              : "bg-primary shadow-sm shadow-primary/50"
-          )} />
+          <div
+            className={cn(
+              "w-2.5 h-2.5 rounded-full",
+              inDropdown
+                ? "bg-blue-500 shadow-lg shadow-blue-500/30"
+                : "bg-primary shadow-sm shadow-primary/50"
+            )}
+          />
         </div>
       )}
     </Link>

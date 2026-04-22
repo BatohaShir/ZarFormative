@@ -251,17 +251,21 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  // Memoized sorted lists
+  // Memoized sorted lists — old → new (timeline order).
+  // Current ("is_current") items always go last regardless of start_date,
+  // so "Одоо" пункты visually anchor the "сейчас" end of the roadmap.
   const sortedEducations = React.useMemo(() => {
-    return [...educations].sort(
-      (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
-    );
+    return [...educations].sort((a, b) => {
+      if (a.is_current !== b.is_current) return a.is_current ? 1 : -1;
+      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+    });
   }, [educations]);
 
   const sortedWorkExperiences = React.useMemo(() => {
-    return [...workExperiences].sort(
-      (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
-    );
+    return [...workExperiences].sort((a, b) => {
+      if (a.is_current !== b.is_current) return a.is_current ? 1 : -1;
+      return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+    });
   }, [workExperiences]);
 
   const handleLogout = React.useCallback(async () => {
@@ -1038,7 +1042,7 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
                     </div>
                   )}
 
-                  {/* Education List */}
+                  {/* Education List — roadmap timeline */}
                   {isEducationsLoading ? (
                     <EducationSkeleton />
                   ) : educations.length === 0 && !showAddEducation ? (
@@ -1147,19 +1151,40 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
                         ) : (
                           <div
                             key={edu.id}
-                            className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
+                            className={`relative pl-10 pr-4 py-3 rounded-xl group bg-muted/30 hover:bg-muted/50 transition-colors before:absolute before:left-4 before:-top-3 before:h-3 before:w-px before:bg-border first:before:hidden ${
+                              edu.is_current ? "ml-6 ring-1 ring-blue-500/30" : ""
+                            }`}
                           >
+                            {/* Timeline dot */}
+                            <span className="absolute left-2.75 top-5 flex items-center justify-center">
+                              {edu.is_current && (
+                                <span className="absolute inline-flex h-4 w-4 rounded-full bg-blue-500/40 animate-ping" />
+                              )}
+                              <span
+                                className={`relative w-2.5 h-2.5 rounded-full ring-2 ring-background ${
+                                  edu.is_current ? "bg-blue-500" : "bg-foreground"
+                                }`}
+                              />
+                            </span>
                             <div className="pr-20">
-                              <p className="font-medium">{edu.degree}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium">{edu.degree}</p>
+                                {edu.is_current && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wide">
+                                    <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                                    Одоо
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-sm text-muted-foreground">{edu.institution}</p>
                               {edu.field_of_study && (
                                 <p className="text-sm text-muted-foreground">
                                   {edu.field_of_study}
                                 </p>
                               )}
-                              <p className="text-sm text-muted-foreground mt-1">
+                              <p className="text-sm text-muted-foreground mt-1 tabular">
                                 {formatWorkDate(new Date(edu.start_date).toISOString().slice(0, 7))}{" "}
-                                -{" "}
+                                —{" "}
                                 {edu.is_current
                                   ? t("common.present")
                                   : edu.end_date
@@ -1172,14 +1197,14 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
                             <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => handleEditEducation(edu)}
-                                className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
+                                className="p-2 rounded-md hover:bg-muted text-foreground"
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteEducation(edu.id)}
                                 disabled={isDeletingEducation}
-                                className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
+                                className="p-2 rounded-md hover:bg-muted text-destructive disabled:opacity-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -1297,7 +1322,7 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
                     </div>
                   )}
 
-                  {/* Work List */}
+                  {/* Work List — roadmap timeline */}
                   {isWorkExperiencesLoading ? (
                     <WorkExperienceSkeleton />
                   ) : workExperiences.length === 0 && !showAddWork ? (
@@ -1397,16 +1422,37 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
                         ) : (
                           <div
                             key={work.id}
-                            className="p-4 bg-muted/30 rounded-lg group relative hover:bg-muted/50 transition-colors"
+                            className={`relative pl-10 pr-4 py-3 rounded-xl group bg-muted/30 hover:bg-muted/50 transition-colors before:absolute before:left-4 before:-top-3 before:h-3 before:w-px before:bg-border first:before:hidden ${
+                              work.is_current ? "ml-6 ring-1 ring-blue-500/30" : ""
+                            }`}
                           >
+                            {/* Timeline dot */}
+                            <span className="absolute left-2.75 top-5 flex items-center justify-center">
+                              {work.is_current && (
+                                <span className="absolute inline-flex h-4 w-4 rounded-full bg-blue-500/40 animate-ping" />
+                              )}
+                              <span
+                                className={`relative w-2.5 h-2.5 rounded-full ring-2 ring-background ${
+                                  work.is_current ? "bg-blue-500" : "bg-foreground"
+                                }`}
+                              />
+                            </span>
                             <div className="pr-20">
-                              <p className="font-medium">{work.position}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-medium">{work.position}</p>
+                                {work.is_current && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wide">
+                                    <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                                    Одоо
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-sm text-muted-foreground">{work.company}</p>
-                              <p className="text-sm text-muted-foreground mt-1">
+                              <p className="text-sm text-muted-foreground mt-1 tabular">
                                 {formatWorkDate(
                                   new Date(work.start_date).toISOString().slice(0, 7)
                                 )}{" "}
-                                -{" "}
+                                —{" "}
                                 {work.is_current
                                   ? t("common.present")
                                   : work.end_date
@@ -1419,14 +1465,14 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
                             <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => handleEditWork(work)}
-                                className="p-2 rounded-md hover:bg-blue-100 dark:hover:bg-blue-950/50 text-blue-500"
+                                className="p-2 rounded-md hover:bg-muted text-foreground"
                               >
                                 <Pencil className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleDeleteWork(work.id)}
                                 disabled={isDeletingWork}
-                                className="p-2 rounded-md hover:bg-red-100 dark:hover:bg-red-950/50 text-red-500 disabled:opacity-50"
+                                className="p-2 rounded-md hover:bg-muted text-destructive disabled:opacity-50"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>

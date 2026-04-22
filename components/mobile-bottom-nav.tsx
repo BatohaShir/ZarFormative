@@ -136,10 +136,8 @@ export function MobileBottomNav() {
                       height={24}
                       unoptimized={avatarUrl.includes("dicebear")}
                       className={cn(
-                        "w-6 h-6 rounded-full object-cover transition-all",
-                        active
-                          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                          : "opacity-80"
+                        "w-6 h-6 rounded-full object-cover ring-1 ring-border transition-all",
+                        !active && "opacity-80"
                       )}
                     />
                   </div>

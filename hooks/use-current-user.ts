@@ -43,6 +43,14 @@ function getCachedProfile(userId: string): Profile | null {
       localStorage.removeItem(PROFILE_CACHE_KEY);
       return null;
     }
+    // Invalidate cache entries that predate newly-added fields. `is_verified`
+    // was introduced later; a cached profile without that key is stale and
+    // would keep the verification UI wrong until the TTL expired. Dropping
+    // the entry forces a fresh fetch with all current columns.
+    if (profile && typeof profile.is_verified === "undefined") {
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+      return null;
+    }
     return profile;
   } catch {
     return null;

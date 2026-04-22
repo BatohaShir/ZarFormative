@@ -49,6 +49,7 @@ export interface DbAdStory {
     avatar_url: string | null;
     company_name: string | null;
     is_company: boolean;
+    is_verified: boolean;
   };
 }
 

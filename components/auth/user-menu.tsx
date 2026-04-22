@@ -26,6 +26,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { EducationSection } from "@/components/auth/education-section";
 import { WorkExperienceSection } from "@/components/auth/work-experience-section";
+import { VerifiedBadge } from "@/components/verified-badge";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface Profile {
@@ -38,6 +39,7 @@ interface Profile {
   avg_rating?: number | null;
   reviews_count?: number;
   completed_jobs_count?: number;
+  is_verified?: boolean;
 }
 
 interface UserMenuProps {
@@ -100,8 +102,9 @@ export function UserMenu({
               />
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 md:w-3 md:h-3 bg-green-500 rounded-full border-2 border-background" />
             </div>
-            <span className="hidden md:block text-sm font-medium max-w-24 truncate">
-              {displayName}
+            <span className="hidden md:inline-flex items-center gap-1 text-sm font-medium max-w-32 truncate">
+              <span className="truncate">{displayName}</span>
+              <VerifiedBadge verified={profile?.is_verified} size="sm" />
             </span>
           </button>
         </DropdownMenuTrigger>
@@ -116,7 +119,10 @@ export function UserMenu({
               className="w-10 h-10 rounded-full object-cover"
             />
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{displayName}</p>
+              <p className="font-medium text-sm truncate inline-flex items-center gap-1">
+                <span className="truncate">{displayName}</span>
+                <VerifiedBadge verified={profile?.is_verified} size="sm" />
+              </p>
               <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             </div>
           </div>
@@ -176,7 +182,10 @@ export function UserMenu({
                 />
               </div>
               <div className="text-center">
-                <h3 className="text-xl font-semibold">{displayName}</h3>
+                <h3 className="text-xl font-semibold inline-flex items-center gap-1.5">
+                  <span>{displayName}</span>
+                  <VerifiedBadge verified={profile?.is_verified} size="md" />
+                </h3>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
             </div>

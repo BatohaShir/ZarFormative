@@ -27,7 +27,7 @@ export interface NotificationWithRelations {
   read_at: Date | null;
   actor?: Pick<
     profiles,
-    "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company"
+    "id" | "first_name" | "last_name" | "avatar_url" | "company_name" | "is_company" | "is_verified"
   > | null;
   request?: {
     id: string;
@@ -115,6 +115,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             avatar_url: true,
             company_name: true,
             is_company: true,
+            is_verified: true,
           },
         },
         request: {
