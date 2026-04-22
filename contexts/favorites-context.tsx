@@ -367,7 +367,7 @@ export function useFavorites() {
  * Используется ТОЛЬКО на странице /account/me/favorites
  * На главной и других страницах используется только useFavoriteIds для минимального payload
  */
-export function useFavoritesFullData() {
+export function useFavoritesFullData(options?: { initialData?: unknown[] }) {
   const { user, isAuthenticated } = useAuth();
   const { favoriteListingIds } = useFavoriteIds();
 
@@ -421,6 +421,11 @@ export function useFavoritesFullData() {
     {
       enabled: isAuthenticated && !!user?.id,
       ...CACHE_TIMES.FAVORITES,
+      // When the page SSR'd the list, feed it back as initialData so
+      // the hook considers the query already fresh and doesn't fire a
+      // mount-time findMany. SSR shape is structurally compatible —
+      // same keys the UI reads.
+      initialData: options?.initialData as never,
     }
   );
 

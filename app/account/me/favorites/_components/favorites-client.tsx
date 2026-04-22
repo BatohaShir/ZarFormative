@@ -20,6 +20,7 @@ import {
   useFavoritesFullData,
   type FavoriteWithListing,
 } from "@/contexts/favorites-context";
+import type { FavoritePageRow } from "@/lib/favorites/query";
 import { formatListingPrice } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -189,14 +190,38 @@ function EmptyState() {
   );
 }
 
-export function FavoritesClient() {
+interface FavoritesClientProps {
+  /**
+   * SSR-rendered list. The server already queried the user's favorites
+   * in one CTE round-trip, so the client renders cards immediately
+   * instead of waiting on a mount-time findMany. When the client later
+   * toggles favorites, useFavoritesFullData's optimistic filter
+   * against favoriteListingIds drops the removed rows from this list.
+   */
+  initialFavorites?: FavoritePageRow[];
+}
+
+export function FavoritesClient({ initialFavorites }: FavoritesClientProps = {}) {
   const router = useRouter();
   const { isAuthenticated } = useAuth();
   // OPTIMIZATION: Используем разделённые хуки для лучшей производительности
   const { count } = useFavoriteIds();
   const { toggleFavorite, isToggling } = useFavoriteActions();
-  // Полные данные загружаются ТОЛЬКО на этой странице (не на главной)
-  const { favorites, isLoading } = useFavoritesFullData();
+  // Полные данные загружаются ТОЛЬКО на этой странице (не на главной).
+  // Передаём SSR seed — React Query считает query уже fresh, так что
+  // mount-time findMany вообще не стреляет. Background refresh
+  // произойдёт только после staleTime (см. CACHE_TIMES.FAVORITES).
+  // useFavoritesFullData already applies optimistic filtering against
+  // favoriteListingIds, so toggleFavorite removes rows without waiting
+  // on the server round-trip.
+  const { favorites, isLoading } = useFavoritesFullData({
+    initialData: initialFavorites,
+  });
+
+  // Skeleton only when we truly have nothing — SSR seed almost always
+  // gives us rows on first render.
+  const showSkeleton = isLoading && favorites.length === 0;
+
   const [showLoginModal, setShowLoginModal] = React.useState(false);
 
   // Track removed items for Undo functionality
@@ -327,13 +352,14 @@ export function FavoritesClient() {
               {isToggling && <Loader2 className="h-4 w-4 animate-spin text-pink-500" />}
             </div>
             <p className="text-sm text-muted-foreground">
-              {isLoading ? "Ачааллаж байна..." : `${count} үйлчилгээ хадгалсан`}
+              {showSkeleton ? "Ачааллаж байна..." : `${count} үйлчилгээ хадгалсан`}
             </p>
           </div>
         </div>
 
-        {/* Loading State */}
-        {isLoading ? (
+        {/* Loading State — only when we truly have nothing to show.
+            With initialFavorites from SSR we go straight to the grid. */}
+        {showSkeleton ? (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <FavoriteCardSkeleton key={i} />
