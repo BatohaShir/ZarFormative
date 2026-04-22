@@ -140,11 +140,6 @@ export function StatsClient() {
   }
 
   // TODO: Replace with real data from API
-  const GOAL = 20;
-  const completed = 1;
-  const progress = Math.min((completed / GOAL) * 100, 100);
-  const remaining = GOAL - completed;
-
   const requests = {
     sent: 3,
     received: 5,
@@ -231,36 +226,6 @@ export function StatsClient() {
           <div>
             <h2 className="text-xl md:text-2xl font-bold">{t("title")}</h2>
             <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-          </div>
-        </div>
-
-        {/* ========== Verification Goal ========== */}
-        <div className="rounded-2xl border bg-card p-5 md:p-6 mb-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-              <BadgeCheck className="h-5 w-5 text-blue-500" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-base">{t("verifiedTitle")}</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">{t("verifiedDesc")}</p>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <div className="relative h-3 bg-muted rounded-full overflow-hidden mb-3">
-            <div
-              className="absolute inset-y-0 left-0 bg-linear-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-blue-500">
-              {completed}/{GOAL}
-            </span>
-            <span className="text-muted-foreground">
-              {remaining > 0 ? t("remaining", { count: remaining }) : t("goalReached")}
-            </span>
           </div>
         </div>
 

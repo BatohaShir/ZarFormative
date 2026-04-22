@@ -9,17 +9,13 @@ import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
+import { SiteHeader } from "@/components/site-header";
 import { AutocompleteInput } from "@/components/ui/autocomplete-input";
 import {
-  ChevronLeft,
   User,
   Star,
   ThumbsUp,
+  BadgeCheck,
   ThumbsDown,
   Mail,
   Phone,
@@ -468,78 +464,36 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 md:h-10 md:w-10"
-              onClick={() => router.back()}
-            >
-              <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
-          </div>
-          {/* Mobile Nav */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader backHref="/" />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Profile Header - Full Width with Better Avatar */}
-        <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl p-6 md:p-8 mb-6 md:mb-8">
-          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* Profile Header — editorial, no gradient */}
+        <div className="mb-8 md:mb-12">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8">
             {/* Avatar */}
-            <div className="relative group">
-              <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl">
+            <div className="relative group shrink-0">
+              <div className="w-28 h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 rounded-full overflow-hidden ring-1 ring-border bg-muted">
                 <Image
-                  // Prefer the local blob while the real upload is in
-                  // flight — user sees their pick instantly. When the
-                  // canonical avatar_url comes back we swap to it.
                   src={avatarPreviewUrl ?? avatarUrl}
                   alt={displayName}
-                  width={160}
-                  height={160}
-                  // next/image can't optimize blob: URLs, so bypass it
-                  // while we're showing the local preview.
+                  width={144}
+                  height={144}
                   unoptimized={avatarPreviewUrl !== null || avatarUrl.includes("dicebear")}
                   className="w-full h-full object-cover"
                   priority
                 />
               </div>
-              {/* Click-to-upload overlay stays interactive during upload.
-                  We nudge users with a small busy badge in the corner
-                  instead of covering the image, so they still see the
-                  photo they picked. */}
               <button
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                 disabled={isUploadingAvatar}
                 aria-busy={isUploadingAvatar}
               >
-                <Camera className="h-8 w-8 text-white" />
+                <Camera className="h-7 w-7 text-white" />
               </button>
               {isUploadingAvatar && (
-                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 shadow-md ring-1 ring-border">
-                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-1 shadow-md ring-1 ring-border">
+                  <div className="w-3.5 h-3.5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
               <input
@@ -552,94 +506,143 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
             </div>
 
             {/* User Info */}
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2">{displayName}</h2>
-              <p className="text-muted-foreground mb-4">{user?.email}</p>
+            <div className="flex-1 text-center md:text-left min-w-0">
+              <h1 className="font-display font-bold tracking-tight text-3xl md:text-4xl lg:text-5xl">
+                {displayName}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1.5 truncate">{user?.email}</p>
 
-              {/* Stats - Horizontal on all screens */}
-              <div className="flex flex-wrap justify-center md:justify-start gap-4 md:gap-6">
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  <span className="font-bold text-lg">
-                    {averageRating > 0 ? averageRating : "-"}
+              {/* Stats — semantic colors */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-4">
+                <div className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted text-sm">
+                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                  <span className="font-display font-semibold tabular">
+                    {averageRating > 0 ? averageRating : "—"}
                   </span>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-muted-foreground">
                     {t("profile.rating")}
-                    {reviewCount > 0 ? ` (${reviewCount})` : ""}
+                    {reviewCount > 0 ? ` · ${reviewCount}` : ""}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <ThumbsUp className="h-5 w-5 text-green-500" />
-                  <span className="font-bold text-lg">{completedCount}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {t("profile.completedJobs")}
-                  </span>
+                <div className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted text-sm">
+                  <ThumbsUp className="h-3.5 w-3.5 text-emerald-500" />
+                  <span className="font-display font-semibold tabular">{completedCount}</span>
+                  <span className="text-muted-foreground">{t("profile.completedJobs")}</span>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <ThumbsDown className="h-5 w-5 text-red-500" />
-                  <span className="font-bold text-lg">{failedCount}</span>
-                  <span className="text-sm text-muted-foreground">{t("profile.failedJobs")}</span>
+                <div className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted text-sm">
+                  <ThumbsDown className="h-3.5 w-3.5 text-red-500" />
+                  <span className="font-display font-semibold tabular">{failedCount}</span>
+                  <span className="text-muted-foreground">{t("profile.failedJobs")}</span>
                 </div>
               </div>
             </div>
 
-            {/* Quick Actions - Desktop */}
-            <div className="hidden lg:flex flex-col gap-2">
-              <Button variant="default" className="gap-2" asChild>
-                <Link href="/account/me/services">
-                  <Package className="h-4 w-4" />
-                  {t("profile.myServices")}
-                </Link>
-              </Button>
-              <Button variant="outline" className="gap-2" asChild>
-                <Link href="/account/me/settings">
-                  <Settings className="h-4 w-4" />
-                  {t("profile.appSettings")}
-                </Link>
-              </Button>
-              <Button variant="outline" className="gap-2" asChild>
-                <Link href="/account/me/stats">
-                  <BarChart3 className="h-4 w-4" />
-                  {t("profile.statistics")}
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
+            {/* Quick Actions — Desktop */}
+            <div className="hidden lg:flex flex-col gap-2 shrink-0">
+              <Link
+                href="/account/me/services"
+                className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all"
+              >
+                <Package className="h-4 w-4" />
+                {t("profile.myServices")}
+              </Link>
+              <button
                 onClick={() => setShowEditProfileModal(true)}
-                className="gap-2"
+                className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
               >
                 <Pencil className="h-4 w-4" />
                 {t("common.edit")}
-              </Button>
+              </button>
+              <Link
+                href="/account/me/settings"
+                className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                {t("profile.appSettings")}
+              </Link>
+              <Link
+                href="/account/me/stats"
+                className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <BarChart3 className="h-4 w-4" />
+                {t("profile.statistics")}
+              </Link>
             </div>
           </div>
         </div>
 
-        {/* Mobile Action Buttons — under profile header */}
-        <div className="lg:hidden grid grid-cols-2 gap-2 mb-6 md:mb-8">
-          <Button className="gap-2" asChild>
-            <Link href="/account/me/services">
-              <Package className="h-4 w-4" />
-              {t("profile.myServices")}
-            </Link>
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={() => setShowEditProfileModal(true)}>
-            <Pencil className="h-4 w-4" />
-            {t("common.edit")}
-          </Button>
-          <Button variant="outline" className="gap-2" asChild>
-            <Link href="/account/me/settings">
-              <Settings className="h-4 w-4" />
-              {t("profile.appSettings")}
-            </Link>
-          </Button>
-          <Button variant="outline" className="gap-2" asChild>
-            <Link href="/account/me/requests">
-              <BarChart3 className="h-4 w-4" />
-              {t("profile.statistics")}
-            </Link>
-          </Button>
+        {/* Mobile Action Buttons */}
+        <div className="lg:hidden grid grid-cols-2 gap-2 mb-8">
+          <Link
+            href="/account/me/services"
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-full bg-foreground text-background text-[13px] font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all min-w-0"
+          >
+            <Package className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{t("profile.myServices")}</span>
+          </Link>
+          <button
+            onClick={() => setShowEditProfileModal(true)}
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-full border border-border bg-card text-[13px] font-medium hover:bg-muted transition-colors min-w-0"
+          >
+            <Pencil className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{t("common.edit")}</span>
+          </button>
+          <Link
+            href="/account/me/settings"
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-full border border-border bg-card text-[13px] font-medium hover:bg-muted transition-colors min-w-0"
+          >
+            <Settings className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{t("profile.appSettings")}</span>
+          </Link>
+          <Link
+            href="/account/me/stats"
+            className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-full border border-border bg-card text-[13px] font-medium hover:bg-muted transition-colors min-w-0"
+          >
+            <BarChart3 className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{t("profile.statistics")}</span>
+          </Link>
         </div>
+
+        {/* Verification Goal */}
+        {(() => {
+          const GOAL = 20;
+          const done = Math.min(completedCount, GOAL);
+          const progress = (done / GOAL) * 100;
+          const remaining = Math.max(GOAL - done, 0);
+          return (
+            <div className="rounded-2xl ring-1 ring-border bg-card p-5 md:p-6 mb-6 md:mb-8">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                  <BadgeCheck className="h-5 w-5 text-blue-500" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display font-semibold text-base">
+                    {t("stats.verifiedTitle")}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t("stats.verifiedDesc")}</p>
+                </div>
+              </div>
+
+              <div className="relative h-2 bg-muted rounded-full overflow-hidden mb-3">
+                <div
+                  className="absolute inset-y-0 left-0 bg-linear-to-r from-blue-500 to-blue-400 rounded-full transition-all duration-700 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-display font-semibold text-blue-500 tabular">
+                  {done}/{GOAL}
+                </span>
+                <span className="text-muted-foreground">
+                  {remaining > 0
+                    ? t("stats.remaining", { count: remaining })
+                    : t("stats.goalReached")}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">

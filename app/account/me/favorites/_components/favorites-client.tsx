@@ -5,14 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
+import { SiteHeader } from "@/components/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, Heart, MapPin, Eye, Loader2, Trash2, Undo2 } from "lucide-react";
+import { Heart, MapPin, Eye, Loader2, Trash2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import {
   useFavoriteIds,
@@ -34,24 +30,32 @@ const LoginPromptModal = dynamic(
 // Локальный placeholder вместо Unsplash
 const PLACEHOLDER_IMAGE = "/images/placeholder-listing.svg";
 
-// Skeleton для загрузки
+// Skeleton для загрузки — соответствует компактному FavoriteCard
 function FavoriteCardSkeleton() {
   return (
-    <div className="rounded-xl md:rounded-2xl overflow-hidden border">
-      <Skeleton className="aspect-4/3" />
-      <div className="p-3 md:p-4 space-y-2">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-full" />
-        <div className="flex items-center gap-2 mt-2">
-          <Skeleton className="h-5 w-5 rounded-full" />
-          <Skeleton className="h-3 w-20" />
+    <div className="bg-card rounded-2xl overflow-hidden ring-1 ring-border">
+      <Skeleton className="aspect-square" />
+      <div className="p-2.5 md:p-3 space-y-1.5">
+        <Skeleton className="h-2.5 w-14" />
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-3.5 w-4/5" />
+        <Skeleton className="h-5 w-20" />
+        <div className="flex items-center justify-between pt-3 border-t border-border">
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="h-4.5 w-4.5 rounded-full" />
+            <Skeleton className="h-2.5 w-16" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Skeleton className="h-2.5 w-5" />
+            <Skeleton className="h-2.5 w-5" />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// Карточка избранного - мемоизирована для предотвращения лишних ре-рендеров
+// Карточка избранного — editorial: square image + content block
 const FavoriteCard = React.memo(function FavoriteCard({
   favorite,
   onRemove,
@@ -66,7 +70,6 @@ const FavoriteCard = React.memo(function FavoriteCard({
   const imageUrl = listing.images?.[0]?.url || PLACEHOLDER_IMAGE;
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
 
-  // Получить имя провайдера
   const providerName = React.useMemo(() => {
     const user = listing.user;
     if (user.first_name || user.last_name) {
@@ -87,90 +90,89 @@ const FavoriteCard = React.memo(function FavoriteCard({
   return (
     <Link
       href={`/services/${listing.slug}`}
-      // Hover-prefetch only. Default (eager) starts 8+ RSC payloads
-      // for detail pages as soon as the grid mounts, which drowns the
-      // network for data the user may never click. Hover is enough.
       prefetch={null}
-      className="cursor-pointer group relative bg-card rounded-xl md:rounded-2xl overflow-hidden border hover:border-primary/30 hover:shadow-xl transition-all duration-300"
+      className={cn(
+        "group relative block bg-card rounded-2xl overflow-hidden ring-1 ring-border transition-all duration-200",
+        "hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
+      )}
+      style={{ transitionTimingFunction: "var(--ease-brand)" }}
     >
-      {/* Image */}
-      <div className="aspect-4/3 relative overflow-hidden">
+      {/* Image — square */}
+      <div className="aspect-square relative overflow-hidden bg-muted">
         <Image
           src={imageUrl}
           alt={listing.title}
           fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
           priority={priority}
           loading={priority ? undefined : "lazy"}
-          className="object-cover group-hover:scale-110 transition-transform duration-500"
+          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
         />
-        <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
 
-        {/* Category badge */}
-        <span className="absolute top-2 left-2 md:top-3 md:left-3 text-[10px] md:text-[11px] bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-3 py-0.5 md:py-1 rounded-full font-medium shadow-sm">
-          {listing.category.name}
-        </span>
-
-        {/* Remove button */}
+        {/* Remove button (Heart → Trash on hover) */}
         <button
           onClick={handleRemove}
-          className="absolute top-2 right-2 md:top-3 md:right-3 p-1.5 md:p-2 rounded-full bg-white/90 dark:bg-black/70 hover:bg-white dark:hover:bg-black transition-colors shadow-sm group/btn"
+          aria-label="Таалагдсанаас хасах"
           title="Хасах"
+          className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-background/70 backdrop-blur-md hover:bg-background active:scale-90 transition-all group/btn"
         >
-          <Heart className="w-4 h-4 md:w-5 md:h-5 fill-pink-500 text-pink-500 group-hover/btn:hidden" />
-          <Trash2 className="w-4 h-4 md:w-5 md:h-5 text-red-500 hidden group-hover/btn:block" />
+          <Heart className="w-3.5 h-3.5 fill-brand text-brand group-hover/btn:hidden" />
+          <Trash2 className="w-3.5 h-3.5 text-foreground hidden group-hover/btn:block" />
         </button>
-
-        {/* Price */}
-        <div className="absolute bottom-2 left-2 right-2 md:bottom-3 md:left-3 md:right-3">
-          <p className="text-white font-bold text-base md:text-lg drop-shadow-lg">{priceDisplay}</p>
-        </div>
       </div>
 
       {/* Content */}
-      <div className="p-3 md:p-4">
-        <h4 className="font-semibold text-xs md:text-sm line-clamp-1">{listing.title}</h4>
-        <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 mt-0.5 md:mt-1">
-          {listing.description}
+      <div className="p-2.5 md:p-3 space-y-1.5">
+        {/* Category micro-label + title */}
+        <div className="space-y-0.5">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">
+            {listing.category.name}
+          </span>
+          <h4 className="font-display font-semibold text-sm leading-snug line-clamp-2">
+            {listing.title}
+          </h4>
+        </div>
+
+        {/* Price */}
+        <p className="font-display text-base md:text-[17px] font-bold tabular tracking-tight">
+          {priceDisplay}
         </p>
 
-        {/* Provider */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 gap-1.5 sm:gap-2">
-          <div className="flex items-center gap-1.5 md:gap-2">
+        {/* Provider + stats */}
+        <div className="flex items-center justify-between pt-1.5 border-t border-border gap-2">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1 pt-1.5">
             {listing.user.avatar_url ? (
               <Image
                 src={listing.user.avatar_url}
                 alt={providerName}
-                width={20}
-                height={20}
+                width={18}
+                height={18}
                 unoptimized={listing.user.avatar_url.includes("dicebear")}
-                className="rounded-full object-cover w-4 h-4 md:w-5 md:h-5"
+                className="rounded-full object-cover w-4.5 h-4.5 shrink-0"
               />
             ) : (
-              <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-primary/20 flex items-center justify-center text-[8px] md:text-[10px] font-medium text-primary">
+              <div className="w-4.5 h-4.5 rounded-full bg-muted flex items-center justify-center text-[9px] font-semibold text-foreground shrink-0">
                 {providerName.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-[10px] md:text-xs text-primary font-medium line-clamp-1">
-              {providerName}
-            </span>
+            <span className="text-[11px] text-muted-foreground truncate">{providerName}</span>
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2 text-[9px] md:text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground shrink-0 pt-1.5 tabular">
             <span className="flex items-center gap-0.5">
-              <Eye className="w-2.5 h-2.5 md:w-3 md:h-3" />
+              <Eye className="w-2.5 h-2.5" />
               {listing.views_count}
             </span>
-            <span className="flex items-center gap-0.5 text-pink-500">
-              <Heart className="w-2.5 h-2.5 md:w-3 md:h-3 fill-current" />
+            <span className="flex items-center gap-0.5">
+              <Heart className="w-2.5 h-2.5 fill-brand text-brand" />
               {listing.favorites_count}
             </span>
           </div>
         </div>
 
         {listing.aimag && (
-          <div className="flex items-center gap-1 mt-1.5 md:mt-2 text-muted-foreground">
-            <MapPin className="w-2.5 h-2.5 md:w-3 md:h-3" />
-            <span className="text-[10px] md:text-[11px] line-clamp-1">{listing.aimag.name}</span>
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <MapPin className="w-2.5 h-2.5 shrink-0" />
+            <span className="text-[10px] truncate flex-1">{listing.aimag.name}</span>
           </div>
         )}
       </div>
@@ -181,19 +183,20 @@ const FavoriteCard = React.memo(function FavoriteCard({
 // Пустое состояние
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg shadow-pink-500/25 mb-6">
-        <Heart className="h-10 w-10 text-white" />
+    <div className="flex flex-col items-center justify-center py-20 md:py-24 text-center rounded-2xl bg-muted/40">
+      <div className="h-14 w-14 rounded-2xl bg-card ring-1 ring-border flex items-center justify-center mb-5">
+        <Heart className="h-6 w-6 fill-brand text-brand" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">Таалагдсан зүйлс хоосон байна</h3>
-      <p className="text-muted-foreground text-sm mb-6 max-w-sm">
-        Үйлчилгээнүүдийг үзэж, зүрхэн дээр дарж таалагдсан зүйлсээ хадгалаарай
+      <p className="font-display text-lg font-semibold">Таалагдсан зүйлс хоосон</p>
+      <p className="text-muted-foreground text-sm mt-1 max-w-sm">
+        Үйлчилгээнүүдийг үзэж, зүрхэн дээр дарж дуртай зараа хадгалаарай
       </p>
-      <Link href="/">
-        <Button className="bg-linear-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white shadow-lg shadow-pink-500/25">
-          <Heart className="h-4 w-4 mr-2" />
-          Үйлчилгээ хайх
-        </Button>
+      <Link
+        href="/"
+        className="mt-5 inline-flex items-center gap-2 h-10 px-5 rounded-full bg-foreground text-background text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all"
+      >
+        <Heart className="h-4 w-4" />
+        Үйлчилгээ хайх
       </Link>
     </div>
   );
@@ -279,7 +282,7 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps = {})
         </div>,
         {
           duration: 3000,
-          icon: <Heart className="w-4 h-4 text-pink-500" />,
+          icon: <Heart className="w-4 h-4 text-brand" />,
         }
       );
     },
@@ -292,10 +295,10 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps = {})
       <>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <div className="text-center max-w-md">
-            <div className="h-20 w-20 rounded-2xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg shadow-pink-500/25 mx-auto mb-6">
-              <Heart className="h-10 w-10 text-white" />
+            <div className="h-16 w-16 rounded-2xl bg-foreground text-background flex items-center justify-center mx-auto mb-6">
+              <Heart className="h-7 w-7" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Нэвтэрнэ үү</h2>
+            <h2 className="font-display text-2xl font-bold tracking-tight mb-2">Нэвтэрнэ үү</h2>
             <p className="text-muted-foreground text-sm">
               Дуртай үйлчилгээнүүдээ хадгалж, хүссэн үедээ үзэхийн тулд нэвтрэх шаардлагатай
             </p>
@@ -317,66 +320,35 @@ export function FavoritesClient({ initialFavorites }: FavoritesClientProps = {})
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10">
-                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </Link>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
-          </div>
-          {/* Mobile Nav */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      <SiteHeader backHref="/" />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Page Title */}
-        <div className="flex items-center gap-4 mb-6 md:mb-8">
-          <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-pink-500 to-pink-600 flex items-center justify-center shadow-lg shadow-pink-500/25">
-            <Heart className="h-6 w-6 md:h-7 md:w-7 text-white" />
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* Editorial page title */}
+        <div className="mb-6 md:mb-10">
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight">
+              Таалагдсан
+            </h1>
+            {isToggling && (
+              <Loader2 className="h-5 w-5 md:h-6 md:w-6 animate-spin text-muted-foreground" />
+            )}
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl md:text-2xl font-bold">Таалагдсан</h2>
-              {isToggling && <Loader2 className="h-4 w-4 animate-spin text-pink-500" />}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {showSkeleton ? "Ачааллаж байна..." : `${count} үйлчилгээ хадгалсан`}
-            </p>
-          </div>
+          <p className="text-sm text-muted-foreground mt-1.5 tabular">
+            {showSkeleton ? "Ачааллаж байна…" : `${count} үйлчилгээ хадгалсан`}
+          </p>
         </div>
 
         {/* Loading State — only when we truly have nothing to show.
             With initialFavorites from SSR we go straight to the grid. */}
         {showSkeleton ? (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
               <FavoriteCardSkeleton key={i} />
             ))}
           </div>
         ) : favorites.length > 0 ? (
           /* Favorites Grid */
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
             {favorites.map((favorite, i) => (
               <FavoriteCard
                 key={favorite.id}

@@ -1,29 +1,35 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { InnerHeader } from "@/components/app-header";
+import { SiteHeader } from "@/components/site-header";
 
 export default function FavoritesLoading() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <InnerHeader />
+      <SiteHeader backHref="/" />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        <div className="flex items-center gap-4 mb-6 md:mb-8">
-          <Skeleton className="h-12 w-12 md:h-14 md:w-14 rounded-2xl" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-6 md:h-8 w-32" />
-            <Skeleton className="h-4 w-40" />
-          </div>
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        <div className="mb-6 md:mb-10 space-y-2">
+          <Skeleton className="h-9 md:h-14 w-44 md:w-64" />
+          <Skeleton className="h-4 w-40" />
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-xl md:rounded-2xl overflow-hidden border bg-card">
-              <Skeleton className="aspect-4/3" />
-              <div className="p-3 md:p-4 space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-full" />
-                <div className="flex items-center gap-2 mt-2">
-                  <Skeleton className="h-4 w-4 md:h-5 md:w-5 rounded-full" />
-                  <Skeleton className="h-3 w-20" />
+
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="bg-card rounded-2xl overflow-hidden ring-1 ring-border">
+              <Skeleton className="aspect-square" />
+              <div className="p-2.5 md:p-3 space-y-1.5">
+                <Skeleton className="h-2.5 w-14" />
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-4/5" />
+                <Skeleton className="h-5 w-20" />
+                <div className="flex items-center justify-between pt-3 border-t border-border">
+                  <div className="flex items-center gap-1.5">
+                    <Skeleton className="h-4.5 w-4.5 rounded-full" />
+                    <Skeleton className="h-2.5 w-16" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Skeleton className="h-2.5 w-5" />
+                    <Skeleton className="h-2.5 w-5" />
+                  </div>
                 </div>
               </div>
             </div>

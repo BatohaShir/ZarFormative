@@ -1,25 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ListingCardSkeletonGrid } from "@/components/listing-card-skeleton";
+import { SiteHeader } from "@/components/site-header";
 
 export default function ServicesLoading() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Static header placeholder (SiteHeader with backHref) */}
-      <header className="sticky top-0 z-50 bg-transparent">
-        <div className="container mx-auto px-4 md:px-6 h-14 md:h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-3">
-            <Skeleton className="h-8 w-8 md:h-9 md:w-9 rounded-full" />
-            <Skeleton className="h-6 md:h-7 w-24 md:w-28" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-8 w-8 rounded-full hidden md:block" />
-            <Skeleton className="h-8 w-8 rounded-full hidden md:block" />
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-9 w-20 rounded-md hidden md:block ml-2" />
-          </div>
-        </div>
-      </header>
+      <SiteHeader backHref="/" />
 
       <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
         {/* Editorial page header */}

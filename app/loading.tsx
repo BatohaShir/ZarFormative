@@ -1,22 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { SiteHeader } from "@/components/site-header";
 import { Footer } from "@/components/footer";
 
 export default function RootLoading() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Static header placeholder (matches SiteHeader geometry) */}
-      <header className="sticky top-0 z-50 bg-transparent">
-        <div className="container mx-auto px-4 md:px-6 h-14 md:h-16 flex items-center justify-between">
-          <Skeleton className="h-6 md:h-7 w-24 md:w-28" />
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-8 w-8 rounded-full hidden md:block" />
-            <Skeleton className="h-8 w-8 rounded-full hidden md:block" />
-            <Skeleton className="h-8 w-8 rounded-full" />
-            <Skeleton className="h-9 w-20 rounded-md hidden md:block ml-2" />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="container mx-auto px-4 md:px-6 pt-10 md:pt-20 pb-8 md:pb-14">

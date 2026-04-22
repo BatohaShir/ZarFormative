@@ -67,7 +67,7 @@ export async function RecommendedListingsSSR({
               {t("featuredLabel")}
             </span>
           </div>
-          <div className="stagger grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+          <div className="stagger grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
             {vipListings.map((listing, i) => (
               <div key={listing.id} style={{ ["--i" as string]: i }}>
                 <ListingCard listing={listing} priority isVip />
@@ -77,7 +77,7 @@ export async function RecommendedListingsSSR({
         </div>
       )}
 
-      <div className="stagger grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+      <div className="stagger grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
         {regularListings.map((listing, index) => (
           <div key={listing.id} style={{ ["--i" as string]: index }}>
             <ListingCard listing={listing} priority={vipListings.length === 0 && index < 4} />
