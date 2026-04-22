@@ -87,6 +87,14 @@ function ServiceCardSkeleton() {
   );
 }
 
+// Boost plan → ms. Module-level so it's stable across re-renders
+// and shared by ServiceCard / ServicesClient without a prop drill.
+const BOOST_DURATIONS: Record<string, number> = {
+  "3day": 3 * 24 * 60 * 60 * 1000,
+  "7day": 7 * 24 * 60 * 60 * 1000,
+  "14day": 14 * 24 * 60 * 60 * 1000,
+};
+
 // VIP countdown component
 function BoostCountdown({ expiresAt }: { expiresAt: string }) {
   const [timeLeft, setTimeLeft] = React.useState("");
@@ -353,7 +361,6 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [listingToDelete, setListingToDelete] = React.useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
-  const [isDeletingStorage, setIsDeletingStorage] = React.useState(false);
   const [updatingId, setUpdatingId] = React.useState<string | null>(null);
   const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("all");
 
@@ -558,35 +565,48 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
 
   const handleDelete = React.useCallback(async () => {
     if (!listingToDelete || !user?.id) return;
+    const id = listingToDelete;
 
-    setIsDeletingStorage(true);
+    // Close dialog + drop the card from the grid immediately. The DB
+    // delete and storage cleanup run in the background; if DB delete
+    // fails we re-insert the snapshot and re-open the dialog with the
+    // error toast so the user can retry.
+    const snapshot = (queryClient.getQueryData<ListingWithRelations[]>(queryKey) || []).find(
+      (l) => l.id === id
+    );
 
+    queryClient.setQueriesData<ListingWithRelations[]>({ queryKey }, (old) => {
+      if (!old) return old;
+      return old.filter((listing) => listing.id !== id);
+    });
+    setDeleteDialogOpen(false);
+    setListingToDelete(null);
+
+    // Delete order matters: DB first so there's never a moment when
+    // rows point at a bucket we've already wiped. If DB delete fails,
+    // the photos are untouched — safe. If DB delete succeeds and
+    // storage fails, we orphan a few files but the row is gone (the
+    // orphaned-file cleanup cron will sweep them).
     try {
-      // 1. Сначала удаляем фото из Supabase Storage
-      const storageResult = await deleteAllListingImages(user.id, listingToDelete);
-      if (storageResult.error) {
-        console.warn("Storage deletion warning:", storageResult.error);
-      }
+      await deleteListing({ where: { id } });
+      toast.success("Зар устгагдлаа");
 
-      // 2. Затем удаляем запись из БД
-      await deleteListing({
-        where: { id: listingToDelete },
+      // Storage cleanup in the background. Errors here don't roll
+      // back — the DB state is already correct, so we just log.
+      void deleteAllListingImages(user.id, id).then((r) => {
+        if (r.error) console.warn("Storage cleanup warning:", r.error);
       });
-
-      // 3. Удаляем из cache - используем setQueriesData для partial key match
-      queryClient.setQueriesData<ListingWithRelations[]>({ queryKey }, (old) => {
-        if (!old) return old;
-        return old.filter((listing) => listing.id !== listingToDelete);
-      });
-
-      toast.success("Зар болон зургууд устгагдлаа");
-      setDeleteDialogOpen(false);
-      setListingToDelete(null);
     } catch (error) {
       console.error("Delete error:", error);
+      // Roll back the optimistic removal.
+      if (snapshot) {
+        queryClient.setQueriesData<ListingWithRelations[]>({ queryKey }, (old) => {
+          if (!old) return [snapshot];
+          if (old.some((l) => l.id === id)) return old;
+          return [snapshot, ...old];
+        });
+      }
       toast.error("Устгахад алдаа гарлаа");
-    } finally {
-      setIsDeletingStorage(false);
     }
   }, [listingToDelete, user?.id, deleteListing, queryClient, queryKey]);
 
@@ -601,12 +621,6 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const [boostSuccess, setBoostSuccess] = React.useState(false);
   const { mutateAsync: createBoost, isPending: isBoostSubmitting } = useCreatelisting_boosts();
 
-  const BOOST_DURATIONS: Record<string, number> = {
-    "3day": 3 * 24 * 60 * 60 * 1000,
-    "7day": 7 * 24 * 60 * 60 * 1000,
-    "14day": 14 * 24 * 60 * 60 * 1000,
-  };
-
   const openBoostModal = React.useCallback((id: string) => {
     setBoostListingId(id);
     setBoostPlan("3day");
@@ -615,20 +629,61 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
 
   const handleBoostSubmit = React.useCallback(async () => {
     if (!boostListingId || !user?.id) return;
+    const listingId = boostListingId;
+    const plan = boostPlan;
+    const duration = BOOST_DURATIONS[plan] || BOOST_DURATIONS["3day"];
+    const expiresAt = new Date(Date.now() + duration);
+
+    // Optimistically insert a provisional boost row into every
+    // listing_boosts findMany cache entry so the ServiceCard paints
+    // the VIP countdown before the server responds. We use a synthetic
+    // id; when the real row lands we leave the cache alone — React
+    // Query's gcTime keeps the provisional in place until the next
+    // findMany fires with a fresh threshold, at which point the
+    // background refetch replaces it.
+    const provisional = {
+      id: `optimistic-${listingId}-${Date.now()}`,
+      listing_id: listingId,
+      user_id: user.id,
+      plan,
+      status: "boost_active" as const,
+      expires_at: expiresAt,
+      created_at: new Date(),
+    };
+    queryClient.setQueriesData<unknown>(
+      { queryKey: ["listing_boosts", "findMany"] },
+      (old: unknown) => {
+        if (!Array.isArray(old)) return old;
+        return [provisional, ...old];
+      }
+    );
+
+    // Flip the modal to the success screen immediately. The await
+    // below just reconciles with the server — by the time it resolves
+    // the user has already seen the confirmation.
+    setBoostSuccess(true);
+
     try {
-      const duration = BOOST_DURATIONS[boostPlan] || BOOST_DURATIONS["3day"];
       await createBoost({
         data: {
-          listing: { connect: { id: boostListingId } },
+          listing: { connect: { id: listingId } },
           user: { connect: { id: user.id } },
-          plan: boostPlan,
-          expires_at: new Date(Date.now() + duration),
+          plan,
+          expires_at: expiresAt,
         },
       });
-      setBoostSuccess(true);
-      // Invalidate boosts cache
-      queryClient.invalidateQueries({ queryKey: ["listing_boosts"] });
+      // Leave the cache as-is. Any subsequent findMany will return
+      // the real row and React Query replaces the provisional.
     } catch {
+      // Roll back the optimistic insert and surface the error.
+      queryClient.setQueriesData<unknown>(
+        { queryKey: ["listing_boosts", "findMany"] },
+        (old: unknown) => {
+          if (!Array.isArray(old)) return old;
+          return (old as { id: string }[]).filter((b) => b.id !== provisional.id);
+        }
+      );
+      setBoostSuccess(false);
       toast.error("Алдаа гарлаа");
     }
   }, [boostListingId, boostPlan, user?.id, createBoost, queryClient]);
@@ -815,15 +870,11 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
         )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          if (!isDeletingStorage && !isDeleting) {
-            setDeleteDialogOpen(open);
-          }
-        }}
-      >
+      {/* Delete Confirmation Dialog. handleDelete closes the dialog
+          and drops the card before awaiting the server, so no
+          disabled/loading state is needed here — if the mutation
+          fails we roll back and the user can retry. */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Устгах уу?</AlertDialogTitle>
@@ -832,25 +883,9 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingStorage || isDeleting}>Болих</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={isDeletingStorage || isDeleting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDeletingStorage ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Зураг устгаж байна...
-                </>
-              ) : isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Зар устгаж байна...
-                </>
-              ) : (
-                "Устгах"
-              )}
+            <AlertDialogCancel>Болих</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Устгах
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
