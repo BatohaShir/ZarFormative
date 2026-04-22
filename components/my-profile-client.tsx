@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -57,6 +58,7 @@ import {
   DEGREES_DB,
   formatWorkDate,
 } from "@/lib/data/suggestions";
+import type { MyProfileSsrData } from "@/lib/profile/my-profile-query";
 
 // Lazy load EditProfileModal - not loaded until opened
 const EditProfileModal = dynamic(
@@ -99,9 +101,21 @@ const initialWorkForm: NewWorkExperienceForm = {
   is_current: false,
 };
 
-export function MyProfileClient() {
+interface MyProfileClientProps {
+  /**
+   * Server-seeded profile + educations + work from one CTE round-trip.
+   * When provided, the client skips its mount-time REST fetches and
+   * renders from this payload immediately. `profile` is also pushed
+   * into React Query's cache via setQueryData so AuthProvider's
+   * useCurrentUser picks it up as already-fresh data.
+   */
+  ssrData?: MyProfileSsrData;
+}
+
+export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
   const router = useRouter();
   const t = useTranslations();
+  const queryClient = useQueryClient();
   const {
     isAuthenticated,
     isLoading,
@@ -113,6 +127,44 @@ export function MyProfileClient() {
     avatarUrl,
     updateProfile,
   } = useAuth();
+
+  // Seed React Query caches from SSR once, before any child hook runs
+  // its useQuery. We push three entries (profile, educations, work)
+  // under the exact keys ZenStack's generated hooks use, so they see
+  // `isFetched: true` on mount and skip the REST call entirely.
+  //
+  // useState initializer fires on first render only — using useEffect
+  // here would be too late (hooks below would already have dispatched
+  // a network fetch against an empty cache).
+  React.useState(() => {
+    if (!ssrData || !user?.id) return null;
+    if (ssrData.profile) {
+      queryClient.setQueryData(
+        ["profiles", "findUnique", { where: { id: user.id } }],
+        ssrData.profile
+      );
+    }
+    // CTE returns ISO strings; Education/WorkExperience types want
+    // Date objects. Coerce here so the cached data matches the shape
+    // consumed by downstream components.
+    queryClient.setQueryData(
+      ["profiles_educations", "findMany", { where: { user_id: user.id } }],
+      ssrData.educations.map((e) => ({
+        ...e,
+        start_date: new Date(e.start_date),
+        end_date: e.end_date ? new Date(e.end_date) : null,
+      }))
+    );
+    queryClient.setQueryData(
+      ["profiles_work_experiences", "findMany", { where: { user_id: user.id } }],
+      ssrData.workExperiences.map((w) => ({
+        ...w,
+        start_date: new Date(w.start_date),
+        end_date: w.end_date ? new Date(w.end_date) : null,
+      }))
+    );
+    return null;
+  });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
 
@@ -131,7 +183,10 @@ export function MyProfileClient() {
     }
   }, [profile?.about]);
 
-  // Education from database
+  // Education from database. Company accounts don't display this
+  // section, so skip the query — otherwise we'd pay a round-trip to
+  // fetch rows that can never exist (CTE already guards against it).
+  const isCompany = profile?.is_company ?? false;
   const {
     educations,
     isLoading: isEducationsLoading,
@@ -141,13 +196,15 @@ export function MyProfileClient() {
     isCreating: isCreatingEducation,
     isUpdating: isUpdatingEducation,
     isDeleting: isDeletingEducation,
-  } = useEducations();
+  } = useEducations(undefined, {
+    enabled: !isCompany,
+  });
 
   const [showAddEducation, setShowAddEducation] = React.useState(false);
   const [editingEducationId, setEditingEducationId] = React.useState<string | null>(null);
   const [newEducation, setNewEducation] = React.useState<NewEducationForm>(initialEducationForm);
 
-  // Work experience from database
+  // Work experience from database — same story as educations.
   const {
     workExperiences,
     isLoading: isWorkExperiencesLoading,
@@ -157,7 +214,9 @@ export function MyProfileClient() {
     isCreating: isCreatingWork,
     isUpdating: isUpdatingWork,
     isDeleting: isDeletingWork,
-  } = useWorkExperiences();
+  } = useWorkExperiences(undefined, {
+    enabled: !isCompany,
+  });
 
   const [showAddWork, setShowAddWork] = React.useState(false);
   const [editingWorkId, setEditingWorkId] = React.useState<string | null>(null);

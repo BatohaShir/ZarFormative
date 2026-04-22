@@ -38,7 +38,15 @@ export interface UpdateEducationInput {
   is_current?: boolean;
 }
 
-export function useEducations(userId?: string) {
+interface UseEducationsOptions {
+  /**
+   * When false, skip the query entirely. Used for company accounts
+   * where education isn't shown on the UI.
+   */
+  enabled?: boolean;
+}
+
+export function useEducations(userId?: string, options?: UseEducationsOptions) {
   // Используем общий хук для auth - предотвращает дублирование запросов
   const { userId: currentUserId } = useAuth();
   const queryClient = useQueryClient();
@@ -69,7 +77,7 @@ export function useEducations(userId?: string) {
       },
     },
     {
-      enabled: !!targetUserId,
+      enabled: !!targetUserId && options?.enabled !== false,
       staleTime: 10 * 60 * 1000, // 10 минут - образование редко меняется
       gcTime: 30 * 60 * 1000, // 30 минут в памяти
     }
@@ -131,9 +139,7 @@ export function useEducations(userId?: string) {
     // Оптимистично обновляем в кэше
     queryClient.setQueryData(queryKey, (old: Education[] | undefined) => {
       if (!old) return old;
-      return old.map((edu) =>
-        edu.id === id ? { ...edu, ...data } : edu
-      );
+      return old.map((edu) => (edu.id === id ? { ...edu, ...data } : edu));
     });
 
     try {

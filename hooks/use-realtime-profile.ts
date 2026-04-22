@@ -27,36 +27,35 @@ export function useRealtimeProfile(userId?: string) {
 
   // Функция для инвалидации кэша профиля
   // invalidateQueries говорит React Query что данные устарели и нужно перезагрузить
+  //
+  // Narrowed to the exact findUnique key we care about. The previous
+  // version also called refetchQueries({ queryKey: ['profiles'] }) which
+  // eagerly re-fired every profile query in the cache — including
+  // findMany lookups on other pages the user had visited — each time
+  // Supabase pushed a row-level change. Now Supabase → one network
+  // round-trip, not N.
   const refetchProfile = useCallback(() => {
     if (!targetUserId) return;
-
-    // Инвалидируем запрос профиля
     queryClient.invalidateQueries({
       queryKey: ["profiles", "findUnique", { where: { id: targetUserId } }],
     });
-
-    // Также обновляем активные запросы немедленно
-    queryClient.refetchQueries({
-      queryKey: ["profiles"],
-      type: "active",
-    });
   }, [queryClient, targetUserId]);
 
-  // Функция для инвалидации образования
+  // Функция для инвалидации образования. Scoped to this user's
+  // findMany key so we don't punch holes in unrelated cache entries
+  // (e.g. someone else's profile page the current user has visited).
   const refetchEducations = useCallback(() => {
     if (!targetUserId) return;
-
     queryClient.invalidateQueries({
-      queryKey: ["profiles_educations"],
+      queryKey: ["profiles_educations", "findMany", { where: { user_id: targetUserId } }],
     });
   }, [queryClient, targetUserId]);
 
   // Функция для инвалидации опыта работы
   const refetchWorkExperiences = useCallback(() => {
     if (!targetUserId) return;
-
     queryClient.invalidateQueries({
-      queryKey: ["profiles_work_experiences"],
+      queryKey: ["profiles_work_experiences", "findMany", { where: { user_id: targetUserId } }],
     });
   }, [queryClient, targetUserId]);
 

@@ -38,13 +38,22 @@ export interface UpdateWorkExperienceInput {
   is_current?: boolean;
 }
 
-export function useWorkExperiences(userId?: string) {
+interface UseWorkExperiencesOptions {
+  /** When false, skip the query (e.g. company accounts). */
+  enabled?: boolean;
+}
+
+export function useWorkExperiences(userId?: string, options?: UseWorkExperiencesOptions) {
   // Используем общий хук для auth - предотвращает дублирование запросов
   const { userId: currentUserId } = useAuth();
   const queryClient = useQueryClient();
 
   const targetUserId = userId || currentUserId;
-  const queryKey = ["profiles_work_experiences", "findMany", { where: { user_id: targetUserId ?? "" } }];
+  const queryKey = [
+    "profiles_work_experiences",
+    "findMany",
+    { where: { user_id: targetUserId ?? "" } },
+  ];
 
   // Fetch work experiences - optimized with select to reduce data transfer
   const {
@@ -69,7 +78,7 @@ export function useWorkExperiences(userId?: string) {
       },
     },
     {
-      enabled: !!targetUserId,
+      enabled: !!targetUserId && options?.enabled !== false,
       staleTime: 10 * 60 * 1000, // 10 минут - опыт работы редко меняется
       gcTime: 30 * 60 * 1000, // 30 минут в памяти
     }
@@ -131,9 +140,7 @@ export function useWorkExperiences(userId?: string) {
     // Оптимистично обновляем в кэше
     queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
       if (!old) return old;
-      return old.map((work) =>
-        work.id === id ? { ...work, ...data } : work
-      );
+      return old.map((work) => (work.id === id ? { ...work, ...data } : work));
     });
 
     try {
