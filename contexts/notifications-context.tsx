@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import {
-  useFindManynotifications,
+  useCountnotifications,
   useUpdatenotifications,
   useUpdateManynotifications,
 } from "@/lib/hooks/notifications";
@@ -13,7 +13,11 @@ import { CACHE_TIMES } from "@/lib/react-query-config";
 import type { NotificationType, profiles, listings } from "@prisma/client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-// Тип для уведомления с relations
+/**
+ * Shape used by NotificationItem / the dropdown list. Exported here
+ * instead of colocated with the list hook because both the list UI
+ * and the realtime patching code need to share the type.
+ */
 export interface NotificationWithRelations {
   id: string;
   user_id: string;
@@ -35,31 +39,26 @@ export interface NotificationWithRelations {
   } | null;
 }
 
-// ========== РАЗДЕЛЁННЫЕ КОНТЕКСТЫ ==========
-// 1. NotificationsCountContext - для badge (количество непрочитанных)
-// 2. NotificationsActionsContext - для markAsRead/markAllAsRead
-// 3. NotificationsDataContext - для списка уведомлений
+// Partial-key matcher for every notifications findMany cache entry,
+// regardless of the select/orderBy args the caller used. We patch
+// cache in place instead of invalidating the whole ["notifications"]
+// key, because invalidation re-runs findMany + 2 joins (~2s MN→Seoul).
+const NOTIFICATIONS_FINDMANY_KEY = { queryKey: ["notifications", "findMany"] };
 
-// Контекст 1: Только count для badge
+// ========== CONTEXTS ==========
+// The provider only exposes count + actions now. The full list is
+// loaded *inside the dropdown component* via useFindManynotifications
+// with enabled: open — 90% of logged-in sessions never open the
+// dropdown, so fetching 50 rows + joins on every page was waste.
+
 interface NotificationsCountContextType {
   unreadCount: number;
-  totalCount: number;
-  hasNewNotification: boolean; // Для анимации badge
+  hasNewNotification: boolean;
 }
 
-// Контекст 2: Действия
 interface NotificationsActionsContextType {
   markAsRead: (notificationId: string) => void;
   markAllAsRead: () => void;
-  isMarking: boolean;
-  isMarkingAll: boolean; // Separate flag for "mark all" operation
-}
-
-// Контекст 3: Полные данные
-interface NotificationsDataContextType {
-  notifications: NotificationWithRelations[];
-  isLoading: boolean;
-  refetch: () => void;
 }
 
 const NotificationsCountContext = React.createContext<NotificationsCountContextType | undefined>(
@@ -68,216 +67,210 @@ const NotificationsCountContext = React.createContext<NotificationsCountContextT
 const NotificationsActionsContext = React.createContext<
   NotificationsActionsContextType | undefined
 >(undefined);
-const NotificationsDataContext = React.createContext<NotificationsDataContextType | undefined>(
-  undefined
-);
-
-// Any notifications findMany cache entry, regardless of select/orderBy
-// args. We surgically patch every matching cache slot instead of
-// invalidating the whole ["notifications"] key — invalidation kicks
-// off a full findMany + 2 joins round-trip (~2s from MN→Seoul) on
-// every mark-as-read, and we already know exactly what to change.
-const NOTIFICATIONS_FINDMANY_KEY = { queryKey: ["notifications", "findMany"] };
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
-  // State для отслеживания новых уведомлений (для анимации)
+  // Bell-ring animation flag. Flipped true when a realtime INSERT
+  // lands, cleared after 3s. Separate state because it's transient
+  // UI, not data.
   const [hasNewNotification, setHasNewNotification] = React.useState(false);
 
-  // Загрузка уведомлений из БД
-  const {
-    data: dbNotifications = [],
-    isLoading,
-    refetch,
-  } = useFindManynotifications(
+  // Tiny COUNT query. No joins, no select, just a server-side integer
+  // for the badge. This runs on every logged-in page — it has to be
+  // cheap. staleTime keeps us from refetching on every remount.
+  const { data: dbUnreadCount = 0 } = useCountnotifications(
     {
       where: {
         user_id: user?.id,
+        is_read: false,
       },
-      select: {
-        id: true,
-        user_id: true,
-        type: true,
-        title: true,
-        message: true,
-        is_read: true,
-        request_id: true,
-        actor_id: true,
-        created_at: true,
-        read_at: true,
-        actor: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            avatar_url: true,
-            company_name: true,
-            is_company: true,
-            is_verified: true,
-          },
-        },
-        request: {
-          select: {
-            id: true,
-            listing: {
-              select: {
-                id: true,
-                title: true,
-                slug: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-      take: 50, // Ограничиваем для производительности
     },
     {
       enabled: isAuthenticated && !!user?.id,
       ...CACHE_TIMES.NOTIFICATIONS,
-      // OPTIMIZATION: Убран polling - используем только Supabase Realtime
-      // refetchInterval убран для уменьшения нагрузки на БД
     }
   );
 
-  // Stable ref for refetch to avoid subscription thrashing
-  // (refetch changes identity on every query result, causing useEffect to re-run)
-  const refetchRef = React.useRef(refetch);
-  React.useEffect(() => {
-    refetchRef.current = refetch;
-  }, [refetch]);
+  // Local delta applied on top of the server count so INSERT / mark-
+  // as-read reflect in the badge synchronously. The next real count
+  // refetch (realtime invalidate below) resets it to 0.
+  const [countDelta, setCountDelta] = React.useState(0);
+  const unreadCount = Math.max(0, (dbUnreadCount as number) + countDelta);
 
-  // ========== SUPABASE REALTIME SUBSCRIPTION ==========
+  // ========== REALTIME ==========
   //
-  // INSERT: still refetches once, because the realtime payload doesn't
-  // include the actor/listing joins we render in the dropdown. New
-  // notifications are rare enough that one round-trip per arrival is
-  // fine — the badge flips instantly, the card fills in shortly after.
+  // INSERT: bump the badge locally (+1), show the bell-ring, and
+  // invalidate the *count* query so it refetches on its own. The
+  // findMany list is only patched if the dropdown happens to be
+  // open — we do that by fetching the single new row and splicing
+  // it in, not by refetching all 50.
   //
-  // UPDATE: patched directly into every notifications findMany cache
-  // entry. The common case is mark-as-read, which happens on every
-  // dropdown interaction — hitting the server again for data we just
-  // told the server to change would be silly.
+  // UPDATE: patch the findMany cache in place so is_read flips
+  // without a round-trip. Count is updated locally.
   React.useEffect(() => {
     if (!isAuthenticated || !user?.id) return;
 
     const supabase = createClient();
     let channel: RealtimeChannel | null = null;
 
-    const setupRealtimeSubscription = () => {
-      channel = supabase
-        .channel(`notifications:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload: { new: Record<string, unknown> }) => {
-            setHasNewNotification(true);
+    channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: { new: Record<string, unknown> }) => {
+          setHasNewNotification(true);
+          setCountDelta((d) => d + 1);
 
-            if (
-              typeof window !== "undefined" &&
-              "Notification" in window &&
-              Notification.permission === "granted"
-            ) {
-              const data = payload.new as { title?: string; message?: string };
-              new Notification(data.title || "Шинэ мэдэгдэл", {
-                body: data.message || "",
-                icon: "/icons/notification-icon.png",
-                tag: "notification-" + Date.now(),
+          // Optional browser push if the user granted permission.
+          if (
+            typeof window !== "undefined" &&
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            const data = payload.new as { title?: string; message?: string };
+            new Notification(data.title || "Шинэ мэдэгдэл", {
+              body: data.message || "",
+              icon: "/icons/notification-icon.png",
+              tag: `notification-${payload.new.id}`,
+            });
+          }
+
+          // Splice into any open dropdown list. We need the joins,
+          // which aren't in the realtime payload — so fetch only this
+          // one row (1 notification + 2 joins ≪ 50 rows + 2 joins).
+          // If no list is cached (dropdown never opened), skip the
+          // fetch entirely.
+          const activeListQueries = queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ["notifications", "findMany"] });
+          if (activeListQueries.length === 0) return;
+
+          const newId = payload.new.id as string;
+          fetch(`/api/model/notifications/findUnique`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              where: { id: newId },
+              select: {
+                id: true,
+                user_id: true,
+                type: true,
+                title: true,
+                message: true,
+                is_read: true,
+                request_id: true,
+                actor_id: true,
+                created_at: true,
+                read_at: true,
+                actor: {
+                  select: {
+                    id: true,
+                    first_name: true,
+                    last_name: true,
+                    avatar_url: true,
+                    company_name: true,
+                    is_company: true,
+                    is_verified: true,
+                  },
+                },
+                request: {
+                  select: {
+                    id: true,
+                    listing: { select: { id: true, title: true, slug: true } },
+                  },
+                },
+              },
+            }),
+          })
+            .then((r) => r.json())
+            .then((json) => {
+              const row = json?.data as NotificationWithRelations | null;
+              if (!row) return;
+              queryClient.setQueriesData<NotificationWithRelations[]>(
+                NOTIFICATIONS_FINDMANY_KEY,
+                (old) => {
+                  if (!old) return old;
+                  if (old.some((n) => n.id === row.id)) return old;
+                  return [row, ...old];
+                }
+              );
+            })
+            .catch(() => {
+              // If the findUnique fails (offline, policy, etc.), fall
+              // back to a plain refetch on the currently cached list
+              // queries. Rare path.
+              queryClient.invalidateQueries(NOTIFICATIONS_FINDMANY_KEY);
+            });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: { new: Record<string, unknown> }) => {
+          const fresh = payload.new as Partial<NotificationWithRelations> & { id: string };
+          queryClient.setQueriesData<NotificationWithRelations[]>(
+            NOTIFICATIONS_FINDMANY_KEY,
+            (old) => {
+              if (!old) return old;
+              let changed = false;
+              const next = old.map((n) => {
+                if (n.id !== fresh.id) return n;
+                changed = true;
+                return { ...n, ...fresh };
               });
+              return changed ? next : old;
             }
-
-            refetchRef.current();
+          );
+          // If the row flipped to is_read=true, the count is stale by
+          // one. The authoritative count query will refetch on its own
+          // staleTime; meanwhile nudge the local delta so the badge
+          // matches what the user sees in the list.
+          if (fresh.is_read === true) {
+            setCountDelta((d) => d - 1);
           }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload: { new: Record<string, unknown> }) => {
-            // Patch in place. If our own optimistic cache write already
-            // flipped is_read to true, this is a no-op — the values
-            // match and React Query's structural sharing skips the
-            // re-render.
-            const fresh = payload.new as Partial<NotificationWithRelations> & { id: string };
-            queryClient.setQueriesData<NotificationWithRelations[]>(
-              NOTIFICATIONS_FINDMANY_KEY,
-              (old) => {
-                if (!old) return old;
-                let changed = false;
-                const next = old.map((n) => {
-                  if (n.id !== fresh.id) return n;
-                  changed = true;
-                  return { ...n, ...fresh };
-                });
-                return changed ? next : old;
-              }
-            );
-          }
-        )
-        .subscribe();
-    };
-
-    setupRealtimeSubscription();
+        }
+      )
+      .subscribe();
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      if (channel) supabase.removeChannel(channel);
     };
   }, [isAuthenticated, user?.id, queryClient]);
 
-  // Сбрасываем флаг новых уведомлений через 3 секунды
+  // Bell-ring animation auto-clears after 3s.
   React.useEffect(() => {
-    if (hasNewNotification) {
-      const timer = setTimeout(() => {
-        setHasNewNotification(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
+    if (!hasNewNotification) return undefined;
+    const timer = setTimeout(() => setHasNewNotification(false), 3000);
+    return () => clearTimeout(timer);
   }, [hasNewNotification]);
 
-  // Мутации. No onSettled invalidate — we already write the target
-  // state into the cache before the mutation fires, and realtime
-  // patches from other tabs / server-side actors keep us honest.
-  // Invalidating here would kick off a redundant findMany that we've
-  // spent the rest of this file avoiding.
-  const updateNotification = useUpdatenotifications();
+  // ========== MUTATIONS ==========
+
   const updateManyNotifications = useUpdateManynotifications();
-
-  const notifications = dbNotifications as NotificationWithRelations[];
-
-  // Подсчёт непрочитанных. Cheap for a 50-item list, so we don't
-  // bother with a denormalized counter — a single pass on re-render
-  // is measured in microseconds.
-  const unreadCount = React.useMemo(
-    () => notifications.reduce((n, x) => n + (x.is_read ? 0 : 1), 0),
-    [notifications]
-  );
-
-  const totalCount = notifications.length;
+  // Kept for API parity with older callers. No-op onSettled — we
+  // write directly to the cache and trust Supabase realtime to echo.
+  useUpdatenotifications();
 
   // ========== BATCHED mark-as-read ==========
   //
-  // The old path fired one REST updateNotification per card the user
-  // glanced at. Opening a dropdown with 5 unread and clicking through
-  // burned 5 round-trips. Now we collect ids for 150ms after the
-  // first mark and flush them as a single updateMany — the UI is
-  // already optimistic (the cache flip happens synchronously below),
-  // the server just needs one call to catch up.
+  // Clicking through N unread cards used to fire N updateNotifications
+  // round-trips. Now a 150ms debounce collects ids and flushes them as
+  // a single updateMany. The cache is already in the target state
+  // before the mutation fires (synchronous write below), so the
+  // mutation's only job is persistence.
   const pendingMarkIdsRef = React.useRef<Set<string>>(new Set());
   const flushTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -294,7 +287,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       },
       {
         onError: () => {
-          // Roll back: re-flag the cards as unread in the cache.
+          // Roll back the cache rows and undo the count delta.
           queryClient.setQueriesData<NotificationWithRelations[]>(
             NOTIFICATIONS_FINDMANY_KEY,
             (old) => {
@@ -305,13 +298,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               );
             }
           );
+          setCountDelta((d) => d + ids.length);
         },
       }
     );
   }, [updateManyNotifications, queryClient]);
 
-  // Flush any pending batch on unmount so "read" state doesn't get
-  // dropped if the user navigates away within the debounce window.
+  // Flush any pending batch on unmount so "read" state is never lost
+  // if the user navigates away during the debounce window.
   React.useEffect(() => {
     return () => {
       if (flushTimerRef.current) {
@@ -323,10 +317,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   const markAsRead = React.useCallback(
     (notificationId: string) => {
-      // Optimistic: write straight into every findMany cache. No
-      // component-local "optimisticIds" Set that grows forever — the
-      // cache is the source of truth and the realtime UPDATE echo
-      // patches the same row later (a no-op by then).
+      // Optimistic cache write: flip the card's is_read synchronously.
+      // Returns a "did anything change" hint so we don't decrement the
+      // count twice for the same id.
+      let actuallyFlipped = false;
       const readAt = new Date();
       queryClient.setQueriesData<NotificationWithRelations[]>(NOTIFICATIONS_FINDMANY_KEY, (old) => {
         if (!old) return old;
@@ -334,12 +328,21 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         const next = old.map((n) => {
           if (n.id !== notificationId || n.is_read) return n;
           changed = true;
+          actuallyFlipped = true;
           return { ...n, is_read: true, read_at: readAt };
         });
         return changed ? next : old;
       });
 
-      // Batch: collect id, flush after a short debounce.
+      // Also handle the case where the cached list isn't present
+      // (dropdown never opened this session but an external actor
+      // flipped is_read — shouldn't happen but defensive). In that
+      // case we just always decrement; the authoritative count
+      // refetch will correct any drift.
+      if (actuallyFlipped || !pendingMarkIdsRef.current.has(notificationId)) {
+        setCountDelta((d) => d - 1);
+      }
+
       pendingMarkIdsRef.current.add(notificationId);
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
       flushTimerRef.current = setTimeout(flushMarkAsRead, 150);
@@ -350,7 +353,6 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const markAllAsRead = React.useCallback(() => {
     if (!user?.id) return;
 
-    // Optimistic: flip every unread card's is_read in the cache.
     const now = new Date();
     const snapshotUnreadIds: string[] = [];
     queryClient.setQueriesData<NotificationWithRelations[]>(NOTIFICATIONS_FINDMANY_KEY, (old) => {
@@ -364,7 +366,11 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       });
       return changed ? next : old;
     });
-    if (snapshotUnreadIds.length === 0) return;
+
+    // Even if the list isn't cached (dropdown never opened), we still
+    // want to clear the badge instantly. Slam the delta to cancel the
+    // server count.
+    setCountDelta(-dbUnreadCount);
 
     updateManyNotifications.mutate(
       {
@@ -383,117 +389,56 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
               );
             }
           );
+          setCountDelta((d) => d + dbUnreadCount);
         },
       }
     );
-  }, [user, updateManyNotifications, queryClient]);
+  }, [user, updateManyNotifications, queryClient, dbUnreadCount]);
 
-  // ========== МЕМОИЗИРОВАННЫЕ ЗНАЧЕНИЯ ==========
+  // ========== CONTEXT VALUES ==========
 
   const countValue = React.useMemo<NotificationsCountContextType>(
-    () => ({
-      unreadCount,
-      totalCount,
-      hasNewNotification,
-    }),
-    [unreadCount, totalCount, hasNewNotification]
+    () => ({ unreadCount, hasNewNotification }),
+    [unreadCount, hasNewNotification]
   );
 
-  // isMarking / isMarkingAll are preserved for API back-compat but
-  // always false now: both mark-as-read flows are synchronous at the
-  // cache level. Callers that still pass these to a disabled prop end
-  // up with a button that's always enabled, which is what we want —
-  // there is no work to wait on.
   const actionsValue = React.useMemo<NotificationsActionsContextType>(
-    () => ({
-      markAsRead,
-      markAllAsRead,
-      isMarking: false,
-      isMarkingAll: false,
-    }),
+    () => ({ markAsRead, markAllAsRead }),
     [markAsRead, markAllAsRead]
-  );
-
-  const dataValue = React.useMemo<NotificationsDataContextType>(
-    () => ({
-      notifications,
-      isLoading,
-      refetch,
-    }),
-    [notifications, isLoading, refetch]
   );
 
   return (
     <NotificationsCountContext.Provider value={countValue}>
       <NotificationsActionsContext.Provider value={actionsValue}>
-        <NotificationsDataContext.Provider value={dataValue}>
-          {children}
-        </NotificationsDataContext.Provider>
+        {children}
       </NotificationsActionsContext.Provider>
     </NotificationsCountContext.Provider>
   );
 }
 
-// ========== ХУКИ ==========
+// ========== HOOKS ==========
 
-// Дефолтные значения для случаев без провайдера (гости, загрузка)
 const DEFAULT_COUNT: NotificationsCountContextType = {
   unreadCount: 0,
-  totalCount: 0,
   hasNewNotification: false,
 };
 
 const DEFAULT_ACTIONS: NotificationsActionsContextType = {
   markAsRead: () => {},
   markAllAsRead: () => {},
-  isMarking: false,
-  isMarkingAll: false,
 };
 
-const DEFAULT_DATA: NotificationsDataContextType = {
-  notifications: [],
-  isLoading: false,
-  refetch: () => {},
-};
-
-/**
- * Хук для badge - только count
- * Возвращает дефолтные значения если нет провайдера (для гостей)
- */
 export function useNotificationsCount() {
-  const context = React.useContext(NotificationsCountContext);
-  return context ?? DEFAULT_COUNT;
+  return React.useContext(NotificationsCountContext) ?? DEFAULT_COUNT;
 }
 
-/**
- * Хук для действий
- * Возвращает no-op функции если нет провайдера
- */
 export function useNotificationsActions() {
-  const context = React.useContext(NotificationsActionsContext);
-  return context ?? DEFAULT_ACTIONS;
+  return React.useContext(NotificationsActionsContext) ?? DEFAULT_ACTIONS;
 }
 
 /**
- * Хук для полного списка
- * Возвращает пустой массив если нет провайдера
- */
-export function useNotificationsData() {
-  const context = React.useContext(NotificationsDataContext);
-  return context ?? DEFAULT_DATA;
-}
-
-/**
- * Комбинированный хук
+ * Combined hook preserved for API parity with earlier callers.
  */
 export function useNotifications() {
-  const count = useNotificationsCount();
-  const actions = useNotificationsActions();
-  const data = useNotificationsData();
-
-  return {
-    ...count,
-    ...actions,
-    ...data,
-  };
+  return { ...useNotificationsCount(), ...useNotificationsActions() };
 }

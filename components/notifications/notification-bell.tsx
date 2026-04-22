@@ -12,8 +12,11 @@ import { Bell, CheckCheck, Loader2 } from "lucide-react";
 import {
   useNotificationsCount,
   useNotificationsActions,
-  useNotificationsData,
+  type NotificationWithRelations,
 } from "@/contexts/notifications-context";
+import { useFindManynotifications } from "@/lib/hooks/notifications";
+import { useAuth } from "@/contexts/auth-context";
+import { CACHE_TIMES } from "@/lib/react-query-config";
 import { NotificationItem } from "./notification-item";
 
 interface NotificationBellProps {
@@ -21,8 +24,10 @@ interface NotificationBellProps {
 }
 
 /**
- * Dropdown content — subscribes to Data context only when dropdown is open.
- * This prevents re-renders of the bell icon when notification list changes.
+ * Dropdown content. Only mounts when the dropdown is open, so the
+ * full notifications list (with actor / listing joins) is never
+ * fetched on pages where the user doesn't open the bell. This is the
+ * whole point of lazy-loading it here instead of in the provider.
  */
 function NotificationDropdownContent({
   isDark,
@@ -31,10 +36,52 @@ function NotificationDropdownContent({
   isDark: boolean;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const { markAllAsRead } = useNotificationsActions();
   const { unreadCount } = useNotificationsCount();
-  const { notifications, isLoading } = useNotificationsData();
 
+  const { data: rawNotifications = [], isLoading } = useFindManynotifications(
+    {
+      where: { user_id: user?.id },
+      select: {
+        id: true,
+        user_id: true,
+        type: true,
+        title: true,
+        message: true,
+        is_read: true,
+        request_id: true,
+        actor_id: true,
+        created_at: true,
+        read_at: true,
+        actor: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            avatar_url: true,
+            company_name: true,
+            is_company: true,
+            is_verified: true,
+          },
+        },
+        request: {
+          select: {
+            id: true,
+            listing: { select: { id: true, title: true, slug: true } },
+          },
+        },
+      },
+      orderBy: { created_at: "desc" },
+      take: 20,
+    },
+    {
+      enabled: !!user?.id,
+      ...CACHE_TIMES.NOTIFICATIONS,
+    }
+  );
+
+  const notifications = rawNotifications as NotificationWithRelations[];
   const recentNotifications = notifications.slice(0, 5);
 
   return (
