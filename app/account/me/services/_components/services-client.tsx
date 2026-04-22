@@ -7,16 +7,10 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { InnerHeader } from "@/components/app-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronLeft,
   Package,
   MapPin,
   Eye,
@@ -70,23 +64,6 @@ interface ListingWithRelations extends listings {
   aimag?: { name: string } | null;
 }
 
-// Skeleton для загрузки карточки
-function ServiceCardSkeleton() {
-  return (
-    <div className="rounded-xl md:rounded-2xl overflow-hidden border">
-      <Skeleton className="aspect-4/3" />
-      <div className="p-3 md:p-4 space-y-2">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-3 w-full" />
-        <div className="flex items-center gap-2 mt-2">
-          <Skeleton className="h-5 w-5 rounded-full" />
-          <Skeleton className="h-3 w-20" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Boost plan → ms. Module-level so it's stable across re-renders
 // and shared by ServiceCard / ServicesClient without a prop drill.
 const BOOST_DURATIONS: Record<string, number> = {
@@ -95,28 +72,56 @@ const BOOST_DURATIONS: Record<string, number> = {
   "14day": 14 * 24 * 60 * 60 * 1000,
 };
 
+// Single 60s tick shared by every BoostCountdown on the page. With 20
+// VIP listings the old component was spinning up 20 intervals + 20
+// re-subscribes on every re-render; now there's one timer total and
+// each card just reads from a shared useSyncExternalStore.
+let tickNow = Date.now();
+const tickSubscribers = new Set<() => void>();
+let tickInterval: ReturnType<typeof setInterval> | null = null;
+
+function ensureTick() {
+  if (tickInterval || typeof window === "undefined") return;
+  tickInterval = setInterval(() => {
+    tickNow = Date.now();
+    for (const s of tickSubscribers) s();
+  }, 60_000);
+}
+
+function subscribeTick(cb: () => void) {
+  tickSubscribers.add(cb);
+  ensureTick();
+  return () => {
+    tickSubscribers.delete(cb);
+    if (tickSubscribers.size === 0 && tickInterval) {
+      clearInterval(tickInterval);
+      tickInterval = null;
+    }
+  };
+}
+
+function getTickSnapshot() {
+  return tickNow;
+}
+
+function formatBoostTimeLeft(expiresAtMs: number, now: number): string {
+  const diff = expiresAtMs - now;
+  if (diff <= 0) return "Дууссан";
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return `${days}ө ${hours}ц`;
+  if (hours > 0) return `${hours}ц ${mins}м`;
+  return `${mins}м`;
+}
+
 // VIP countdown component
 function BoostCountdown({ expiresAt }: { expiresAt: string }) {
-  const [timeLeft, setTimeLeft] = React.useState("");
-
-  React.useEffect(() => {
-    const update = () => {
-      const diff = new Date(expiresAt).getTime() - Date.now();
-      if (diff <= 0) {
-        setTimeLeft("Дууссан");
-        return;
-      }
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      if (days > 0) setTimeLeft(`${days}ө ${hours}ц`);
-      else if (hours > 0) setTimeLeft(`${hours}ц ${mins}м`);
-      else setTimeLeft(`${mins}м`);
-    };
-    update();
-    const interval = setInterval(update, 60000);
-    return () => clearInterval(interval);
-  }, [expiresAt]);
+  const now = React.useSyncExternalStore(subscribeTick, getTickSnapshot, getTickSnapshot);
+  const timeLeft = React.useMemo(
+    () => formatBoostTimeLeft(new Date(expiresAt).getTime(), now),
+    [expiresAt, now]
+  );
 
   return (
     <div className="flex items-center gap-1.5">
@@ -140,18 +145,18 @@ const ServiceCard = React.memo(function ServiceCard({
   listing,
   onToggleActive,
   onEdit,
+  onEditHover,
   onDelete,
   onBoost,
   activeBoost,
-  isUpdatingThisCard,
 }: {
   listing: ListingWithRelations;
   onToggleActive: (id: string, status: ListingStatus) => void;
   onEdit: (id: string) => void;
+  onEditHover: (id: string) => void;
   onDelete: (id: string) => void;
   onBoost: (id: string) => void;
   activeBoost: ActiveBoost | undefined;
-  isUpdatingThisCard: boolean;
 }) {
   const imageUrl = listing.images?.[0]?.url || PLACEHOLDER_IMAGE;
   const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
@@ -166,6 +171,10 @@ const ServiceCard = React.memo(function ServiceCard({
     },
     [onEdit, listing.id]
   );
+
+  const handleEditMouseEnter = React.useCallback(() => {
+    onEditHover(listing.id);
+  }, [onEditHover, listing.id]);
 
   const handleDelete = React.useCallback(
     (e: React.MouseEvent) => {
@@ -264,6 +273,8 @@ const ServiceCard = React.memo(function ServiceCard({
           <div className="flex items-center gap-1">
             <button
               onClick={handleEdit}
+              onMouseEnter={handleEditMouseEnter}
+              onFocus={handleEditMouseEnter}
               className="p-1.5 md:p-2 rounded-lg hover:bg-muted transition-colors"
               title="Засварлах"
             >
@@ -281,14 +292,7 @@ const ServiceCard = React.memo(function ServiceCard({
             <span className="text-[10px] md:text-xs text-muted-foreground">
               {isActive ? "Идэвхтэй" : "Идэвхгүй"}
             </span>
-            <Switch
-              checked={isActive}
-              disabled={isUpdatingThisCard}
-              className="data-[state=checked]:bg-green-500"
-            />
-            {isUpdatingThisCard && (
-              <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
-            )}
+            <Switch checked={isActive} className="data-[state=checked]:bg-green-500" />
           </div>
         </div>
       </div>
@@ -361,7 +365,6 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [listingToDelete, setListingToDelete] = React.useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
-  const [updatingId, setUpdatingId] = React.useState<string | null>(null);
   const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("all");
 
   // Query key для cache updates - используем findMany prefix как ZenStack
@@ -439,7 +442,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   });
 
   // Загружаем услуги пользователя
-  const { data: listings, isLoading: isLoadingListings } = useFindManylistings(
+  const { data: listings } = useFindManylistings(
     {
       where: {
         user_id: user?.id,
@@ -516,16 +519,15 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
     [isAuthenticated, router]
   );
 
-  // Optimistic update для toggle - используем setQueriesData для partial key match
+  // Optimistic toggle. The cache flip above is instant — showing a
+  // spinner next to the switch while the server round-trip completes
+  // is a UX lie (the state the user sees is already the new one).
+  // We just fire the mutation in the background and roll back on
+  // error. No loading flag needed.
   const handleToggleActive = React.useCallback(
-    async (id: string, currentStatus: ListingStatus) => {
+    (id: string, currentStatus: ListingStatus) => {
       const newStatus = currentStatus === "active" ? "paused" : "active";
-      const oldStatus = currentStatus;
 
-      // Set updating ID for this specific card
-      setUpdatingId(id);
-
-      // Optimistic update - используем setQueriesData с predicate для partial match
       queryClient.setQueriesData<ListingWithRelations[]>({ queryKey }, (old) => {
         if (!old) return old;
         return old.map((listing) =>
@@ -533,24 +535,19 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
         );
       });
 
-      try {
-        await updateListing({
-          where: { id },
-          data: { status: newStatus },
+      updateListing({ where: { id }, data: { status: newStatus } })
+        .then(() => {
+          toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо");
+        })
+        .catch(() => {
+          queryClient.setQueriesData<ListingWithRelations[]>({ queryKey }, (old) => {
+            if (!old) return old;
+            return old.map((listing) =>
+              listing.id === id ? { ...listing, status: currentStatus } : listing
+            );
+          });
+          toast.error("Алдаа гарлаа");
         });
-        toast.success(newStatus === "active" ? "Идэвхжүүллээ" : "Түр зогсоолоо");
-      } catch {
-        // Revert on error
-        queryClient.setQueriesData<ListingWithRelations[]>({ queryKey }, (old) => {
-          if (!old) return old;
-          return old.map((listing) =>
-            listing.id === id ? { ...listing, status: oldStatus } : listing
-          );
-        });
-        toast.error("Алдаа гарлаа");
-      } finally {
-        setUpdatingId(null);
-      }
     },
     [updateListing, queryClient, queryKey]
   );
@@ -559,6 +556,16 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const handleEdit = React.useCallback(
     (id: string) => {
       router.push(`/services/edit/${id}`);
+    },
+    [router]
+  );
+
+  // Warm the Next.js router cache when the user hovers the edit
+  // button. By the time they click the RSC payload is already in
+  // memory, so the edit page paints without a cold round-trip.
+  const handleEditHover = React.useCallback(
+    (id: string) => {
+      router.prefetch(`/services/edit/${id}`);
     },
     [router]
   );
@@ -688,24 +695,23 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
     }
   }, [boostListingId, boostPlan, user?.id, createBoost, queryClient]);
 
-  // Мемоизированный фильтрованный список
-  const filteredListings = React.useMemo(() => {
+  // Single pass over listings → buckets by status + total. Reused
+  // for both the filter tabs' badge counts and the visible grid,
+  // so we never walk the array twice.
+  const { filteredListings, counts } = React.useMemo(() => {
     const data = (listings || []) as ListingWithRelations[];
-    if (filterStatus === "all") return data;
-    if (filterStatus === "active") return data.filter((l) => l.status === "active");
-    if (filterStatus === "paused") return data.filter((l) => l.status === "paused");
-    return data;
-  }, [listings, filterStatus]);
-
-  // Counts for tabs
-  const counts = React.useMemo(() => {
-    const data = (listings || []) as ListingWithRelations[];
+    const active: ListingWithRelations[] = [];
+    const paused: ListingWithRelations[] = [];
+    for (const l of data) {
+      if (l.status === "active") active.push(l);
+      else if (l.status === "paused") paused.push(l);
+    }
+    const visible = filterStatus === "active" ? active : filterStatus === "paused" ? paused : data;
     return {
-      all: data.length,
-      active: data.filter((l) => l.status === "active").length,
-      paused: data.filter((l) => l.status === "paused").length,
+      filteredListings: visible,
+      counts: { all: data.length, active: active.length, paused: paused.length },
     };
-  }, [listings]);
+  }, [listings, filterStatus]);
 
   // Not authenticated - show login prompt
   if (!isAuthenticated) {
@@ -738,67 +744,30 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="h-8 w-8 md:h-10 md:w-10">
-                <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-              </Button>
-            </Link>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
-          </div>
-          {/* Mobile Nav */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-            <Button size="sm" asChild>
-              <Link href="/services/create">
-                <Plus className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <Button asChild>
-              <Link href="/services/create">
-                <Plus className="h-4 w-4 mr-2" />
-                Шинэ зар
-              </Link>
-            </Button>
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      {/* Shared header — same markup as loading.tsx, so there's no
+          layout shift when the CTE resolves and this client renders. */}
+      <InnerHeader />
 
       <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Page Title */}
+        {/* Page Title + primary CTA */}
         <div className="flex items-center gap-4 mb-6 md:mb-8">
           <div className="h-12 w-12 md:h-14 md:w-14 rounded-2xl bg-linear-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/25">
             <Package className="h-6 w-6 md:h-7 md:w-7 text-white" />
           </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl md:text-2xl font-bold">Миний зарууд</h2>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {isLoadingListings ? "Ачааллаж байна..." : `${counts.all} зар байна`}
-            </p>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl md:text-2xl font-bold">Миний зарууд</h2>
+            <p className="text-sm text-muted-foreground">{counts.all} зар байна</p>
           </div>
+          <Button asChild className="shrink-0">
+            <Link href="/services/create" prefetch>
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Шинэ зар</span>
+            </Link>
+          </Button>
         </div>
 
         {/* Filter Tabs */}
-        {!isLoadingListings && counts.all > 0 && (
+        {counts.all > 0 && (
           <Tabs
             value={filterStatus}
             onValueChange={(v) => setFilterStatus(v as FilterStatus)}
@@ -841,15 +810,11 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
           </Tabs>
         )}
 
-        {/* Loading State */}
-        {isLoadingListings ? (
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <ServiceCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : filteredListings.length > 0 ? (
-          /* Services Grid */
+        {/* Services Grid — SSR seed + React Query initialData mean
+            `listings` is already populated on the first render, so we
+            go straight to grid or empty state. Next.js loading.tsx
+            covers the window while the server CTE is in flight. */}
+        {filteredListings.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
             {filteredListings.map((listing) => (
               <ServiceCard
@@ -857,10 +822,10 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
                 listing={listing}
                 onToggleActive={handleToggleActive}
                 onEdit={handleEdit}
+                onEditHover={handleEditHover}
                 onDelete={openDeleteDialog}
                 onBoost={openBoostModal}
                 activeBoost={boostByListing.get(listing.id)}
-                isUpdatingThisCard={updatingId === listing.id}
               />
             ))}
           </div>
