@@ -1189,7 +1189,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
             <X className="w-4 h-4" />
           </button>
           <div className="relative w-20 h-20 mx-auto mb-5">
-            <div className="absolute inset-0 rounded-full bg-accent/15 animate-ping" />
+            <div className="absolute inset-0 rounded-full bg-brand/15 animate-ping" />
             <div className="relative w-full h-full rounded-full bg-foreground text-background flex items-center justify-center">
               <svg
                 className="w-9 h-9"
@@ -1268,7 +1268,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
               {/* Accent glow */}
               <div
                 aria-hidden
-                className="pointer-events-none absolute -inset-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-3xl bg-accent/20"
+                className="pointer-events-none absolute -inset-20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-3xl bg-brand/20"
               />
 
               <div className="relative w-20 h-20 rounded-2xl bg-background ring-1 ring-border flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
@@ -1446,14 +1446,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
             )}
           >
             {/* Popular badge */}
-            <span
-              className={cn(
-                "absolute -top-2 right-4 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide",
-                plan === "2day"
-                  ? "bg-accent text-accent-foreground"
-                  : "bg-accent text-accent-foreground"
-              )}
-            >
+            <span className="absolute -top-2 right-4 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-brand text-brand-foreground">
               Хэмнэлттэй
             </span>
             <input

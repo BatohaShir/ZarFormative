@@ -51,7 +51,7 @@ export function SiteHeader({ backHref }: SiteHeaderProps = {}) {
             aria-label="Tsogts.mn"
           >
             <span className="text-[#015197]">Tsogts</span>
-            <span className="text-accent">.mn</span>
+            <span className="text-brand">.mn</span>
           </Link>
         </div>
 

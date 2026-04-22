@@ -103,7 +103,7 @@ export const ListingCard = React.memo(function ListingCard({
       className={cn(
         "group relative block bg-card rounded-2xl overflow-hidden transition-all duration-200",
         "hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]",
-        isVip ? "ring-1 ring-accent/40" : "ring-1 ring-border"
+        isVip ? "ring-1 ring-brand/40" : "ring-1 ring-border"
       )}
       style={{ transitionTimingFunction: "var(--ease-brand)" }}
     >
@@ -121,7 +121,7 @@ export const ListingCard = React.memo(function ListingCard({
 
         {/* VIP badge */}
         {isVip && (
-          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent text-accent-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
+          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand text-brand-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
             <Crown className="w-3 h-3" />
             VIP
           </div>
@@ -147,7 +147,7 @@ export const ListingCard = React.memo(function ListingCard({
             <Heart
               className={cn(
                 "w-4.5 h-4.5 transition-all",
-                isLiked ? "fill-accent text-accent scale-110" : "text-foreground"
+                isLiked ? "fill-brand text-brand scale-110" : "text-foreground"
               )}
             />
           </button>
@@ -161,7 +161,7 @@ export const ListingCard = React.memo(function ListingCard({
           <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
             {listing.category.name}
           </span>
-          <h4 className="font-display font-semibold text-[15px] md:text-base leading-snug line-clamp-2 group-hover:text-accent transition-colors">
+          <h4 className="font-display font-semibold text-[15px] md:text-base leading-snug line-clamp-2">
             {listing.title}
           </h4>
         </div>
@@ -196,7 +196,7 @@ export const ListingCard = React.memo(function ListingCard({
               {listing.views_count}
             </span>
             <span className="flex items-center gap-1">
-              <Heart className={cn("w-3 h-3", isLiked && "fill-accent text-accent")} />
+              <Heart className={cn("w-3 h-3", isLiked && "fill-brand text-brand")} />
               {listing.favorites_count + (isLiked ? 1 : 0)}
             </span>
           </div>

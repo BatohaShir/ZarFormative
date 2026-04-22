@@ -62,8 +62,8 @@ export async function RecommendedListingsSSR({
       {vipListings.length > 0 && (
         <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-2 mb-3">
-            <span className="inline-block w-6 h-px bg-accent" />
-            <span className="text-[11px] uppercase tracking-widest font-semibold text-accent">
+            <span className="inline-block w-6 h-px bg-brand" />
+            <span className="text-[11px] uppercase tracking-widest font-semibold text-brand">
               {t("featuredLabel")}
             </span>
           </div>

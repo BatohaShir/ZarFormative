@@ -27,7 +27,7 @@ export function Footer() {
           <div className="max-w-sm">
             <h2 className="font-display text-2xl font-bold tracking-tight mb-3">
               <span className="text-[#015197]">Tsogts</span>
-              <span className="text-accent">.mn</span>
+              <span className="text-brand">.mn</span>
             </h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Монголын хамгийн том үйлчилгээний платформ.
@@ -95,7 +95,7 @@ export function Footer() {
                 href="https://formative.mn"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-foreground hover:text-accent transition-colors"
+                className="font-medium text-foreground hover:text-brand transition-colors"
               >
                 Formative
               </a>
