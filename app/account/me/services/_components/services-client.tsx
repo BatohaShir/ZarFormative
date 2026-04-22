@@ -49,6 +49,7 @@ import { useFindManylisting_boosts, useCreatelisting_boosts } from "@/lib/hooks/
 import { formatListingPrice } from "@/lib/utils";
 import { deleteAllListingImages } from "@/lib/storage/listings";
 import type { listings } from "@prisma/client";
+import type { MyServicesSsrData } from "@/lib/profile/my-services-query";
 
 // Lazy load LoginPromptModal
 const LoginPromptModal = dynamic(
@@ -336,7 +337,16 @@ const EmptyState = React.memo(function EmptyState({ filter }: { filter: FilterSt
   );
 });
 
-export function ServicesClient() {
+interface ServicesClientProps {
+  /**
+   * Server-seeded listings + active boosts from one CTE round-trip.
+   * When provided, the client skips its mount-time REST calls and
+   * renders the grid immediately.
+   */
+  ssrData?: MyServicesSsrData;
+}
+
+export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
@@ -356,6 +366,70 @@ export function ServicesClient() {
       setShowLoginModal(true);
     }
   }, [isAuthenticated]);
+
+  // Seed React Query from SSR once, before the child hooks run their
+  // useQuery. Keys mirror the exact args passed to
+  // useFindManylistings / useFindManylisting_boosts below so the
+  // hooks see isFetched: true on mount. Dates come back from the CTE
+  // as ISO strings; we coerce to Date to match Prisma's native shape.
+  React.useState(() => {
+    if (!ssrData || !user?.id) return null;
+
+    const listingsKey = [
+      "listings",
+      "findMany",
+      {
+        where: { user_id: user.id },
+        include: {
+          category: { select: { name: true, slug: true } },
+          images: {
+            where: { is_cover: true },
+            select: { id: true, url: true, alt: true },
+            take: 1,
+          },
+          aimag: { select: { name: true } },
+        },
+        orderBy: { created_at: "desc" },
+      },
+    ];
+
+    queryClient.setQueryData(
+      listingsKey,
+      ssrData.listings.map((l) => ({
+        ...l,
+        created_at: new Date(l.created_at),
+      }))
+    );
+
+    // Boosts key carries a 5-min-rounded threshold that the hook below
+    // also computes. Compute it the same way here so the seed hits the
+    // exact cache slot the hook will read. If the user stays on the
+    // page past the next 5-min boundary the hook will fetch once with
+    // the new threshold — expected and fine, only one round-trip.
+    const fiveMin = 5 * 60 * 1000;
+    const threshold = new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
+    const boostsKey = [
+      "listing_boosts",
+      "findMany",
+      {
+        where: {
+          user_id: user.id,
+          status: "boost_active",
+          expires_at: { gt: threshold },
+        },
+        orderBy: { expires_at: "desc" },
+      },
+    ];
+    queryClient.setQueryData(
+      boostsKey,
+      ssrData.activeBoosts.map((b) => ({
+        ...b,
+        expires_at: new Date(b.expires_at),
+        created_at: new Date(b.created_at),
+      }))
+    );
+    return null;
+  });
 
   // Загружаем услуги пользователя
   const { data: listings, isLoading: isLoadingListings } = useFindManylistings(
