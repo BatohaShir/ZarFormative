@@ -36,8 +36,8 @@ export async function RecommendedListingsSSR({
           />
           <p className="font-display text-lg font-semibold">{t("emptyTitle")}</p>
           <p className="text-muted-foreground text-sm mt-1">{t("emptySubtitle")}</p>
-          <Link href="/services/create" className="mt-5">
-            <Button>{t("postAd")}</Button>
+          <Link href="/services" className="mt-5">
+            <Button>{t("viewAll")}</Button>
           </Link>
         </div>
       </section>
@@ -62,14 +62,14 @@ export async function RecommendedListingsSSR({
       {vipListings.length > 0 && (
         <div className="mb-6 md:mb-8">
           <div className="flex items-center gap-2 mb-3">
-            <span className="inline-block w-6 h-px bg-brand" />
-            <span className="text-[11px] uppercase tracking-widest font-semibold text-brand">
-              {t("featuredLabel")}
+            <span className="inline-block w-6 h-px bg-linear-to-r from-amber-400 to-yellow-600" />
+            <span className="text-[11px] uppercase tracking-widest font-semibold bg-linear-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent">
+              {t("vipListingsLabel")}
             </span>
           </div>
           <div className="stagger grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
             {vipListings.map((listing, i) => (
-              <div key={listing.id} style={{ ["--i" as string]: i }}>
+              <div key={listing.id} className="h-full" style={{ ["--i" as string]: i }}>
                 <ListingCard listing={listing} priority isVip />
               </div>
             ))}
@@ -79,7 +79,7 @@ export async function RecommendedListingsSSR({
 
       <div className="stagger grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
         {regularListings.map((listing, index) => (
-          <div key={listing.id} style={{ ["--i" as string]: index }}>
+          <div key={listing.id} className="h-full" style={{ ["--i" as string]: index }}>
             <ListingCard listing={listing} priority={vipListings.length === 0 && index < 4} />
           </div>
         ))}

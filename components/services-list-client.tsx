@@ -63,6 +63,7 @@ function ServicesListContent({
 }: ServicesListClientProps) {
   const t = useTranslations("listings");
   const tCommon = useTranslations("common");
+  const tHome = useTranslations("home");
   const router = useRouter();
 
   // Track if URL was updated by user interaction (skip first render)
@@ -92,6 +93,17 @@ function ServicesListContent({
   const [selectedDistrictId, setSelectedDistrictId] = React.useState(
     () => initialFilters.districtId
   );
+
+  // When the site-wide aimag selector changes the cookie and triggers
+  // router.refresh(), the server re-renders this page with a new
+  // initialFilters.aimagId. But this component is a client boundary —
+  // useState's initializer only runs on mount, so without this sync
+  // the old selection would stick and the grid would keep showing the
+  // previous city.
+  React.useEffect(() => {
+    setSelectedAimagId(initialFilters.aimagId);
+    setSelectedDistrictId(initialFilters.districtId);
+  }, [initialFilters.aimagId, initialFilters.districtId]);
   const [selectedDistrictName, setSelectedDistrictName] = React.useState("");
   const [providerType, setProviderType] = React.useState<ProviderType>(
     () => initialFilters.provider
@@ -140,11 +152,11 @@ function ServicesListContent({
 
   // True when current state still matches the filters SSR rendered with.
   // While true we can reuse initialListings as React Query's initialData,
-  // avoiding a re-fetch on mount. Cluster-map selection is a client-only
-  // state not represented in the SSR filters, so any selection forces a
-  // fresh query.
+  // avoiding a re-fetch on mount. selectedListingIds is now filtered
+  // client-side (see listingsData below) so it doesn't participate in
+  // the SSR-match check — the SSR data stays valid even when the user
+  // narrows the grid to a map cluster.
   const matchesInitialFilters =
-    selectedListingIds.length === 0 &&
     debouncedSearchQuery === initialFilters.q &&
     sortBy === initialFilters.sort &&
     selectedAimagId === initialFilters.aimagId &&
@@ -172,10 +184,12 @@ function ServicesListContent({
   // REST endpoint. Same query the SSR loader uses, so filter changes
   // and "load more" never go through the slower ZenStack middleware
   // and can't diverge from what SSR rendered.
-  const queryKey = React.useMemo(
-    () => ["services", activeFilters, selectedListingIds.join(",")] as const,
-    [activeFilters, selectedListingIds]
-  );
+  // Note: selectedListingIds is deliberately *not* in the queryKey or
+  // the fetch params. Clicking a map cluster narrows the grid to a
+  // subset of listings that are already in memory — firing a round-
+  // trip to re-fetch them would waste ~600ms on MN→Seoul for data we
+  // already have. The narrowing happens client-side below.
+  const queryKey = React.useMemo(() => ["services", activeFilters] as const, [activeFilters]);
 
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery<
     ServicesQueryResult,
@@ -185,9 +199,6 @@ function ServicesListContent({
     initialPageParam: undefined as { createdAt: string; id: string } | undefined,
     queryFn: async ({ pageParam, signal }) => {
       const params = filtersToSearchParams(activeFilters);
-      if (selectedListingIds.length > 0) {
-        params.set("listingIds", selectedListingIds.join(","));
-      }
       const cursor = pageParam as { createdAt: string; id: string } | undefined;
       if (cursor) {
         params.set("cursorCreatedAt", cursor.createdAt);
@@ -360,14 +371,14 @@ function ServicesListContent({
     []
   );
 
-  // Handle cluster selection from map - filter by listing IDs
+  // Handle cluster selection from map. The narrowing is purely
+  // client-side now — selectedListingIds doesn't touch the queryKey,
+  // so no server round-trip fires. We also *don't* clear the aimag/
+  // district filters: the cluster the user clicked lives inside the
+  // already-filtered dataset, so there's no reason to blow those
+  // filters away (doing so used to trigger an unrelated refetch
+  // before the narrowing even ran).
   const handleClusterSelectFromMap = React.useCallback((listingIds: string[]) => {
-    // Clear location filters when using listing IDs filter
-    setSelectedDistrictId("");
-    setSelectedAimagId("");
-    setSelectedAimagName("");
-    setSelectedDistrictName("");
-    // Set listing IDs filter
     setSelectedListingIds(listingIds);
   }, []);
 
@@ -391,7 +402,21 @@ function ServicesListContent({
     (providerType !== "all" ? 1 : 0) +
     (selectedListingIds.length > 0 ? 1 : 0);
 
+  // Everything returned by the server. Fed to <ServicesMap /> so the
+  // map can keep drawing all clusters/markers even when the grid is
+  // narrowed to one of them.
   const listingsData = (listings || []) as ListingWithRelations[];
+
+  // Client-side narrowing when the user clicked a map cluster. This
+  // used to be a server round-trip (~600ms); since the cluster's
+  // listings are already in listingsData, we just filter in memory.
+  // O(n) over a small array (< PAGE_SIZE * pages loaded), so it's
+  // effectively free.
+  const visibleListings = React.useMemo(() => {
+    if (selectedListingIds.length === 0) return listingsData;
+    const idSet = new Set(selectedListingIds);
+    return listingsData.filter((l) => idSet.has(l.id));
+  }, [listingsData, selectedListingIds]);
 
   // Boosts now arrive in the same /api/services response as the listings
   // (same CTE), so we don't need a separate listing_boosts query here —
@@ -399,26 +424,28 @@ function ServicesListContent({
   // every mount. boostedIdsFromQuery comes from data.pages[0].
   const boostedIds = React.useMemo(() => new Set(boostedIdsFromQuery), [boostedIdsFromQuery]);
 
-  // Split into VIP and regular
+  // Split into VIP and regular — applied to the *visible* list (post
+  // cluster-narrowing), so clicking a cluster doesn't leak VIP cards
+  // from outside it.
   const { vipListings, regularListings } = React.useMemo(() => {
     const vip: ListingWithRelations[] = [];
     const regular: ListingWithRelations[] = [];
-    for (const listing of listingsData) {
+    for (const listing of visibleListings) {
       if (boostedIds.has(listing.id)) vip.push(listing);
       else regular.push(listing);
     }
     return { vipListings: vip, regularListings: regular };
-  }, [listingsData, boostedIds]);
+  }, [visibleListings, boostedIds]);
 
   // OPTIMIZATION: Memoize billboard data to avoid calling getMockBillboards on every render
   const inlineBillboards = React.useMemo(() => getMockBillboards("services_inline"), []);
 
-  // Show what's actually loaded on screen. Previously we did a separate
+  // Show what's actually visible on screen. Previously we did a separate
   // COUNT(*) on SSR for the no-filter case just so the header could say
   // "(1,243 results)" vs "(12 results)" — an extra DB round-trip for a
-  // vanity label. Drop the dedicated count and report the loaded count;
+  // vanity label. Drop the dedicated count and report the visible count;
   // infinite scroll will bump it as more pages stream in.
-  const displayTotalCount = listingsData.length;
+  const displayTotalCount = visibleListings.length;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -448,6 +475,7 @@ function ServicesListContent({
           />
           <CitySelect
             onSelect={handleLocationSelect}
+            scopesGlobalCookie={false}
             value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
             initialAimags={initialReferenceData.aimags}
             initialDistrictsForAimag={
@@ -473,6 +501,7 @@ function ServicesListContent({
           {/* Location — full width */}
           <CitySelect
             onSelect={handleLocationSelect}
+            scopesGlobalCookie={false}
             value={{ aimagId: selectedAimagId, districtId: selectedDistrictId }}
             initialAimags={initialReferenceData.aimags}
             initialDistrictsForAimag={
@@ -581,10 +610,11 @@ function ServicesListContent({
               />
             </div>
 
-            {/* Results header with sort */}
+            {/* Results header with sort. Count reflects what's
+                actually visible post map-cluster narrowing. */}
             <div className="flex items-end justify-between mb-5 md:mb-6">
               <p className="text-sm md:text-base">
-                <span className="font-display font-semibold tabular">{listingsData.length}</span>{" "}
+                <span className="font-display font-semibold tabular">{visibleListings.length}</span>{" "}
                 <span className="text-muted-foreground">{t("services")}</span>
               </p>
               <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
@@ -602,13 +632,24 @@ function ServicesListContent({
 
             {isLoading ? (
               <ListingCardSkeletonGrid count={6} />
-            ) : listingsData.length > 0 ? (
+            ) : visibleListings.length > 0 ? (
               <>
-                {/* All listings: VIP first with gold border, then regular */}
+                {vipListings.length > 0 && (
+                  <div className="mb-6 md:mb-8">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="inline-block w-6 h-px bg-linear-to-r from-amber-400 to-yellow-600" />
+                      <span className="text-[11px] uppercase tracking-widest font-semibold bg-linear-to-r from-amber-500 to-yellow-600 bg-clip-text text-transparent">
+                        {tHome("vipListingsLabel")}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
+                      {vipListings.map((listing) => (
+                        <ListingCard key={listing.id} listing={listing} priority isVip />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-                  {vipListings.map((listing) => (
-                    <ListingCard key={listing.id} listing={listing} priority isVip />
-                  ))}
                   {regularListings.map((listing, index) => {
                     const items = [
                       <ListingCard

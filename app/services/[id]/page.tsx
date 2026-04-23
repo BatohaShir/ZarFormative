@@ -1,97 +1,62 @@
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { cache } from "react";
-import { prisma } from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 import {
   ServiceDetailClient,
   ServiceNotFound,
   type ServiceDetailListing,
 } from "@/components/service-detail-client";
+import { fetchServiceDetailBySlug, type ServiceDetailSsrData } from "@/lib/services/detail-query";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, getFirstImageUrl } from "@/lib/formatters";
 
-// SSR на каждый запрос
-export const dynamic = "force-dynamic";
+// No more force-dynamic. The page is the same for every visitor, so
+// we can cache by slug. router.refresh()/revalidateTag("listing:<slug>")
+// from a server action (edit, delete, view-bump) still busts it
+// whenever the data changes.
+export const revalidate = 60;
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// Загрузка данных на сервере - cache() дедуплицирует запросы
-// в рамках одного рендера (generateMetadata + page)
-const getListingBySlug = cache(async function getListingBySlug(slug: string) {
-  const listing = await prisma.listings.findUnique({
-    where: { slug },
-    include: {
-      user: {
-        select: {
-          id: true,
-          first_name: true,
-          last_name: true,
-          avatar_url: true,
-          company_name: true,
-          is_company: true,
-          is_verified: true,
-          created_at: true,
-        },
-      },
-      category: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-        },
-      },
-      images: {
-        select: {
-          id: true,
-          url: true,
-          sort_order: true,
-          alt: true,
-        },
-        orderBy: {
-          sort_order: "asc",
-        },
-        take: 10, // Limit images for performance
-      },
-      aimag: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      district: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      khoroo: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
+// Two layers of caching intentionally:
+//
+//   * unstable_cache(slug) — Next.js Data Cache, 60s TTL. Survives
+//     across requests from different users and different Node
+//     instances. First visit pays the CTE, the next hundred are
+//     served from the cache.
+//
+//   * React.cache() — in-request memoization so generateMetadata()
+//     and the page render share a single call. Without it we'd pay
+//     two lookups per request even with the Data Cache warm, because
+//     unstable_cache serialises the Date on user.created_at and we'd
+//     unserialize twice.
+const getListingBySlug = cache(async function getListingBySlug(
+  slug: string
+): Promise<ServiceDetailSsrData> {
+  const cached = unstable_cache(() => fetchServiceDetailBySlug(slug), ["service-detail", slug], {
+    revalidate: 60,
+    tags: [`listing:${slug}`],
   });
-
-  if (!listing) return null;
-
-  // Сериализуем Decimal в number для Client Components
+  const data = await cached();
+  if (!data.listing) return data;
+  // unstable_cache stringifies Dates on the way through — reviving
+  // here so the client types (ServiceDetailListing.user.created_at: Date)
+  // stay honest.
   return {
-    ...listing,
-    price: listing.price ? Number(listing.price) : null,
-    latitude: listing.latitude ? Number(listing.latitude) : null,
-    longitude: listing.longitude ? Number(listing.longitude) : null,
-    // Для "Миний газар" детальный адрес хранится в поле address
-    address_detail: listing.address || null,
-  } as ServiceDetailListing;
+    ...data,
+    listing: {
+      ...data.listing,
+      user: { ...data.listing.user, created_at: new Date(data.listing.user.created_at) },
+    },
+  };
 });
 
 // Dynamic SEO metadata для каждого объявления
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const listing = await getListingBySlug(id);
+  const { listing } = await getListingBySlug(id);
 
   if (!listing) {
     return {
@@ -202,28 +167,48 @@ function ServiceJsonLd({ listing }: { listing: ServiceDetailListing }) {
 
 export default async function ServicePage({ params }: PageProps) {
   const { id } = await params;
-  const listing = await getListingBySlug(id);
+  const { listing, reviews, reviewsTotal } = await getListingBySlug(id);
 
   if (!listing) {
     return <ServiceNotFound />;
   }
+
+  // CTE returns ISO strings for review.created_at; the client's
+  // ReviewWithClient type wants Date. Coerce at the boundary so the
+  // ReviewsList seed doesn't drift from what's already in the cache.
+  const initialReviews = reviews.map((r) => ({
+    ...r,
+    created_at: new Date(r.created_at),
+  }));
+
+  // Preload the main image and the next two gallery shots. LCP is
+  // almost always the hero; the next two preempt scroll-driven
+  // fetches with no risk because they're at the top of the page.
+  const images = listing.images.slice(0, 3);
 
   return (
     <>
       {/* JSON-LD Structured Data */}
       <ServiceJsonLd listing={listing} />
 
-      {/* Preload главного изображения */}
-      <link
-        rel="preload"
-        as="image"
-        href={getFirstImageUrl(listing.images)}
-        // @ts-expect-error - fetchpriority is valid but not typed
-        fetchpriority="high"
-      />
+      {/* Preload hero + next two gallery images for instant scroll. */}
+      {images.map((img, i) => (
+        <link
+          key={img.id}
+          rel="preload"
+          as="image"
+          href={img.url}
+          // @ts-expect-error - fetchpriority is valid but not typed
+          fetchpriority={i === 0 ? "high" : "low"}
+        />
+      ))}
 
       {/* Client Component с интерактивностью */}
-      <ServiceDetailClient listing={listing} />
+      <ServiceDetailClient
+        listing={listing}
+        initialReviews={initialReviews}
+        initialReviewsTotal={reviewsTotal}
+      />
     </>
   );
 }

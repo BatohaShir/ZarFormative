@@ -155,7 +155,9 @@ export function ServicesMapLeaflet({
   }, [listingsWithCoords]);
 
   return (
-    <div className="relative w-full h-full">
+    // `isolate` creates a new stacking context so the map's internal z-indexes
+    // (tiles, markers, controls) don't leak above sticky page chrome.
+    <div className="relative w-full h-full isolate">
       <MapContainer
         center={DEFAULT_MAP_CENTER}
         zoom={DEFAULT_ZOOM}

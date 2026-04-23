@@ -7,14 +7,13 @@ import { useRouter } from "next/navigation";
 import { Search, MapPin, ArrowRight, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
-import { CitySelect } from "@/components/city-select";
+import { CitySelect, CITY_SELECT_STORAGE_KEY } from "@/components/city-select";
 import { useSearch } from "@/hooks/use-search";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatListingPrice } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 const POPULAR_QUERIES = ["Сантехник", "Цэвэрлэгээ", "Засвар", "Тээвэр", "Цахилгаанчин", "IT"];
-const LOCATION_KEY = "tsogts_selected_location";
 const DROPDOWN_LIMIT = 5;
 
 export function HeroSearch() {
@@ -41,16 +40,17 @@ export function HeroSearch() {
 
   const results = searchData?.results ?? [];
 
-  const locationParamsFromStorage = React.useCallback(() => {
+  // Only district needs to travel as a URL param now — the selected
+  // aimag lives in the `selected_aimag` cookie which /services reads
+  // on the server. Keeping ?aimag= in the URL would double-source
+  // the filter and could drift from the cookie.
+  const districtParamFromStorage = React.useCallback(() => {
     if (typeof window === "undefined") return "";
     try {
-      const stored = localStorage.getItem(LOCATION_KEY);
+      const stored = localStorage.getItem(CITY_SELECT_STORAGE_KEY);
       if (!stored) return "";
-      const parsed = JSON.parse(stored) as { aimagId?: string; districtId?: string };
-      const p = new URLSearchParams();
-      if (parsed.aimagId) p.set("aimag", parsed.aimagId);
-      if (parsed.districtId) p.set("district", parsed.districtId);
-      return p.toString();
+      const parsed = JSON.parse(stored) as { districtId?: string };
+      return parsed.districtId ?? "";
     } catch {
       return "";
     }
@@ -61,15 +61,12 @@ export function HeroSearch() {
       const params = new URLSearchParams();
       const trimmed = q.trim();
       if (trimmed) params.set("q", trimmed);
-      const loc = locationParamsFromStorage();
-      if (loc) {
-        const locParams = new URLSearchParams(loc);
-        locParams.forEach((v, k) => params.set(k, v));
-      }
+      const districtId = districtParamFromStorage();
+      if (districtId) params.set("district", districtId);
       const qs = params.toString();
       router.push(qs ? `/services?${qs}` : "/services");
     },
-    [router, locationParamsFromStorage]
+    [router, districtParamFromStorage]
   );
 
   const handleSubmit = (e: React.FormEvent) => {

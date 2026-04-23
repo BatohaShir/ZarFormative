@@ -4,35 +4,43 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
-import { RequestForm } from "@/components/request-form";
-import { ChevronLeft, MapPin, Heart, Eye, Navigation, FileText } from "lucide-react";
+import { RequestFormLazy } from "@/components/request-form-lazy";
+import { MapPin, Heart, Eye, Navigation } from "lucide-react";
 import { SocialShareButtons } from "@/components/social-share-buttons";
 import { InnerHeader } from "@/components/app-header";
 import { useRealtimeViews } from "@/hooks/use-realtime-views";
-import { useQueryClient } from "@tanstack/react-query";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
+import type { ReviewWithClient } from "@/components/ui/review-item";
 
-// Dynamic imports for code-splitting
+// Dynamic imports for code-splitting.
+//
+// Lightbox and LocationMapModal stay ssr:false: they pull in heavy
+// browser-only deps (Leaflet, focus traps) and they're modals that
+// only render on click, so SSR'ing them is dead weight.
+//
+// ProviderCard used to be ssr:false too, which meant the sidebar
+// flashed a blank column on first paint while the client chunk
+// loaded. It's pure UI (no browser APIs), so letting it SSR gets
+// rid of the flash — the card renders inline with the rest of the
+// page.
+//
+// ReviewsList stays ssr:false on purpose: it fires its own REST
+// fetch through ZenStack on mount. If we SSR'd it we'd pay that
+// round-trip on every detail-page hit before the HTML even ships,
+// instead of streaming it in after hydration.
 const ImageLightbox = dynamic(
   () => import("@/components/image-lightbox").then((mod) => mod.ImageLightbox),
   { ssr: false }
 );
 
-const ProviderCard = dynamic(
-  () => import("@/components/provider-card").then((mod) => mod.ProviderCard),
-  { ssr: false }
+const ProviderCard = dynamic(() =>
+  import("@/components/provider-card").then((mod) => mod.ProviderCard)
 );
 
 const ReviewsList = dynamic(
@@ -90,14 +98,21 @@ export interface ServiceDetailListing {
 
 interface ServiceDetailClientProps {
   listing: ServiceDetailListing;
+  /**
+   * SSR-seeded review list (up to 10 most recent). Passed to
+   * ReviewsList as initialData so the mobile + desktop review
+   * sections render without their two ZenStack round-trips on mount.
+   */
+  initialReviews?: ReviewWithClient[];
+  initialReviewsTotal?: number;
 }
 
 export const ServiceDetailClient = React.memo(function ServiceDetailClient({
   listing,
+  initialReviews,
+  initialReviewsTotal,
 }: ServiceDetailClientProps) {
   const t = useTranslations("listings");
-  const router = useRouter();
-  const queryClient = useQueryClient();
   // Используем раздельные хуки для лучшей производительности
   const { isFavorite } = useFavoriteIds();
   const { toggleFavorite } = useFavoriteActions();
@@ -116,39 +131,42 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
     enabled: !!listing.id,
   });
 
-  // Track view when page loads (only once per session) with abort controller
+  // Track view as a fire-and-forget sendBeacon. Previously this was a
+  // fetch() + .then() that held the hydration thread waiting on a
+  // response we didn't actually use — the setQueryData call wrote to
+  // a handrolled key that never matched ZenStack's real cache slot
+  // (["zenstack", ...]), so nothing downstream ever read it. Dead
+  // round-trip, dead cache write.
+  //
+  // sendBeacon ships the POST during idle / unload time, doesn't
+  // block page interactivity, and has no callback. The server still
+  // deduplicates (24h uniqueness window) and bumps the counter.
+  // Scheduled through requestIdleCallback so even the beacon call
+  // itself waits until the main thread is free.
   const viewTrackedRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (!listing.slug || viewTrackedRef.current === listing.slug) return;
-
-    const controller = new AbortController();
     viewTrackedRef.current = listing.slug;
 
-    fetch(`/api/listings/${listing.slug}/view`, {
-      method: "POST",
-      credentials: "include",
-      signal: controller.signal,
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && !data.skipped && data.views_count !== undefined) {
-          queryClient.setQueryData(
-            ["listings", "findUnique", { where: { slug: listing.slug } }],
-            (oldData: typeof listing) =>
-              oldData ? { ...oldData, views_count: data.views_count } : oldData
-          );
-        }
-      })
-      .catch((error) => {
-        // Silently fail - view tracking is not critical
-        // Only log if not aborted
-        if (error.name !== "AbortError") {
-          // View tracking failed silently
-        }
-      });
+    const ship = () => {
+      const url = `/api/listings/${listing.slug}/view`;
+      if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        // sendBeacon expects a body; an empty Blob is fine — the
+        // route reads slug from the URL, not the payload.
+        navigator.sendBeacon(url, new Blob([], { type: "application/json" }));
+      } else {
+        // Fallback for the rare UA without Beacon API. keepalive lets
+        // the request survive page navigation the same way a beacon
+        // would. We still don't await.
+        void fetch(url, { method: "POST", credentials: "include", keepalive: true });
+      }
+    };
 
-    return () => controller.abort();
-  }, [listing.slug, queryClient]);
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number })
+      .requestIdleCallback;
+    if (idle) idle(ship);
+    else setTimeout(ship, 0);
+  }, [listing.slug]);
 
   const handleSave = () => {
     // Pass a listing snapshot so the /favorites grid can show the new
@@ -178,62 +196,46 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
     });
   };
 
-  const providerName = getProviderName(listing.user);
-  const priceDisplay = formatListingPrice(listing.price, listing.currency, listing.is_negotiable);
-  const locationDisplay = formatLocation(listing);
-  const imageUrl = getFirstImageUrl(listing.images);
-  const memberSince = new Date(listing.user.created_at).getFullYear().toString();
+  // All of these derive from `listing`, which is stable for the
+  // lifetime of this page — the listing object doesn't change once
+  // the server hands it over. Memoizing keeps re-renders triggered
+  // by unrelated context updates (favorites, theme, auth) from
+  // redoing the same string concatenation every frame.
+  const providerName = React.useMemo(() => getProviderName(listing.user), [listing.user]);
+  const priceDisplay = React.useMemo(
+    () => formatListingPrice(listing.price, listing.currency, listing.is_negotiable),
+    [listing.price, listing.currency, listing.is_negotiable]
+  );
+  const locationDisplay = React.useMemo(() => formatLocation(listing), [listing]);
+  const imageUrl = React.useMemo(() => getFirstImageUrl(listing.images), [listing.images]);
+  const memberSince = React.useMemo(
+    () => new Date(listing.user.created_at).getFullYear().toString(),
+    [listing.user.created_at]
+  );
   const isOwnListing = user?.id === listing.user.id;
-  const isFav = isFavorite(listing.id);
+  // isFavorite identity changes when any favorite flips; memoizing on
+  // listing.id + isFavorite skips the Set lookup on re-renders where
+  // neither changed.
+  const isFav = React.useMemo(() => isFavorite(listing.id), [isFavorite, listing.id]);
 
   return (
     <div className="min-h-screen bg-background pb-32 md:pb-20 lg:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur z-50">
-        <div className="container mx-auto px-3 md:px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 md:h-10 md:w-10"
-              onClick={() => router.back()}
-            >
-              <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-            <Link href="/" className="hidden sm:block">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
-          </div>
-          {/* Mobile Nav - theme toggle + notifications bell */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      {/* Same header shell loading.tsx uses — no layout flash when
+          the server data lands and this client renders. */}
+      <InnerHeader />
 
-      <main className="container mx-auto px-3 md:px-4 py-4 md:py-6 pb-24 lg:pb-6">
-        <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
+      <main className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-24 lg:pb-10">
+        <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
             {/* Main Image with preload priority */}
             <div
-              className="relative aspect-video rounded-xl md:rounded-2xl overflow-hidden cursor-pointer group"
+              className="relative aspect-video rounded-2xl overflow-hidden cursor-pointer group ring-1 ring-border bg-muted"
               onClick={() => {
                 setLightboxIndex(0);
                 setLightboxOpen(true);
               }}
+              style={{ transitionTimingFunction: "var(--ease-brand)" }}
             >
               <Image
                 src={imageUrl}
@@ -241,12 +243,10 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
                 fill
                 priority
                 sizes="(max-width: 1024px) 100vw, 66vw"
-                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                style={{ transitionTimingFunction: "var(--ease-brand)" }}
               />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-              <span className="absolute top-2 left-2 md:top-4 md:left-4 bg-white/95 dark:bg-black/80 text-foreground px-2 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium">
-                {listing.category?.name}
-              </span>
             </div>
 
             {/* Share & Like Buttons */}
@@ -257,69 +257,81 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
                 className="flex-1 sm:flex-none"
               />
               {!isOwnListing && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={`flex-1 sm:flex-none ${isFav ? "bg-pink-50 border-pink-200 text-pink-600 dark:bg-pink-950/30 dark:border-pink-800" : ""}`}
+                <button
+                  type="button"
                   onClick={handleSave}
+                  aria-label={isFav ? t("saved") : t("save")}
+                  className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full text-sm font-medium transition-all active:scale-[0.98] ${
+                    isFav
+                      ? "bg-brand/10 text-brand ring-1 ring-brand/20 hover:bg-brand/15"
+                      : "border border-border bg-card hover:bg-muted"
+                  }`}
+                  style={{ transitionTimingFunction: "var(--ease-brand)" }}
                 >
-                  <Heart className={`h-4 w-4 mr-2 ${isFav ? "fill-current" : ""}`} />
-                  {isFav ? t("saved") : t("save")}
-                </Button>
+                  <Heart className={`h-4 w-4 ${isFav ? "fill-brand text-brand" : ""}`} />
+                  <span>{isFav ? t("saved") : t("save")}</span>
+                </button>
               )}
             </div>
 
             {/* Title & Price Card */}
-            <div className="bg-card border rounded-2xl p-4 md:p-5 space-y-3">
-              <h1 className="text-xl md:text-2xl font-bold leading-tight wrap-anywhere">
+            <div className="bg-card rounded-2xl ring-1 ring-border p-5 md:p-6 space-y-4">
+              {/* Category micro-label */}
+              {listing.category?.name && (
+                <span className="inline-block text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                  {listing.category.name}
+                </span>
+              )}
+
+              <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight leading-tight wrap-anywhere">
                 {listing.title}
               </h1>
 
+              {/* Price — hero */}
+              <p className="font-display text-2xl md:text-3xl lg:text-4xl font-bold tabular tracking-tight">
+                {priceDisplay}
+              </p>
+
               {/* Divider */}
-              <div className="border-t border-border/50" />
+              <div className="border-t border-border" />
 
-              {/* Price */}
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm text-muted-foreground">{t("price")}:</span>
-                <span className="text-2xl md:text-3xl font-bold bg-linear-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                  {priceDisplay}
-                </span>
-              </div>
-
-              {/* Location & Views */}
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+              {/* Location + Map CTA */}
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
                     <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-muted-foreground">{t("location")}</p>
-                    <p className="font-medium text-sm md:text-base wrap-break-word">
+                    <p className="text-[11px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                      {t("location")}
+                    </p>
+                    <p className="font-medium text-sm md:text-base mt-0.5 wrap-break-word">
                       {listing.service_type === "remote" && listing.address_detail
                         ? listing.address_detail
                         : locationDisplay}
                     </p>
                   </div>
-                  {hasCoordinates && (
-                    <button
-                      onClick={() => setShowMapModal(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500 hover:bg-blue-600 text-white transition-colors shrink-0 text-xs font-medium shadow-sm"
-                      title="Газрын зурагт харах"
-                    >
-                      <Navigation className="w-3.5 h-3.5" />
-                      <span>Map</span>
-                    </button>
-                  )}
                 </div>
+                {hasCoordinates && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMapModal(true)}
+                    aria-label="Газрын зурагт харах"
+                    className="self-start shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20 hover:bg-blue-600 hover:text-white hover:ring-blue-600 active:scale-95 transition-[background-color,color,box-shadow,transform] duration-200 text-xs font-semibold"
+                    style={{ transitionTimingFunction: "var(--ease-brand)" }}
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    <span className="leading-none tracking-wide">Газар</span>
+                  </button>
+                )}
               </div>
 
-              {/* Views badge */}
+              {/* Views stat */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-xs">
                   <Eye className="h-3.5 w-3.5" />
-                  <span>
-                    {viewsCount} {t("views")}
-                  </span>
+                  <span className="tabular">{viewsCount}</span>
+                  <span>{t("views")}</span>
                 </div>
               </div>
             </div>
@@ -335,63 +347,77 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
                 isOwnListing={isOwnListing}
                 variant="mobile"
                 serviceType={listing.service_type as "on_site" | "remote" | undefined}
+                initialReviews={initialReviews}
+                initialReviewsTotal={initialReviewsTotal}
               />
             </div>
 
             {/* Description */}
-            <div className="bg-card border rounded-2xl overflow-hidden">
-              <div className="bg-muted/30 px-4 md:px-5 py-3 md:py-4 border-b">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-base md:text-lg">{t("details")}</h2>
-                    <p className="text-xs text-muted-foreground">{t("serviceDescription")}</p>
-                  </div>
-                </div>
+            <section>
+              <div className="mb-3 md:mb-4">
+                <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
+                  {t("details")}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-0.5">{t("serviceDescription")}</p>
               </div>
-              <div className="p-4 md:p-5">
-                <p className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap wrap-anywhere">
+              <div className="bg-card rounded-2xl ring-1 ring-border p-5 md:p-6">
+                <p className="text-sm md:text-base text-foreground/80 leading-relaxed whitespace-pre-wrap wrap-anywhere">
                   {listing.description}
                 </p>
               </div>
-            </div>
+            </section>
 
             {/* Gallery - lazy load images */}
             {listing.images.length > 1 && (
-              <div className="space-y-2 md:space-y-3">
-                <h2 className="text-base md:text-lg font-semibold">
-                  {t("photos")} ({listing.images.length - 1})
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {listing.images.slice(1).map((image, index) => (
-                    <div
-                      key={image.id}
-                      className="relative aspect-4/3 rounded-lg overflow-hidden cursor-pointer group"
-                      onClick={() => {
-                        setLightboxIndex(index + 1);
-                        setLightboxOpen(true);
-                      }}
-                    >
-                      <Image
-                        src={image.url}
-                        alt={image.alt || listing.title}
-                        fill
-                        loading="lazy"
-                        sizes="(max-width: 768px) 50vw, 33vw"
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                    </div>
-                  ))}
+              <section>
+                <div className="mb-3 md:mb-4">
+                  <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
+                    {t("photos")}
+                  </h2>
                 </div>
-              </div>
+                <div className="bg-card rounded-2xl ring-1 ring-border p-3 md:p-4">
+                  <div className="stagger grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-3">
+                    {listing.images.slice(1).map((image, index) => (
+                      <button
+                        type="button"
+                        key={image.id}
+                        style={{ ["--i" as string]: index }}
+                        onClick={() => {
+                          setLightboxIndex(index + 1);
+                          setLightboxOpen(true);
+                        }}
+                        className="group relative aspect-4/3 rounded-xl overflow-hidden cursor-pointer ring-1 ring-border bg-muted transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
+                        aria-label={`${t("photos")} ${index + 1}`}
+                      >
+                        {/* First two gallery images are preloaded from the
+                            page shell, so mark them eager — otherwise
+                            IntersectionObserver delays them below the fold
+                            even though the bytes are already on the wire. */}
+                        <Image
+                          src={image.url}
+                          alt={image.alt || listing.title}
+                          fill
+                          loading={index < 2 ? "eager" : "lazy"}
+                          sizes="(max-width: 768px) 50vw, 33vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          style={{ transitionTimingFunction: "var(--ease-brand)" }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
             )}
 
             {/* Mobile Reviews */}
             <div className="lg:hidden">
-              <ReviewsList listingId={listing.id} variant="mobile" />
+              <ReviewsList
+                listingId={listing.id}
+                variant="mobile"
+                initialReviews={initialReviews}
+                initialTotal={initialReviewsTotal}
+              />
             </div>
           </div>
 
@@ -407,6 +433,8 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
                 isOwnListing={isOwnListing}
                 variant="desktop"
                 serviceType={listing.service_type as "on_site" | "remote" | undefined}
+                initialReviews={initialReviews}
+                initialReviewsTotal={initialReviewsTotal}
               />
             </div>
           </div>
@@ -415,8 +443,8 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
 
       {/* Mobile Fixed Bottom Bar */}
       {!isOwnListing && (
-        <div className="md:hidden fixed bottom-16 left-0 right-0 bg-background border-t p-3 z-40">
-          <RequestForm
+        <div className="md:hidden fixed bottom-16 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <RequestFormLazy
             listingId={listing.id}
             listingTitle={listing.title}
             providerId={listing.user.id}
@@ -426,13 +454,17 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
         </div>
       )}
 
-      {/* Image Lightbox */}
-      <ImageLightbox
-        images={listing.images}
-        initialIndex={lightboxIndex}
-        open={lightboxOpen}
-        onOpenChange={setLightboxOpen}
-      />
+      {/* Image Lightbox — only mounted after the user opens it, so
+          the ~20KB chunk isn't downloaded for every page view. Once
+          mounted it stays so subsequent opens are instant. */}
+      {lightboxOpen && (
+        <ImageLightbox
+          images={listing.images}
+          initialIndex={lightboxIndex}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
+      )}
 
       {/* Location Map Modal */}
       {showMapModal && hasCoordinates && (
@@ -454,23 +486,99 @@ export const ServiceDetailClient = React.memo(function ServiceDetailClient({
 // Loading skeleton component
 export function ServiceDetailSkeleton() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-32 md:pb-20 lg:pb-0">
       <InnerHeader />
-      <main className="container mx-auto px-3 md:px-4 py-4 md:py-6">
-        <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
+      <main className="container mx-auto px-4 md:px-6 py-4 md:py-8 pb-24 lg:pb-10">
+        <div className="grid lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
+          {/* Left Column */}
           <div className="lg:col-span-2 space-y-4 md:space-y-6">
-            <Skeleton className="aspect-video rounded-xl md:rounded-2xl" />
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-10 w-1/3" />
-            <Skeleton className="h-4 w-1/4" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
+            {/* Hero image */}
+            <Skeleton className="aspect-video rounded-2xl" />
+
+            {/* Share + Save row */}
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-10 w-32 rounded-full" />
+              <Skeleton className="h-10 w-24 rounded-full" />
             </div>
+
+            {/* Title & Price card */}
+            <div className="bg-card rounded-2xl ring-1 ring-border p-5 md:p-6 space-y-4">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-8 md:h-10 w-3/4" />
+              <Skeleton className="h-6 md:h-8 w-2/3" />
+              <Skeleton className="h-8 md:h-10 w-1/3" />
+              <div className="border-t border-border" />
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
+                  <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+              <Skeleton className="h-6 w-28 rounded-full" />
+            </div>
+
+            {/* Mobile provider card (lg:hidden) */}
+            <div className="lg:hidden bg-card rounded-2xl ring-1 ring-border p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-1/3" />
+                </div>
+              </div>
+              <Skeleton className="h-9 w-full rounded-full" />
+            </div>
+
+            {/* Description section */}
+            <section>
+              <div className="mb-3 md:mb-4 space-y-2">
+                <Skeleton className="h-6 md:h-7 w-40" />
+                <Skeleton className="h-4 w-56" />
+              </div>
+              <div className="bg-card rounded-2xl ring-1 ring-border p-5 md:p-6 space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            </section>
+
+            {/* Gallery */}
+            <section>
+              <div className="mb-3 md:mb-4">
+                <Skeleton className="h-6 md:h-7 w-32" />
+              </div>
+              <div className="bg-card rounded-2xl ring-1 ring-border p-3 md:p-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-3">
+                  <Skeleton className="aspect-4/3 rounded-xl" />
+                  <Skeleton className="aspect-4/3 rounded-xl" />
+                  <Skeleton className="aspect-4/3 rounded-xl hidden md:block" />
+                </div>
+              </div>
+            </section>
           </div>
+
+          {/* Right Column - Desktop provider */}
           <div className="hidden lg:block">
-            <Skeleton className="h-96 rounded-2xl" />
+            <div className="sticky top-24 bg-card rounded-2xl ring-1 ring-border p-5 md:p-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-16 w-16 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-5 w-2/3" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              </div>
+              <Skeleton className="h-11 w-full rounded-full" />
+              <Skeleton className="h-11 w-full rounded-full" />
+              <div className="border-t border-border pt-4 space-y-2">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-4/5" />
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -488,20 +596,23 @@ export function ServiceNotFound() {
 function ServiceNotFoundClient() {
   const t = useTranslations("listings");
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="text-center">
-        <Image
-          src="/icons/7486744.webp"
-          alt={t("notFound")}
-          width={80}
-          height={80}
-          className="mx-auto mb-4 opacity-70"
-        />
-        <h1 className="text-xl md:text-2xl font-bold mb-4">{t("notFound")}</h1>
-        <Link href="/">
-          <Button>{t("backToHome")}</Button>
-        </Link>
-      </div>
+    <div className="min-h-screen bg-background">
+      <InnerHeader />
+      <main className="container mx-auto px-4 md:px-6 py-10 md:py-16">
+        <div className="flex flex-col items-center justify-center py-16 md:py-24 text-center rounded-2xl bg-muted/40">
+          <Image
+            src="/icons/7486744.webp"
+            alt={t("notFound")}
+            width={72}
+            height={72}
+            className="mb-4 opacity-50"
+          />
+          <p className="font-display text-lg md:text-xl font-semibold">{t("notFound")}</p>
+          <Link href="/" className="mt-5">
+            <Button>{t("backToHome")}</Button>
+          </Link>
+        </div>
+      </main>
     </div>
   );
 }

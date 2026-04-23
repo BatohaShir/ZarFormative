@@ -678,8 +678,8 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
       });
       // Leave the cache as-is. Any subsequent findMany will return
       // the real row and React Query replaces the provisional.
-    } catch {
-      // Roll back the optimistic insert and surface the error.
+    } catch (err) {
+      // Roll back the optimistic insert.
       queryClient.setQueriesData<unknown>(
         { queryKey: ["listing_boosts", "findMany"] },
         (old: unknown) => {
@@ -688,7 +688,17 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
         }
       );
       setBoostSuccess(false);
-      toast.error("Алдаа гарлаа");
+
+      // The DB has a partial unique index on (listing_id) WHERE
+      // status='active', so a second purchase on the same listing
+      // (two tabs, stale cache, etc.) returns P2002. Surface it as
+      // a product-facing message instead of the generic error.
+      const code = (err as { info?: { code?: string } })?.info?.code;
+      if (code === "P2002") {
+        toast.error("Энэ зар аль хэдийн VIP байна");
+      } else {
+        toast.error("Алдаа гарлаа");
+      }
     }
   }, [boostListingId, boostPlan, user?.id, createBoost, queryClient]);
 

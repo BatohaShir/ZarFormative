@@ -3,19 +3,20 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubSentryEvent } from "@/lib/sentry-scrub";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
-  // Define how likely traces are sampled. Adjust this value in production.
-  tracesSampleRate: 1,
+  tracesSampleRate: isProduction ? 0.1 : 1,
 
-  // Setting this option to true will print useful information to the console while you're setting up Sentry.
   debug: false,
 
-  // Environment
   environment: process.env.NODE_ENV,
 
-  // Only enable Sentry in production if DSN is provided
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
+
+  beforeSend: scrubSentryEvent,
 });

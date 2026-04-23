@@ -47,6 +47,19 @@ interface RequestFormProps {
   providerId: string;
   providerName: string;
   serviceType?: "on_site" | "remote"; // Тип услуги - с выездом или на месте
+  /**
+   * When true, the dialog opens immediately on mount. Used by
+   * <RequestFormLazy />, which only renders this component after the
+   * user clicks the trigger — we want the dialog visible without
+   * asking them to click again.
+   */
+  defaultOpen?: boolean;
+  /**
+   * Called when the dialog transitions to the closed state. Lets a
+   * lazy wrapper unmount this component so the form chunk can be
+   * unloaded or re-initialized on the next open.
+   */
+  onClose?: () => void;
 }
 
 // Генерируем дни для календаря
@@ -386,10 +399,12 @@ export function RequestForm({
   providerId,
   providerName,
   serviceType = "on_site",
+  defaultOpen = false,
+  onClose,
 }: RequestFormProps) {
   const { user, profile, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(defaultOpen);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [message, setMessage] = React.useState("");
   const [isSuccess, setIsSuccess] = React.useState(false);
@@ -477,6 +492,10 @@ export function RequestForm({
     }
     setOpen(newOpen);
     if (!newOpen) {
+      // Signal the lazy wrapper so it can unmount this chunk. We
+      // still reset our own local state below — if the component
+      // stays mounted (no wrapper) the next open starts clean.
+      onClose?.();
       // Reset form when closing
       setMessage("");
       setLocationCoordinates(null);

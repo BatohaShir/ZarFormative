@@ -333,13 +333,13 @@ html:not(.dark) {
 @media (min-width: 768px) {
   [data-sonner-toaster] {
     top: 71px !important;
-    right: 180px !important;
+    right: 24px !important;
     left: auto !important;
   }
 
   [data-sonner-toaster][data-x-position="center"] {
     left: auto !important;
-    right: 180px !important;
+    right: 24px !important;
     transform: none !important;
   }
 }

@@ -8,14 +8,19 @@ import { AdStories } from "@/components/billboard";
 import type { DbAdStory } from "@/components/billboard/types";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { fallbackCategories, type CategoryWithChildren } from "@/lib/categories";
 import type { ListingWithRelations } from "@/components/listing-card";
 import { getTranslations } from "next-intl/server";
+import { getSelectedAimagCode } from "@/lib/aimag/cookie";
 
-// ISR: обновляем данные каждые 60 секунд вместо force-dynamic
-// Это кэширует страницу и снижает нагрузку на БД
-export const revalidate = 60;
+// Page is dynamic now because the listings grid depends on the
+// selected-aimag cookie — two users in different cities see
+// different content. The grid itself is cached *per aimag* via
+// unstable_cache below, so we're not paying the full CTE cost on
+// every hit.
+export const revalidate = 0;
 
 // Description preview length for card — with line-clamp-1 we never show more.
 const DESCRIPTION_PREVIEW_LEN = 140;
@@ -61,12 +66,17 @@ interface HomeDataRow {
   ad_stories: DbAdStory[];
 }
 
-// Single round-trip fetch. Previously Prisma issued 5+ sequential queries
-// (listings + 4 relation dataloader lookups + boosts + categories). On the
-// Seoul Supabase region with ~2s per-round-trip from Mongolia that cost
-// 10-15s cold. Here we collapse everything into one json-building query
-// and pay one round-trip.
-async function getHomePageData() {
+// Single round-trip fetch. Previously Prisma issued 5+ sequential
+// queries (listings + 4 relation dataloader lookups + boosts +
+// categories). On the Seoul Supabase region with ~2s per-round-trip
+// from Mongolia that cost 10-15s cold. Here we collapse everything
+// into one json-building query and pay one round-trip.
+//
+// aimagCode scopes both listings and boosts to one city. The special
+// value 'ALL' (see lib/aimag/cookie.ts) means "no filter" — both
+// CTEs branch on $1 = 'ALL' to skip the aimag predicate. That keeps
+// one prepared-statement shape instead of forking the SQL at runtime.
+async function runHomeQuery(aimagCode: string) {
   try {
     const rows = await prisma.$queryRaw<HomeDataRow[]>`
       WITH cat AS (
@@ -120,20 +130,29 @@ async function getHomePageData() {
             ) AS images,
             to_jsonb(l.*) AS row_full
           FROM listings l
+          LEFT JOIN aimags a ON a.id = l.aimag_id
           LEFT JOIN profiles u ON u.id = l.user_id
           LEFT JOIN categories c ON c.id = l.category_id
-          LEFT JOIN aimags a ON a.id = l.aimag_id
           LEFT JOIN districts d ON d.id = l.district_id
           LEFT JOIN khoroos k ON k.id = l.khoroo_id
           WHERE l.status = 'active' AND l.is_active = true
+            AND (${aimagCode}::text = 'ALL' OR a.code = ${aimagCode})
           ORDER BY l.created_at DESC
           LIMIT 8
         ) row
       ),
       boost AS (
-        SELECT COALESCE(array_agg(DISTINCT listing_id), ARRAY[]::uuid[]) AS ids
-        FROM listing_boosts
-        WHERE status = 'active' AND expires_at > NOW()
+        -- Scope boosts to the same aimag so a UB-boosted listing
+        -- doesn't show up as VIP on a Darkhan visitor's home. When
+        -- aimagCode is 'ALL' we skip the aimag predicate entirely —
+        -- same single prepared-statement shape as the listings CTE.
+        SELECT COALESCE(array_agg(DISTINCT b.listing_id), ARRAY[]::uuid[]) AS ids
+        FROM listing_boosts b
+        INNER JOIN listings l ON l.id = b.listing_id
+        LEFT JOIN aimags a    ON a.id = l.aimag_id
+        WHERE b.status = 'active'
+          AND b.expires_at > NOW()
+          AND (${aimagCode}::text = 'ALL' OR a.code = ${aimagCode})
       ),
       -- Instagram-style ad stories for the carousel. Same CTE so we
       -- don't pay an extra round-trip just to render story circles;
@@ -206,9 +225,37 @@ async function getHomePageData() {
   }
 }
 
+// Per-aimag cache with a short 10s TTL. The aim isn't long-term
+// caching — two visits 1 minute apart legitimately want fresh data
+// in case a listing was added/edited. The aim is to collapse the
+// visual flicker: when router.refresh() fires (for instance, right
+// after the user picks a city via CitySelect) the subsequent
+// visit-within-seconds hits the Data Cache slot that was just
+// written, so the grid paints instantly instead of paying another
+// ~600ms CTE round-trip.
+//
+// Keys include aimagCode so every city has its own slot. Switching
+// cities intentionally hits a cold slot for that city, then warms
+// it. Tag `home:aimag:<code>` lets a future server action
+// (create-listing, say) call revalidateTag("home:aimag:UB") to
+// force-refresh just that city without touching the rest.
+async function getHomePageData(aimagCode: string) {
+  const cached = unstable_cache(
+    async () => runHomeQuery(aimagCode),
+    ["home-page-data", aimagCode],
+    { revalidate: 10, tags: [`home:aimag:${aimagCode}`] }
+  );
+  return cached();
+}
+
 export default async function Home() {
+  // Read the visitor's selected-aimag cookie and thread it through the
+  // listings + boosts query. Each aimag has its own unstable_cache
+  // slot, so once one visitor warms a slot the rest of that city's
+  // traffic reads from the Data Cache.
+  const aimagCode = await getSelectedAimagCode();
   const [{ categories, listings, boostedIds, adStories }, t] = await Promise.all([
-    getHomePageData(),
+    getHomePageData(aimagCode),
     getTranslations(),
   ]);
 

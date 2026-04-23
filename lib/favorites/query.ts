@@ -33,8 +33,14 @@ export interface FavoritePageRow {
     is_negotiable: boolean;
     views_count: number;
     favorites_count: number;
+    latitude: number | null;
+    longitude: number | null;
+    address: string | null;
+    service_type: string | null;
     category: { id: string; name: string; slug: string } | null;
     aimag: { id: string; name: string } | null;
+    district: { id: string; name: string } | null;
+    khoroo: { id: string; name: string } | null;
     images: { id: string; url: string }[];
     user: {
       id: string;
@@ -78,11 +84,21 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
               'is_negotiable', l.is_negotiable,
               'views_count', l.views_count,
               'favorites_count', l.favorites_count,
+              'latitude', l.latitude,
+              'longitude', l.longitude,
+              'address', l.address,
+              'service_type', l.service_type,
               'category', CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
                 'id', c.id, 'name', c.name, 'slug', c.slug
               ) END,
               'aimag', CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object(
                 'id', a.id, 'name', a.name
+              ) END,
+              'district', CASE WHEN d.id IS NULL THEN NULL ELSE jsonb_build_object(
+                'id', d.id, 'name', d.name
+              ) END,
+              'khoroo', CASE WHEN k.id IS NULL THEN NULL ELSE jsonb_build_object(
+                'id', k.id, 'name', k.name
               ) END,
               'user', CASE WHEN u.id IS NULL THEN NULL ELSE jsonb_build_object(
                 'id', u.id,
@@ -104,6 +120,8 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
           LEFT JOIN profiles u ON u.id = l.user_id
           LEFT JOIN categories c ON c.id = l.category_id
           LEFT JOIN aimags a ON a.id = l.aimag_id
+          LEFT JOIN districts d ON d.id = l.district_id
+          LEFT JOIN khoroos k ON k.id = l.khoroo_id
           WHERE f.user_id = ${userId}::uuid
             AND l.status = 'active'
             AND l.is_active = true
@@ -114,13 +132,15 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
     `;
 
     const favorites = rows[0]?.favorites ?? [];
-    // Coerce pg numerics. listing.price is Decimal -> string via JSON;
-    // everything else we leave alone because the UI reads strings fine.
+    // Coerce pg numerics. price + lat/long are Decimal → string via JSON;
+    // the card's map CTA reads Number, so cast at the boundary.
     return favorites.map((f) => ({
       ...f,
       listing: {
         ...f.listing,
         price: f.listing.price != null ? Number(f.listing.price) : null,
+        latitude: f.listing.latitude != null ? Number(f.listing.latitude) : null,
+        longitude: f.listing.longitude != null ? Number(f.listing.longitude) : null,
       },
     }));
   } catch (error) {

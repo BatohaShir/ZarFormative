@@ -14,6 +14,8 @@ import {
 import { useFindManyaimags } from "@/lib/hooks/aimags";
 import { useFindManydistricts } from "@/lib/hooks/districts";
 import type { aimags, districts } from "@prisma/client";
+import { writeAimagCookie, readAimagCookie, ALL_AIMAGS_CODE } from "@/lib/aimag/cookie-client";
+import { setSelectedAimagAction } from "@/lib/aimag/actions";
 
 interface CitySelectProps {
   trigger?: React.ReactNode | ((displayText: string) => React.ReactNode);
@@ -33,9 +35,30 @@ interface CitySelectProps {
    * mount. Ignored if the runtime-selected aimag differs.
    */
   initialDistrictsForAimag?: { aimagId: string; districts: districts[] };
+  /**
+   * When true (default) the selector writes the global
+   * `selected_aimag` cookie and calls router.refresh() so every
+   * SSR-rendered grid on the site follows the user's pick. The
+   * hero-search on `/` uses this mode — picking "Darkhan" here
+   * means every page should filter to Darkhan.
+   *
+   * Pass false when CitySelect is used as a *page-local* filter
+   * (e.g. the /services sidebar) where the user expects changes to
+   * apply only to the current page. In that mode the component
+   * writes nothing global: it just fires onSelect and the caller
+   * drives the grid via its own state. The existing URL-param flow
+   * on /services keeps doing its thing.
+   */
+  scopesGlobalCookie?: boolean;
 }
 
-const STORAGE_KEY = "tsogts_selected_location";
+/**
+ * localStorage key for the last-picked (aimag, district) tuple.
+ * Exported so sibling components (hero-search etc.) don't hard-code
+ * the same string and drift.
+ */
+export const CITY_SELECT_STORAGE_KEY = "tsogts_selected_location";
+const STORAGE_KEY = CITY_SELECT_STORAGE_KEY;
 
 interface StoredLocation {
   aimagId: string;
@@ -78,6 +101,7 @@ export const CitySelect = React.memo(function CitySelect({
   value,
   initialAimags,
   initialDistrictsForAimag,
+  scopesGlobalCookie = true,
 }: CitySelectProps) {
   const [open, setOpen] = React.useState(false);
   const [selectedAimag, setSelectedAimag] = React.useState<aimags | null>(null);
@@ -164,6 +188,22 @@ export const CitySelect = React.memo(function CitySelect({
       if (stored) {
         const aimag = aimags.find((a) => a.id === stored.aimagId) || null;
         setSelectedAimag(aimag);
+
+        // One-time migration: users who picked a city before the
+        // cookie existed still have their choice in localStorage but
+        // the SSR grid doesn't see it. Hydrate the cookie on the
+        // server so *every* route revalidates — not just the current
+        // one. Without that, a refresh gets the fix for the page
+        // they're on while sibling routes in the Client Router Cache
+        // stay stale.
+        //
+        // Only runs in global mode and only when the cookie is
+        // genuinely absent; we never overwrite a fresher choice from
+        // another tab.
+        if (scopesGlobalCookie && aimag?.code && !readAimagCookie()) {
+          writeAimagCookie(aimag.code);
+          void setSelectedAimagAction(aimag.code);
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -220,6 +260,30 @@ export const CitySelect = React.memo(function CitySelect({
     setShowAimagList(false);
   };
 
+  // In global mode we call the server action, which both writes the
+  // cookie and calls revalidatePath() for every aimag-sensitive
+  // route. We also mirror the cookie into document.cookie so in-page
+  // reads (like the one-time migration below, or components that
+  // peek at the current aimag before the next SSR) see the fresh
+  // value immediately instead of waiting for the action to land.
+  //
+  // Plain router.refresh() used to be enough when the user only cared
+  // about the page they were on — but it doesn't bust the Client
+  // Router Cache for sibling routes. So picking a city on /services
+  // left a stale / in the router cache; navigating home showed the
+  // pre-switch grid. revalidatePath() fixes that.
+  //
+  // In page-local mode we stay silent — the hosting page drives its
+  // own grid via onSelect.
+  const applyGlobalCookieChange = React.useCallback(
+    (code: string) => {
+      if (!scopesGlobalCookie) return;
+      writeAimagCookie(code);
+      void setSelectedAimagAction(code);
+    },
+    [scopesGlobalCookie]
+  );
+
   const handleDistrictSelect = (district: districts) => {
     setSelectedDistrict(district);
     const location: StoredLocation = {
@@ -229,6 +293,7 @@ export const CitySelect = React.memo(function CitySelect({
       districtName: district.name,
     };
     storeLocation(location);
+    if (selectedAimag?.code) applyGlobalCookieChange(selectedAimag.code);
     onSelect?.(location.aimagId, location.aimagName, location.districtId, location.districtName);
     setOpen(false);
   };
@@ -242,6 +307,7 @@ export const CitySelect = React.memo(function CitySelect({
         districtName: "",
       };
       storeLocation(location);
+      applyGlobalCookieChange(selectedAimag.code);
       onSelect?.(location.aimagId, location.aimagName, "", "");
       setOpen(false);
     }
@@ -253,6 +319,9 @@ export const CitySelect = React.memo(function CitySelect({
     setSearchQuery("");
     setShowAimagList(true);
     clearStoredLocation();
+    // "Reset" in global mode = "show me everything on every page".
+    // In page-local mode it just unsets the filter on the host page.
+    applyGlobalCookieChange(ALL_AIMAGS_CODE);
     onSelect?.("", "", "", "");
   };
 

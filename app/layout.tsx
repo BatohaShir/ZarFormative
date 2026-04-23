@@ -130,6 +130,11 @@ export default async function RootLayout({
             <link rel="dns-prefetch" href={`https://${supabaseHost}`} />
           </>
         )}
+        {/* Preconnect для OSM тайлов — убирает TLS handshake при первом открытии карты */}
+        <link rel="preconnect" href="https://a.tile.openstreetmap.org" crossOrigin="" />
+        <link rel="preconnect" href="https://b.tile.openstreetmap.org" crossOrigin="" />
+        <link rel="preconnect" href="https://c.tile.openstreetmap.org" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
         <OrganizationSchema />
         <WebsiteSchema />
       </head>

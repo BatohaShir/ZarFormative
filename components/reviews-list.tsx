@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { MessageSquare, Star, ChevronDown, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@zenstackhq/tanstack-query/runtime-v5";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StarRating } from "@/components/ui/star-rating";
 import { ReviewItem, type ReviewWithClient } from "@/components/ui/review-item";
@@ -20,39 +22,35 @@ const PAGE_SIZE = 10;
 interface ReviewsListProps {
   listingId: string;
   variant: "desktop" | "mobile";
+  /**
+   * SSR-seeded first page of reviews. When present, React Query
+   * treats the query as fresh on mount so the first paint includes
+   * them without a client round-trip. The list still upgrades
+   * itself via "Load more" / cache invalidation just like before.
+   */
+  initialReviews?: ReviewWithClient[];
+  /** Server-computed total row count, used for the load-more hint. */
+  initialTotal?: number;
 }
 
 export const ReviewsList = React.memo(function ReviewsList({
   listingId,
   variant,
+  initialReviews,
+  initialTotal,
 }: ReviewsListProps) {
+  const queryClient = useQueryClient();
   // OPTIMIZATION: Pagination state for "Load More" functionality
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
 
-  // Get total count for "Load More" button
-  const { data: totalCount } = useCountreviews(
-    {
-      where: {
-        request: {
-          listing_id: listingId,
-        },
-      },
-    },
-    REVIEWS_CACHE
-  );
-
-  // Fetch reviews with pagination
-  const {
-    data: reviews,
-    isLoading,
-    isFetching,
-  } = useFindManyreviews(
-    {
-      where: {
-        request: {
-          listing_id: listingId,
-        },
-      },
+  // Shared query args used both to build ZenStack's query key for
+  // the cache seed below and to drive the live useFindManyreviews
+  // hook. Keeping them in one variable guarantees the seed lands in
+  // the exact slot the hook will read — the same drift that bit us
+  // on /account/me when we handrolled the key.
+  const reviewsArgs = React.useMemo(
+    () => ({
+      where: { request: { listing_id: listingId } },
       include: {
         client: {
           select: {
@@ -66,11 +64,44 @@ export const ReviewsList = React.memo(function ReviewsList({
           },
         },
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { created_at: "desc" as const },
       take: visibleCount,
-    },
-    REVIEWS_CACHE
+    }),
+    [listingId, visibleCount]
   );
+  const countArgs = React.useMemo(
+    () => ({ where: { request: { listing_id: listingId } } }),
+    [listingId]
+  );
+
+  // Seed the cache with the SSR-supplied first page + total. Runs on
+  // the first render only (useState initializer), before the
+  // useFindManyreviews hook below mounts its subscription, so the
+  // hook sees isFetched: true and skips its REST round-trip. Keys
+  // come from ZenStack's own getQueryKey() so we can't drift.
+  //
+  // We only seed when visibleCount === PAGE_SIZE — the initial page
+  // size. Load-more switches visibleCount and lives on its own cache
+  // slot, which we deliberately don't prefill; fetching the next page
+  // from the server is the correct behaviour.
+  React.useState(() => {
+    if (!initialReviews) return null;
+    if (typeof window === "undefined") return null;
+    queryClient.setQueryData(
+      getQueryKey("reviews", "findMany", { ...reviewsArgs, take: PAGE_SIZE }),
+      initialReviews
+    );
+    if (initialTotal !== undefined) {
+      queryClient.setQueryData(getQueryKey("reviews", "count", countArgs), initialTotal);
+    }
+    return null;
+  });
+
+  // Get total count for "Load More" button.
+  const { data: totalCount } = useCountreviews(countArgs, REVIEWS_CACHE);
+
+  // Fetch reviews with pagination.
+  const { data: reviews, isLoading, isFetching } = useFindManyreviews(reviewsArgs, REVIEWS_CACHE);
 
   // Check if there are more reviews to load
   const hasMore = totalCount !== undefined && reviews && reviews.length < totalCount;

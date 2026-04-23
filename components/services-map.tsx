@@ -72,7 +72,7 @@ export function ServicesMap({
   return (
     <>
       {/* Blurred preview / Active map */}
-      <div className={`relative overflow-hidden rounded-xl border bg-muted ${className}`}>
+      <div className={`relative overflow-hidden rounded-xl border bg-muted isolate ${className}`}>
         {!isMapActive ? (
           // Frosted glass preview state with static map background
           <div className="relative w-full h-full min-h-50 md:min-h-75">

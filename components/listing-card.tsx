@@ -20,11 +20,21 @@ import type {
 import { formatListingPrice, cn } from "@/lib/utils";
 import { getProviderName, formatLocation, getFirstImageUrl } from "@/lib/formatters";
 
-// Lazy load map modal
-const LocationMapModal = dynamic(
-  () => import("@/components/location-map-modal").then((mod) => mod.LocationMapModal),
-  { ssr: false }
-);
+// Lazy load map modal. Exposed prefetcher so hover/touchstart can warm the chunk
+// (and Leaflet + tiles) before the user actually clicks the button.
+const mapModalLoader = () =>
+  import("@/components/location-map-modal").then((mod) => mod.LocationMapModal);
+const LocationMapModal = dynamic(mapModalLoader, { ssr: false });
+
+let mapModalWarmed = false;
+const warmMapModal = () => {
+  if (mapModalWarmed) return;
+  mapModalWarmed = true;
+  // Fire-and-forget; errors are irrelevant — the real import will retry.
+  mapModalLoader().catch(() => {
+    mapModalWarmed = false;
+  });
+};
 
 // Тип объявления с включёнными связями
 export type ListingWithRelations = listings & {
@@ -111,7 +121,14 @@ export const ListingCard = React.memo(function ListingCard({
     setShowMapModal(true);
   }, []);
 
-  const providerName = getProviderName(listing.user);
+  const providerName = React.useMemo(() => {
+    const u = listing.user;
+    if (u?.is_company && u.company_name) return u.company_name;
+    const first = u?.first_name?.trim();
+    const last = u?.last_name?.trim();
+    if (last && first) return `${last.charAt(0).toUpperCase()}. ${first}`;
+    return getProviderName(u);
+  }, [listing.user]);
 
   // Мемоизация URL изображения - избегаем сортировки на каждый рендер
   const imageUrl = React.useMemo(() => getFirstImageUrl(listing.images), [listing.images]);
@@ -124,9 +141,11 @@ export const ListingCard = React.memo(function ListingCard({
       href={`/services/${listing.slug}`}
       prefetch={null}
       className={cn(
-        "group relative block bg-card rounded-2xl overflow-hidden transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]",
-        isVip ? "ring-1 ring-brand/40" : "ring-1 ring-border"
+        "group relative flex h-full flex-col rounded-2xl overflow-hidden transition-all duration-200",
+        "hover:-translate-y-0.5 active:scale-[0.99]",
+        isVip
+          ? "bg-card ring-2 ring-amber-400/70 hover:shadow-xl"
+          : "bg-card ring-1 ring-border hover:shadow-xl"
       )}
       style={{ transitionTimingFunction: "var(--ease-brand)" }}
     >
@@ -144,7 +163,7 @@ export const ListingCard = React.memo(function ListingCard({
 
         {/* VIP badge */}
         {isVip && (
-          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand text-brand-foreground text-[10px] font-semibold uppercase tracking-wide shadow-sm">
+          <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-linear-to-br from-amber-300 via-yellow-400 to-amber-600 text-amber-950 text-[10px] font-bold uppercase tracking-wide shadow-md ring-1 ring-amber-500/50">
             <Crown className="w-3 h-3" />
             VIP
           </div>
@@ -178,7 +197,7 @@ export const ListingCard = React.memo(function ListingCard({
       </div>
 
       {/* Content */}
-      <div className="p-3.5 md:p-4 space-y-2">
+      <div className="flex flex-1 flex-col p-3.5 md:p-4 space-y-2">
         {/* Title + category micro-label */}
         <div className="space-y-1">
           <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
@@ -195,7 +214,7 @@ export const ListingCard = React.memo(function ListingCard({
         </p>
 
         {/* Provider + stats */}
-        <div className="flex items-center justify-between pt-1.5 border-t border-border">
+        <div className="mt-auto flex items-center justify-between pt-1.5 border-t border-border">
           <div className="flex items-center gap-2 min-w-0 flex-1 pt-2">
             {listing.user.avatar_url ? (
               <Image
@@ -233,10 +252,24 @@ export const ListingCard = React.memo(function ListingCard({
           {hasCoordinates && (
             <button
               onClick={handleShowMap}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full hover:bg-muted text-foreground transition-colors shrink-0"
-              title="Газрын зурагт харах"
+              onPointerEnter={warmMapModal}
+              onTouchStart={warmMapModal}
+              onFocus={warmMapModal}
+              aria-label="Газрын зурагт харах"
+              className={cn(
+                "group/map relative inline-flex items-center gap-1 shrink-0",
+                "h-7 pl-2 pr-2.5 rounded-full",
+                "bg-blue-500/10 text-blue-600 ring-1 ring-blue-500/20 dark:text-blue-400",
+                "hover:bg-blue-600 hover:text-white hover:ring-blue-600",
+                "active:scale-95",
+                "transition-[background-color,color,box-shadow,transform] duration-200",
+                "touch-manipulation",
+                "before:content-[''] before:absolute before:inset-0 before:-m-2 before:rounded-full"
+              )}
+              style={{ transitionTimingFunction: "var(--ease-brand)" }}
             >
-              <Navigation className="w-3 h-3" />
+              <Navigation className="w-3 h-3 shrink-0" />
+              <span className="text-[10px] font-semibold leading-none tracking-wide">Газар</span>
             </button>
           )}
         </div>
