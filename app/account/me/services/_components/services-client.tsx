@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import { useFindManylisting_boosts, useCreatelisting_boosts } from "@/lib/hooks/listing-boosts";
+import { getQueryKey } from "@zenstackhq/tanstack-query/runtime-v5";
 import { formatListingPrice } from "@/lib/utils";
 import { deleteAllListingImages } from "@/lib/storage/listings";
 import type { listings } from "@prisma/client";
@@ -382,26 +383,29 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   React.useState(() => {
     if (!ssrData || !user?.id) return null;
 
-    const listingsKey = [
-      "listings",
-      "findMany",
-      {
-        where: { user_id: user.id },
-        include: {
-          category: { select: { name: true, slug: true } },
-          images: {
-            where: { is_cover: true },
-            select: { id: true, url: true, alt: true },
-            take: 1,
-          },
-          aimag: { select: { name: true } },
+    // IMPORTANT: ZenStack's real cache key is
+    //   ["zenstack", model, operation, args, {infinite, optimisticUpdate}]
+    // — not the naive ["model", "operation", args] I was writing.
+    // Handrolled keys never matched the hook's key, so the seed was
+    // silently ignored and the dropdown always fell through to a cold
+    // REST fetch (skeleton → "нет объявлений" → real data). Use the
+    // same getQueryKey helper the hook uses internally.
+    const listingsArgs = {
+      where: { user_id: user.id },
+      include: {
+        category: { select: { name: true, slug: true } },
+        images: {
+          where: { is_cover: true },
+          select: { id: true, url: true, alt: true },
+          take: 1,
         },
-        orderBy: { created_at: "desc" },
+        aimag: { select: { name: true } },
       },
-    ];
+      orderBy: { created_at: "desc" },
+    };
 
     queryClient.setQueryData(
-      listingsKey,
+      getQueryKey("listings", "findMany", listingsArgs),
       ssrData.listings.map((l) => ({
         ...l,
         created_at: new Date(l.created_at),
@@ -415,20 +419,16 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
     // the new threshold — expected and fine, only one round-trip.
     const fiveMin = 5 * 60 * 1000;
     const threshold = new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
-    const boostsKey = [
-      "listing_boosts",
-      "findMany",
-      {
-        where: {
-          user_id: user.id,
-          status: "boost_active",
-          expires_at: { gt: threshold },
-        },
-        orderBy: { expires_at: "desc" },
+    const boostsArgs = {
+      where: {
+        user_id: user.id,
+        status: "boost_active",
+        expires_at: { gt: threshold },
       },
-    ];
+      orderBy: { expires_at: "desc" },
+    };
     queryClient.setQueryData(
-      boostsKey,
+      getQueryKey("listing_boosts", "findMany", boostsArgs),
       ssrData.activeBoosts.map((b) => ({
         ...b,
         expires_at: new Date(b.expires_at),

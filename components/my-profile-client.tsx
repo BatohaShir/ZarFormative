@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@zenstackhq/tanstack-query/runtime-v5";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SiteHeader } from "@/components/site-header";
@@ -135,25 +136,81 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
   // a network fetch against an empty cache).
   React.useState(() => {
     if (!ssrData || !user?.id) return null;
+
+    // IMPORTANT: use getQueryKey() — ZenStack's real cache key is
+    //   ["zenstack", model, operation, args, {infinite, optimisticUpdate}]
+    // A handrolled ["model","operation",args] key does NOT match and
+    // the hook falls through to a cold REST fetch on mount.
+    //
+    // Args below mirror the exact useFind* calls in useCurrentUser /
+    // useEducations / useWorkExperiences — any drift and the seed
+    // silently misses its slot.
     if (ssrData.profile) {
       queryClient.setQueryData(
-        ["profiles", "findUnique", { where: { id: user.id } }],
+        getQueryKey("profiles", "findUnique", {
+          where: { id: user.id },
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            phone_number: true,
+            is_company: true,
+            avatar_url: true,
+            about: true,
+            company_name: true,
+            registration_number: true,
+            is_deleted: true,
+            preferred_language: true,
+            avg_rating: true,
+            reviews_count: true,
+            completed_jobs_count: true,
+            is_verified: true,
+          },
+        }),
         ssrData.profile
       );
     }
+
     // CTE returns ISO strings; Education/WorkExperience types want
     // Date objects. Coerce here so the cached data matches the shape
     // consumed by downstream components.
     queryClient.setQueryData(
-      ["profiles_educations", "findMany", { where: { user_id: user.id } }],
+      getQueryKey("profiles_educations", "findMany", {
+        where: { user_id: user.id },
+        orderBy: { start_date: "desc" },
+        select: {
+          id: true,
+          user_id: true,
+          degree: true,
+          institution: true,
+          field_of_study: true,
+          start_date: true,
+          end_date: true,
+          is_current: true,
+        },
+      }),
       ssrData.educations.map((e) => ({
         ...e,
         start_date: new Date(e.start_date),
         end_date: e.end_date ? new Date(e.end_date) : null,
       }))
     );
+
     queryClient.setQueryData(
-      ["profiles_work_experiences", "findMany", { where: { user_id: user.id } }],
+      getQueryKey("profiles_work_experiences", "findMany", {
+        where: { user_id: user.id },
+        orderBy: { start_date: "desc" },
+        select: {
+          id: true,
+          user_id: true,
+          company: true,
+          position: true,
+          description: true,
+          start_date: true,
+          end_date: true,
+          is_current: true,
+        },
+      }),
       ssrData.workExperiences.map((w) => ({
         ...w,
         start_date: new Date(w.start_date),
