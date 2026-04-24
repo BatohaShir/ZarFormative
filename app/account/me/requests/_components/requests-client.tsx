@@ -51,9 +51,10 @@ import {
   useUpdatelisting_requests,
   useDeletelisting_requests,
   useCreatenotifications,
-  useFindManynotifications,
+  useCreateManynotifications,
   useCreatereviews,
 } from "@/lib/hooks";
+import { getQueryKey } from "@zenstackhq/tanstack-query/runtime-v5";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import { useRealtimeRequests } from "@/hooks/use-realtime-requests";
 import {
@@ -65,6 +66,96 @@ import {
   formatCreatedAt,
   checkRequestOverdue,
 } from ".";
+import { reviveRequest, type RequestsPageData } from "@/lib/requests/list-query";
+
+/**
+ * Single source of truth for the findMany args used by the list
+ * query hook AND by the SSR cache seed above. Extracting keeps the
+ * two in lockstep — the query key ZenStack builds from these args
+ * must hash identically, otherwise the seed lands in a dead cache
+ * slot and the hook fires a cold REST call.
+ */
+const REQUEST_LIST_ARGS_FOR_USER = (userId: string) => ({
+  where: {
+    OR: [{ client_id: userId }, { provider_id: userId }],
+  },
+  select: {
+    id: true,
+    listing_id: true,
+    client_id: true,
+    provider_id: true,
+    message: true,
+    status: true,
+    provider_response: true,
+    image_url: true,
+    preferred_date: true,
+    preferred_time: true,
+    created_at: true,
+    updated_at: true,
+    accepted_at: true,
+    started_at: true,
+    completed_at: true,
+    completion_description: true,
+    completion_photos: true,
+    proposed_price: true,
+    aimag_id: true,
+    district_id: true,
+    khoroo_id: true,
+    address_detail: true,
+    latitude: true,
+    longitude: true,
+    client_phone: true,
+    listing: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        service_type: true,
+        address: true,
+        price: true,
+        is_negotiable: true,
+        phone: true,
+        images: {
+          select: { url: true, is_cover: true },
+          take: 1,
+          orderBy: { is_cover: "desc" as const },
+        },
+      },
+    },
+    client: {
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        company_name: true,
+        is_company: true,
+        avatar_url: true,
+      },
+    },
+    provider: {
+      select: {
+        id: true,
+        first_name: true,
+        last_name: true,
+        company_name: true,
+        is_company: true,
+        avatar_url: true,
+      },
+    },
+    aimag: { select: { id: true, name: true } },
+    district: { select: { id: true, name: true } },
+    khoroo: { select: { id: true, name: true } },
+    review: {
+      select: {
+        id: true,
+        rating: true,
+        comment: true,
+        created_at: true,
+      },
+    },
+  },
+  orderBy: { created_at: "desc" as const },
+});
 
 // Lazy load heavy components
 const RequestDetailModal = dynamic(
@@ -201,11 +292,28 @@ function requestsReducer(state: RequestsPageState, action: RequestsPageAction): 
   }
 }
 
-function RequestsPageContent() {
+function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Seed React Query once, before the findMany below mounts. Uses
+  // ZenStack's own getQueryKey so the seed lands in the exact slot
+  // the hook will read — same pattern as /account/me and
+  // /account/me/services. Without this the hook fires a cold REST
+  // call and the user stares at a loader for ~2s on MN→Seoul.
+  //
+  // useState initializer runs before any other hook in this render,
+  // so the subsequent useFindManylisting_requests sees isFetched=true.
+  React.useState(() => {
+    if (!ssrData || !user?.id) return null;
+    queryClient.setQueryData(
+      getQueryKey("listing_requests", "findMany", REQUEST_LIST_ARGS_FOR_USER(user.id)),
+      ssrData.requests.map(reviveRequest)
+    );
+    return null;
+  });
 
   // OPTIMIZATION: Single reducer instead of 10+ useState calls
   const [state, dispatch] = React.useReducer(requestsReducer, initialState);
@@ -294,96 +402,14 @@ function RequestsPageContent() {
     onStatusChange: handleRealtimeStatusChange,
   });
 
-  // ОПТИМИЗАЦИЯ: Один запрос вместо двух с OR условием
-  const { data: allRequests, isLoading: requestsLoading } = useFindManylisting_requests(
-    {
-      where: {
-        OR: [{ client_id: user?.id || "" }, { provider_id: user?.id || "" }],
-      },
-      select: {
-        id: true,
-        listing_id: true,
-        client_id: true,
-        provider_id: true,
-        message: true,
-        status: true,
-        provider_response: true,
-        image_url: true,
-        preferred_date: true,
-        preferred_time: true,
-        created_at: true,
-        updated_at: true,
-        accepted_at: true,
-        started_at: true,
-        completed_at: true,
-        completion_description: true,
-        completion_photos: true,
-        proposed_price: true,
-        aimag_id: true,
-        district_id: true,
-        khoroo_id: true,
-        address_detail: true,
-        latitude: true,
-        longitude: true,
-        client_phone: true,
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            service_type: true,
-            address: true,
-            price: true,
-            is_negotiable: true,
-            phone: true,
-            // OPTIMIZATION: latitude/longitude removed from list view - only needed in detail modal
-            images: {
-              select: { url: true, is_cover: true },
-              take: 1,
-              orderBy: { is_cover: "desc" },
-            },
-          },
-        },
-        client: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            company_name: true,
-            is_company: true,
-            avatar_url: true,
-          },
-        },
-        provider: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            company_name: true,
-            is_company: true,
-            avatar_url: true,
-          },
-        },
-        // OPTIMIZATION: Only fetch names for location display in list view
-        aimag: { select: { id: true, name: true } },
-        district: { select: { id: true, name: true } },
-        khoroo: { select: { id: true, name: true } },
-        review: {
-          select: {
-            id: true,
-            rating: true,
-            comment: true,
-            created_at: true,
-          },
-        },
-      },
-      orderBy: { created_at: "desc" },
-    },
-    {
-      enabled: !!user?.id,
-      ...CACHE_TIMES.SERVICE_REQUESTS,
-    }
-  );
+  // Same args the page hook below uses — extracted so the cache
+  // seed earlier and the real findMany hook below both hash to the
+  // same key. Drift here = cold REST call on mount.
+  const listArgs = REQUEST_LIST_ARGS_FOR_USER(user?.id || "");
+  const { data: allRequests, isLoading: requestsLoading } = useFindManylisting_requests(listArgs, {
+    enabled: !!user?.id,
+    ...CACHE_TIMES.SERVICE_REQUESTS,
+  });
 
   /**
    * Helper: check if accepted request should be shown in "Active Jobs" tab
@@ -560,64 +586,58 @@ function RequestsPageContent() {
       .map((req) => req.id);
   }, [myRequests]);
 
-  // Check if notifications already exist for expired requests
-  const { data: existingNotifications } = useFindManynotifications(
-    {
-      where: {
-        user_id: user?.id || "",
-        type: "request_expired",
-        request_id: { in: expiredRequestIds },
-      },
-      select: { request_id: true },
-    },
-    {
-      enabled: !!user?.id && expiredRequestIds.length > 0,
-    }
+  // Notifications for expired requests already created server-side
+  // ship as part of the SSR payload (ssrData.notifiedExpiredIds),
+  // so we no longer need a separate findMany on mount. After the
+  // initial render the Set lives in a ref; new ids get added when
+  // we create a notification below.
+  const notifiedExpiredSetRef = React.useRef<Set<string>>(
+    new Set(ssrData?.notifiedExpiredIds ?? [])
   );
 
   // Mutations
   const updateRequest = useUpdatelisting_requests();
   const deleteRequest = useDeletelisting_requests();
   const createNotification = useCreatenotifications();
+  const createManyNotifications = useCreateManynotifications();
   const createReview = useCreatereviews();
 
-  // Create notifications for expired requests that don't have one yet
-  const notifiedRequestsRef = React.useRef<Set<string>>(new Set());
-
+  // Create notifications for expired requests in ONE batch instead
+  // of a for-loop firing N separate REST calls (each ~600ms on
+  // MN→Seoul). The set of ids already notified came in the SSR
+  // payload; we append to it locally as we fire more so an
+  // in-session re-render doesn't double up.
   React.useEffect(() => {
     if (!user?.id || expiredRequestIds.length === 0) return;
 
-    const existingRequestIds = new Set(
-      (existingNotifications as { request_id: string | null }[] | undefined)
-        ?.map((n) => n.request_id)
-        .filter((id): id is string => id !== null) || []
-    );
-
-    for (const requestId of expiredRequestIds) {
-      // Skip if already notified in this session or in DB
-      if (notifiedRequestsRef.current.has(requestId) || existingRequestIds.has(requestId)) {
-        continue;
-      }
-
-      const request = myRequests.find((r) => r.id === requestId);
-      if (!request) continue;
-
-      // Mark as notified before sending to prevent duplicates
-      notifiedRequestsRef.current.add(requestId);
-
-      // Create notification for client
-      createNotification.mutate({
-        data: {
+    const toNotify = expiredRequestIds
+      .filter((id) => !notifiedExpiredSetRef.current.has(id))
+      .map((id) => {
+        const request = myRequests.find((r) => r.id === id);
+        if (!request) return null;
+        return {
           user_id: user.id,
-          type: "request_expired",
+          type: "request_expired" as const,
           title: "Хүсэлт хугацаа дууссан",
           message: `"${request.listing.title}" хүсэлт хугацаандаа хүлээн авагдаагүй`,
-          request_id: requestId,
+          request_id: id,
           actor_id: null,
-        },
-      });
-    }
-  }, [user?.id, expiredRequestIds, existingNotifications, myRequests, createNotification]);
+        };
+      })
+      .filter((n): n is NonNullable<typeof n> => n !== null);
+
+    if (toNotify.length === 0) return;
+
+    // Mark as notified *before* sending so a quick re-render (e.g.
+    // from a realtime patch) doesn't re-enter this effect and fire
+    // another batch before the mutation lands.
+    for (const n of toNotify) notifiedExpiredSetRef.current.add(n.request_id);
+
+    createManyNotifications.mutate({
+      data: toNotify,
+      skipDuplicates: true,
+    });
+  }, [user?.id, expiredRequestIds, myRequests, createManyNotifications]);
 
   // Optimistic update helper - используем setQueriesData для partial key match
   const optimisticUpdate = React.useCallback(
@@ -1948,7 +1968,17 @@ function RequestsPageContent() {
   );
 }
 
-export function RequestsClient() {
+interface RequestsClientProps {
+  /**
+   * SSR-seeded payload: every request the user is party to plus the
+   * set of expired-request notifications that already exist. When
+   * provided, the list hook and the expired-notify pass skip their
+   * client round-trips and paint on first render.
+   */
+  ssrData?: RequestsPageData;
+}
+
+export function RequestsClient({ ssrData }: RequestsClientProps = {}) {
   return (
     <Suspense
       fallback={
@@ -1957,7 +1987,7 @@ export function RequestsClient() {
         </div>
       }
     >
-      <RequestsPageContent />
+      <RequestsPageContent ssrData={ssrData} />
     </Suspense>
   );
 }

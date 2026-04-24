@@ -51,11 +51,31 @@ const STATUS_MESSAGES: Record<string, { title: string; description: string }> = 
 };
 
 /**
- * Хук для real-time синхронизации статусов заявок
- * Автоматически инвалидирует кэш React Query и показывает toast при изменении статуса
+ * Realtime listing_requests sync for /account/me/requests.
  *
- * CRITICAL FIX: Подписываемся на ВСЕ изменения таблицы без фильтров
- * и фильтруем на клиенте. Это гарантирует доставку событий.
+ * Previously every incoming event did
+ *   invalidateQueries({queryKey: ['listing_requests']}) +
+ *   refetchQueries({..., type: 'active'})
+ * which meant each status change round-tripped to Seoul to pull
+ * ~50 rows with 6 joins. Visibly laggy. Now we patch the cache in
+ * place:
+ *
+ *   UPDATE → merge the realtime payload onto the matching row.
+ *     The realtime payload is shallow (no joins) but the cached
+ *     row already has all the relation data from SSR; only the
+ *     fields the DB actually changed move. Zero round-trips.
+ *
+ *   DELETE → filter the row out of every findMany cache slot.
+ *
+ *   INSERT → we don't have the joins (listing/client/provider) in
+ *     the payload. Fall back to invalidating the list query so it
+ *     reloads once. INSERTs are rare relative to UPDATEs in this
+ *     flow (clients submitting new requests vs providers
+ *     accepting/rejecting/completing).
+ *
+ * Toast logic is unchanged: only the counterparty gets the status
+ * toast so the person who triggered the action doesn't get a
+ * self-directed notification.
  */
 export function useRealtimeRequests(options?: {
   showToasts?: boolean;
@@ -71,17 +91,49 @@ export function useRealtimeRequests(options?: {
     onStatusChangeRef.current = onStatusChange;
   }, [onStatusChange]);
 
-  const refetchRequests = useCallback(() => {
-    // Invalidate listing_requests queries scoped to the current user
-    // This avoids refetching data for all users on the client
-    queryClient.invalidateQueries({
-      queryKey: ["listing_requests"],
-    });
+  // Patch every listing_requests findMany cache slot with a merged
+  // version of the changed row. No REST round-trip — the slot just
+  // ships with fresh fields on the next render.
+  const patchRow = useCallback(
+    (fresh: ListingRequestPayload) => {
+      queryClient.setQueriesData<Array<Record<string, unknown> & { id: string }>>(
+        { queryKey: ["listing_requests", "findMany"] },
+        (old) => {
+          if (!old) return old;
+          let changed = false;
+          const next = old.map((r) => {
+            if (r.id !== fresh.id) return r;
+            changed = true;
+            return { ...r, ...fresh };
+          });
+          return changed ? next : old;
+        }
+      );
+    },
+    [queryClient]
+  );
 
-    // Refetch only active queries to ensure UI updates immediately
-    queryClient.refetchQueries({
-      queryKey: ["listing_requests"],
-      type: "active",
+  const removeRow = useCallback(
+    (id: string) => {
+      queryClient.setQueriesData<Array<Record<string, unknown> & { id: string }>>(
+        { queryKey: ["listing_requests", "findMany"] },
+        (old) => {
+          if (!old) return old;
+          const next = old.filter((r) => r.id !== id);
+          return next.length === old.length ? old : next;
+        }
+      );
+    },
+    [queryClient]
+  );
+
+  // INSERT still needs to pull joins, so we invalidate + refetch
+  // active queries for that single event. Far less common than
+  // UPDATE.
+  const refetchOnInsert = useCallback(() => {
+    queryClient.invalidateQueries({
+      queryKey: ["listing_requests", "findMany"],
+      refetchType: "active",
     });
   }, [queryClient]);
 
@@ -91,9 +143,9 @@ export function useRealtimeRequests(options?: {
     const supabase = createClient();
     const userId = user.id;
 
-    // CRITICAL: Подписываемся на ВСЕ изменения без фильтров
-    // Фильтры Supabase Realtime могут не работать если REPLICA IDENTITY неправильно настроен
-    // или если колонки не индексированы. Фильтруем на клиенте для надёжности.
+    // Subscribe to the whole table and filter client-side. Supabase
+    // filters can silently drop events if REPLICA IDENTITY isn't set
+    // right on the table; filtering here is the belt-and-braces.
     const channel = supabase
       .channel(`listing-requests-${userId}`)
       .on(
@@ -107,69 +159,63 @@ export function useRealtimeRequests(options?: {
           const newData = payload.new as ListingRequestPayload | null;
           const oldData = payload.old as ListingRequestPayload | null;
 
-          // Проверяем что это событие относится к текущему пользователю
           const isMyRequest =
             newData?.client_id === userId ||
             newData?.provider_id === userId ||
             oldData?.client_id === userId ||
             oldData?.provider_id === userId;
 
-          if (!isMyRequest) {
-            // Это событие не для нас, игнорируем
-            return;
-          }
+          if (!isMyRequest) return;
 
           if (payload.eventType === "INSERT") {
-            // Новая заявка
-            refetchRequests();
+            // New request — payload lacks listing/client/provider
+            // joins, so fall back to one refetch.
+            refetchOnInsert();
 
-            // Показываем toast только исполнителю (получил новую заявку)
             if (newData?.provider_id === userId && showToasts) {
               toast.info("Шинэ хүсэлт ирлээ", {
                 description: "Шинэ үйлчилгээний хүсэлт ирлээ",
               });
             }
-          } else if (payload.eventType === "UPDATE") {
+            return;
+          }
+
+          if (payload.eventType === "UPDATE" && newData) {
             const oldStatus = oldData?.status;
-            const newStatus = newData?.status;
-            const requestId = newData?.id;
+            const newStatus = newData.status;
+            const requestId = newData.id;
 
-            if (oldStatus !== newStatus) {
-              // Статус изменился
-              refetchRequests();
+            // Patch first — UI updates immediately with no
+            // round-trip. The joined fields in cache (listing,
+            // client, provider, aimag…) stay untouched; we only
+            // overwrite scalar columns that the realtime payload
+            // carries.
+            patchRow(newData);
 
-              if (onStatusChangeRef.current && requestId && newStatus) {
-                onStatusChangeRef.current(requestId, newStatus, oldStatus || null);
-              }
+            if (oldStatus !== newStatus && newStatus) {
+              onStatusChangeRef.current?.(requestId, newStatus, oldStatus || null);
 
-              // Показываем toast только клиенту (его заявка обновилась исполнителем)
-              if (
-                newData?.client_id === userId &&
-                showToasts &&
-                newStatus &&
-                STATUS_MESSAGES[newStatus]
-              ) {
+              if (newData.client_id === userId && showToasts && STATUS_MESSAGES[newStatus]) {
                 const msg = STATUS_MESSAGES[newStatus];
-                toast.info(msg.title, {
-                  description: msg.description,
-                });
+                toast.info(msg.title, { description: msg.description });
               }
-            } else {
-              // Другие поля изменились (например, completion_description)
-              const completionChanged =
-                oldData?.completion_description !== newData?.completion_description ||
-                JSON.stringify(oldData?.completion_photos) !==
-                  JSON.stringify(newData?.completion_photos);
-
-              if (completionChanged && newData?.client_id === userId && showToasts) {
-                toast.info("Ажлын тайлан ирлээ", {
-                  description: "Үйлчилгээ үзүүлэгч ажлын тайлан илгээлээ",
-                });
-              }
-              refetchRequests();
+            } else if (
+              oldData &&
+              (oldData.completion_description !== newData.completion_description ||
+                JSON.stringify(oldData.completion_photos) !==
+                  JSON.stringify(newData.completion_photos)) &&
+              newData.client_id === userId &&
+              showToasts
+            ) {
+              toast.info("Ажлын тайлан ирлээ", {
+                description: "Үйлчилгээ үзүүлэгч ажлын тайлан илгээлээ",
+              });
             }
-          } else if (payload.eventType === "DELETE") {
-            refetchRequests();
+            return;
+          }
+
+          if (payload.eventType === "DELETE" && oldData) {
+            removeRow(oldData.id);
           }
         }
       )
@@ -178,5 +224,5 @@ export function useRealtimeRequests(options?: {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAuthenticated, user?.id, refetchRequests, showToasts]);
+  }, [isAuthenticated, user?.id, patchRow, removeRow, refetchOnInsert, showToasts]);
 }
