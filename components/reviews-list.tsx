@@ -20,7 +20,14 @@ const REVIEWS_CACHE = {
 const PAGE_SIZE = 10;
 
 interface ReviewsListProps {
-  listingId: string;
+  /**
+   * Scope to the given listing. Exactly one of listingId / providerId
+   * must be set: listings use it to show reviews tied to that one
+   * service, provider profile pages use providerId to show reviews
+   * across all of that user's services.
+   */
+  listingId?: string;
+  providerId?: string;
   variant: "desktop" | "mobile";
   /**
    * SSR-seeded first page of reviews. When present, React Query
@@ -35,6 +42,7 @@ interface ReviewsListProps {
 
 export const ReviewsList = React.memo(function ReviewsList({
   listingId,
+  providerId,
   variant,
   initialReviews,
   initialTotal,
@@ -43,6 +51,15 @@ export const ReviewsList = React.memo(function ReviewsList({
   // OPTIMIZATION: Pagination state for "Load More" functionality
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
 
+  // Scope the Prisma where clause based on which id was passed. Both
+  // variants end up keyed on the same reviews.findMany cache slot
+  // shape, just with a different where — so a public-profile page
+  // and a listing-detail page keep their own independent entries.
+  const whereClause = React.useMemo(
+    () => (providerId ? { provider_id: providerId } : { request: { listing_id: listingId ?? "" } }),
+    [listingId, providerId]
+  );
+
   // Shared query args used both to build ZenStack's query key for
   // the cache seed below and to drive the live useFindManyreviews
   // hook. Keeping them in one variable guarantees the seed lands in
@@ -50,7 +67,7 @@ export const ReviewsList = React.memo(function ReviewsList({
   // on /account/me when we handrolled the key.
   const reviewsArgs = React.useMemo(
     () => ({
-      where: { request: { listing_id: listingId } },
+      where: whereClause,
       include: {
         client: {
           select: {
@@ -67,12 +84,9 @@ export const ReviewsList = React.memo(function ReviewsList({
       orderBy: { created_at: "desc" as const },
       take: visibleCount,
     }),
-    [listingId, visibleCount]
+    [whereClause, visibleCount]
   );
-  const countArgs = React.useMemo(
-    () => ({ where: { request: { listing_id: listingId } } }),
-    [listingId]
-  );
+  const countArgs = React.useMemo(() => ({ where: whereClause }), [whereClause]);
 
   // Seed the cache with the SSR-supplied first page + total. Runs on
   // the first render only (useState initializer), before the

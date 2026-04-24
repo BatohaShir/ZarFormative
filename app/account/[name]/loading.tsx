@@ -46,7 +46,16 @@ export default function ProfileLoading() {
                   <Skeleton className="h-4 w-20" />
                   <Skeleton className="h-4 w-8" />
                 </div>
-                <Skeleton className="h-2 w-full rounded-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-10" />
+                </div>
+                {/* Progress bar omitted intentionally: the real UI
+                    hides it when totalServices === 0. If we render
+                    one here and the provider has no history, the
+                    hydrated DOM loses the element and layout jumps.
+                    Showing a neutral "row" keeps heights aligned
+                    without over-promising. */}
               </div>
             </div>
           </div>
@@ -54,7 +63,10 @@ export default function ProfileLoading() {
             <div className="bg-card rounded-xl border p-4 md:p-6">
               <Skeleton className="h-6 w-32 mb-4" />
               <div className="grid gap-4 sm:grid-cols-2">
-                {[1, 2, 3, 4].map((i) => (
+                {/* Six slots — matches the typical provider listing
+                    count (< 12). Four produced a visible pop-in on
+                    providers with 5-6 services; six covers most. */}
+                {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="border rounded-xl overflow-hidden">
                     <Skeleton className="aspect-video w-full" />
                     <div className="p-4 space-y-2">

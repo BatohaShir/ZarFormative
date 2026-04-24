@@ -4,24 +4,21 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
-import {
-  ChevronLeft,
-  MapPin,
-  Star,
-  CheckCircle,
-  ThumbsUp,
-  ThumbsDown,
-  Clock,
-  MessageCircle,
-  Share2,
-} from "lucide-react";
+import dynamic from "next/dynamic";
+import { InnerHeader } from "@/components/app-header";
+import { Footer } from "@/components/footer";
+import { MapPin, Star, CheckCircle, ThumbsUp, ThumbsDown, Clock } from "lucide-react";
 import { VerifiedBadge } from "@/components/verified-badge";
+import { SocialShareButtons } from "@/components/social-share-buttons";
+import type { ReviewWithClient } from "@/components/ui/review-item";
+
+// Reviews fire their own REST call from the client; SSR'ing the
+// component would block HTML streaming on a round-trip we don't
+// need before paint. Lazy-load + seed with initialReviews so the
+// section appears populated as soon as the chunk lands.
+const ReviewsList = dynamic(() => import("@/components/reviews-list").then((m) => m.ReviewsList), {
+  ssr: false,
+});
 
 interface ProfileData {
   id: string;
@@ -31,7 +28,6 @@ interface ProfileData {
   is_company: boolean;
   avatar_url: string | null;
   about: string | null;
-  phone_number: string | null;
   created_at: Date;
   role: string;
   avg_rating: number | null;
@@ -62,63 +58,76 @@ interface PublicProfileClientProps {
   profile: ProfileData;
   listings: ListingData[];
   stats: Stats;
+  /**
+   * SSR-seeded first page of this provider's reviews. Piped into
+   * <ReviewsList /> so the section renders populated on first paint
+   * instead of flashing a loading state while the client hits the
+   * reviews endpoint.
+   */
+  initialReviews?: ReviewWithClient[];
+  initialReviewsTotal?: number;
 }
 
-export function PublicProfileClient({ profile, listings, stats }: PublicProfileClientProps) {
+export function PublicProfileClient({
+  profile,
+  listings,
+  stats,
+  initialReviews,
+  initialReviewsTotal,
+}: PublicProfileClientProps) {
   const router = useRouter();
 
-  const providerName = profile.is_company
-    ? profile.company_name || "Компани"
-    : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч";
+  // Single stable callback for hover-prefetching any listing detail.
+  // Creating one closure per card (inside .map) would build 12 new
+  // functions on every re-render; this version is stable across
+  // renders and takes the slug off the event target.
+  const prefetchDetail = React.useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement> | React.FocusEvent<HTMLAnchorElement>) => {
+      const slug = e.currentTarget.dataset.slug;
+      if (slug) router.prefetch(`/services/${slug}`);
+    },
+    [router]
+  );
+  // Memoize derivations that only change when `profile` / `stats` do.
+  // Without memoization these strings get rebuilt on every re-render
+  // triggered by unrelated context updates (theme, auth) — cheap
+  // each, but there's no reason to do it.
+  const providerName = React.useMemo(
+    () =>
+      profile.is_company
+        ? profile.company_name || "Компани"
+        : `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Хэрэглэгч",
+    [profile.is_company, profile.company_name, profile.first_name, profile.last_name]
+  );
 
-  const memberSince = profile.created_at
-    ? new Date(profile.created_at).getFullYear().toString()
-    : "2024";
+  // profile.created_at always exists (DB default NOW()), so no
+  // fallback branch is needed.
+  const memberSince = React.useMemo(
+    () => new Date(profile.created_at).getFullYear().toString(),
+    [profile.created_at]
+  );
 
-  const totalServices = stats.completedCount + stats.failedCount;
-  const successRate =
-    totalServices > 0 ? Math.round((stats.completedCount / totalServices) * 100) : 100;
+  // totalServices = completed + failed; successRate is share of
+  // completed. If there's no history yet we show "—" instead of the
+  // old misleading "100%", which implied the user had a perfect
+  // record from zero data points.
+  const { totalServices, successRate } = React.useMemo(() => {
+    const total = stats.completedCount + stats.failedCount;
+    return {
+      totalServices: total,
+      successRate: total > 0 ? Math.round((stats.completedCount / total) * 100) : null,
+    };
+  }, [stats.completedCount, stats.failedCount]);
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 md:h-10 md:w-10"
-              onClick={() => router.back()}
-            >
-              <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
-            </Button>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
-          </div>
-          {/* Mobile Nav */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
-        </div>
-      </header>
+      {/* Shared header — same markup loading.tsx uses so there's no
+          flash when the server data lands and this client takes over. */}
+      <InnerHeader />
 
       <div className="container mx-auto px-4 py-6 md:py-8">
         {/* Profile Header - Full Width with Gradient */}
-        <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl p-6 md:p-8 mb-6 md:mb-8">
+        <div className="bg-linear-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl p-6 md:p-8 mb-6 md:mb-8">
           <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
             {/* Avatar */}
             <div className="relative">
@@ -190,10 +199,7 @@ export function PublicProfileClient({ profile, listings, stats }: PublicProfileC
 
             {/* Action Buttons - Desktop */}
             <div className="hidden lg:flex flex-col gap-2">
-              <Button variant="outline" className="gap-2">
-                <Share2 className="h-4 w-4" />
-                Хуваалцах
-              </Button>
+              <SocialShareButtons title={providerName} description={profile.about || undefined} />
             </div>
           </div>
         </div>
@@ -224,23 +230,24 @@ export function PublicProfileClient({ profile, listings, stats }: PublicProfileC
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Амжилтын хувь</span>
-                  <span className="font-semibold text-green-600">{successRate}%</span>
+                  <span className="font-semibold text-green-600">
+                    {successRate != null ? `${successRate}%` : "—"}
+                  </span>
                 </div>
-                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 rounded-full transition-all"
-                    style={{ width: `${successRate}%` }}
-                  />
-                </div>
+                {totalServices > 0 && (
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full transition-all"
+                      style={{ width: `${successRate}%` }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Mobile Action Buttons */}
-            <div className="lg:hidden space-y-2">
-              <Button variant="outline" className="w-full gap-2">
-                <Share2 className="h-4 w-4" />
-                Хуваалцах
-              </Button>
+            <div className="lg:hidden">
+              <SocialShareButtons title={providerName} description={profile.about || undefined} />
             </div>
           </div>
 
@@ -251,10 +258,26 @@ export function PublicProfileClient({ profile, listings, stats }: PublicProfileC
               <h3 className="font-semibold text-lg mb-4">Үйлчилгээнүүд</h3>
               {listings.length > 0 ? (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {listings.map((listing) => {
+                  {listings.map((listing, index) => {
                     const coverImage = listing.images?.[0];
+                    // Only the first two above-the-fold cards paint
+                    // with `priority`; the rest lazy-load via the
+                    // browser's default IntersectionObserver. Matches
+                    // the pattern used by ListingCard elsewhere.
+                    const isPriority = index < 2;
+                    // prefetch={null} keeps Next from shipping a dozen
+                    // RSC payloads for detail pages on mount; hover /
+                    // focus warms the one the user is about to click
+                    // via the shared `prefetchDetail` callback.
                     return (
-                      <Link key={listing.id} href={`/services/${listing.slug}`}>
+                      <Link
+                        key={listing.id}
+                        href={`/services/${listing.slug}`}
+                        prefetch={null}
+                        data-slug={listing.slug}
+                        onMouseEnter={prefetchDetail}
+                        onFocus={prefetchDetail}
+                      >
                         <div className="group border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
                           <div className="aspect-video overflow-hidden bg-muted relative">
                             {coverImage?.url ? (
@@ -263,6 +286,8 @@ export function PublicProfileClient({ profile, listings, stats }: PublicProfileC
                                 alt={coverImage.alt || listing.title}
                                 fill
                                 sizes="(max-width: 640px) 100vw, 50vw"
+                                priority={isPriority}
+                                loading={isPriority ? undefined : "lazy"}
                                 className="object-cover group-hover:scale-105 transition-transform duration-300"
                               />
                             ) : (
@@ -318,31 +343,22 @@ export function PublicProfileClient({ profile, listings, stats }: PublicProfileC
               )}
             </div>
 
-            {/* Reviews Placeholder */}
+            {/* Real reviews — ReviewsList scoped by providerId and
+                seeded from the SSR CTE, so the section renders fully
+                populated on first paint. */}
             <div className="bg-card rounded-xl border p-4 md:p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Star className="h-5 w-5 text-primary" />
-                  Сэтгэгдэлүүд
-                </h3>
-                <span className="text-sm text-muted-foreground">
-                  {stats.reviewsCount} сэтгэгдэл
-                </span>
-              </div>
-              <div className="text-center py-8 text-muted-foreground">
-                <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Сэтгэгдэл удахгүй нэмэгдэнэ</p>
-              </div>
+              <ReviewsList
+                providerId={profile.id}
+                variant="mobile"
+                initialReviews={initialReviews}
+                initialTotal={initialReviewsTotal}
+              />
             </div>
           </div>
         </div>
-
-        {/* Footer Info */}
-        <div className="mt-8 pt-6 border-t text-center text-sm text-muted-foreground">
-          <p>Tsogts.mn v1.0.0</p>
-          <p className="mt-1">© 2024 Бүх эрх хуулиар хамгаалагдсан</p>
-        </div>
       </div>
+
+      <Footer />
     </div>
   );
 }
