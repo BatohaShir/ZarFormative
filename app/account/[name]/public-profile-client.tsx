@@ -7,10 +7,16 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { InnerHeader } from "@/components/app-header";
 import { Footer } from "@/components/footer";
-import { MapPin, Star, CheckCircle, ThumbsUp, ThumbsDown, Clock } from "lucide-react";
+import { MapPin, ThumbsUp, ThumbsDown, Clock, GraduationCap, Briefcase } from "lucide-react";
 import { VerifiedBadge } from "@/components/verified-badge";
 import { SocialShareButtons } from "@/components/social-share-buttons";
+import { formatWorkDate } from "@/lib/data/suggestions";
+import { cn } from "@/lib/utils";
 import type { ReviewWithClient } from "@/components/ui/review-item";
+import type {
+  PublicProfileEducation,
+  PublicProfileWorkExperience,
+} from "@/lib/profile/public-profile-query";
 
 // Reviews fire their own REST call from the client; SSR'ing the
 // component would block HTML streaming on a round-trip we don't
@@ -66,6 +72,19 @@ interface PublicProfileClientProps {
    */
   initialReviews?: ReviewWithClient[];
   initialReviewsTotal?: number;
+  educations: PublicProfileEducation[];
+  workExperiences: PublicProfileWorkExperience[];
+}
+
+function formatPrice(value: number | null, negotiable: boolean): string {
+  if (negotiable) return "Тохиролцоно";
+  if (value == null) return "—";
+  return `${value.toLocaleString("mn-MN")}₮`;
+}
+
+function toYearMonth(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  return d.toISOString().slice(0, 7);
 }
 
 export function PublicProfileClient({
@@ -74,6 +93,8 @@ export function PublicProfileClient({
   stats,
   initialReviews,
   initialReviewsTotal,
+  educations,
+  workExperiences,
 }: PublicProfileClientProps) {
   const router = useRouter();
 
@@ -88,10 +109,8 @@ export function PublicProfileClient({
     },
     [router]
   );
+
   // Memoize derivations that only change when `profile` / `stats` do.
-  // Without memoization these strings get rebuilt on every re-render
-  // triggered by unrelated context updates (theme, auth) — cheap
-  // each, but there's no reason to do it.
   const providerName = React.useMemo(
     () =>
       profile.is_company
@@ -100,24 +119,16 @@ export function PublicProfileClient({
     [profile.is_company, profile.company_name, profile.first_name, profile.last_name]
   );
 
-  // profile.created_at always exists (DB default NOW()), so no
-  // fallback branch is needed.
   const memberSince = React.useMemo(
     () => new Date(profile.created_at).getFullYear().toString(),
     [profile.created_at]
   );
 
-  // totalServices = completed + failed; successRate is share of
-  // completed. If there's no history yet we show "—" instead of the
-  // old misleading "100%", which implied the user had a perfect
-  // record from zero data points.
-  const { totalServices, successRate } = React.useMemo(() => {
-    const total = stats.completedCount + stats.failedCount;
-    return {
-      totalServices: total,
-      successRate: total > 0 ? Math.round((stats.completedCount / total) * 100) : null,
-    };
-  }, [stats.completedCount, stats.failedCount]);
+  const totalServices = stats.completedCount + stats.failedCount;
+
+  const showIndividualSections = !profile.is_company;
+  const hasEducation = educations.length > 0;
+  const hasWork = workExperiences.length > 0;
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
@@ -125,228 +136,337 @@ export function PublicProfileClient({
           flash when the server data lands and this client takes over. */}
       <InnerHeader />
 
-      <div className="container mx-auto px-4 py-6 md:py-8">
-        {/* Profile Header - Full Width with Gradient */}
-        <div className="bg-linear-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-2xl p-6 md:p-8 mb-6 md:mb-8">
-          <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8">
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* Profile Header — editorial, no gradients */}
+        <div className="bg-card rounded-2xl ring-1 ring-border p-5 md:p-8 mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row md:items-start gap-5 md:gap-8">
             {/* Avatar */}
-            <div className="relative">
-              <div className="w-28 h-28 md:w-36 md:h-36 lg:w-40 lg:h-40 rounded-full overflow-hidden ring-4 ring-white dark:ring-gray-800 shadow-xl bg-muted">
+            <div className="relative self-center md:self-start shrink-0">
+              <div className="w-28 h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 rounded-full overflow-hidden ring-1 ring-border bg-muted">
                 {profile.avatar_url ? (
                   <Image
                     src={profile.avatar_url}
                     alt={providerName}
-                    width={160}
-                    height={160}
+                    width={144}
+                    height={144}
                     unoptimized={profile.avatar_url.includes("dicebear")}
                     className="w-full h-full object-cover"
                     priority
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-muted-foreground">
+                  <div className="w-full h-full flex items-center justify-center font-display text-4xl font-bold text-foreground">
                     {providerName.charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>
-              {profile.role === "admin" && (
-                <div className="absolute bottom-2 right-2 bg-blue-500 rounded-full p-1.5 md:p-2 ring-2 ring-white dark:ring-gray-800">
-                  <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-white" />
-                </div>
-              )}
             </div>
 
-            {/* User Info */}
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-2 inline-flex items-center gap-2 flex-wrap justify-center md:justify-start">
-                <span>{providerName}</span>
+            {/* Name + meta + stats pills */}
+            <div className="flex-1 min-w-0 text-center md:text-left">
+              <h1 className="font-display text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight inline-flex items-center gap-2 flex-wrap justify-center md:justify-start">
+                <span className="wrap-anywhere">{providerName}</span>
                 <VerifiedBadge verified={profile.is_verified} size="lg" />
-              </h2>
-              <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-muted-foreground mb-4">
-                <span className="flex items-center gap-1">
-                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-semibold text-foreground">
-                    {stats.rating > 0 ? stats.rating : "-"}
-                  </span>
-                  <span>({stats.reviewsCount} сэтгэгдэл)</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  {memberSince} оноос
-                </span>
-              </div>
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1.5 flex items-center gap-1.5 justify-center md:justify-start tabular">
+                <Clock className="h-3.5 w-3.5" />
+                {memberSince} оноос хойш гишүүн
+              </p>
 
-              {/* Stats - Horizontal Pills */}
-              <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-4">
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  <span className="font-bold text-lg">{stats.rating > 0 ? stats.rating : "-"}</span>
-                  <span className="text-sm text-muted-foreground">
-                    Үнэлгээ{stats.reviewsCount > 0 ? ` (${stats.reviewsCount})` : ""}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <ThumbsUp className="h-5 w-5 text-green-500" />
-                  <span className="font-bold text-lg">{stats.completedCount}</span>
-                  <span className="text-sm text-muted-foreground">Амжилттай</span>
-                </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/50 rounded-full">
-                  <ThumbsDown className="h-5 w-5 text-red-500" />
-                  <span className="font-bold text-lg">{stats.failedCount}</span>
-                  <span className="text-sm text-muted-foreground">Амжилтгүй</span>
-                </div>
+              {/* Stats pills — canonical design */}
+              <div className="flex flex-wrap justify-center md:justify-start gap-2 mt-4">
+                <span className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted text-sm">
+                  <Briefcase className="h-4 w-4 text-foreground" />
+                  <span className="font-display font-semibold tabular">{totalServices}</span>
+                  <span className="text-muted-foreground">Үйлчилгээ үзүүлсэн</span>
+                </span>
+                <span className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted text-sm">
+                  <ThumbsUp className="h-4 w-4 text-emerald-500" />
+                  <span className="font-display font-semibold tabular">{stats.completedCount}</span>
+                  <span className="text-muted-foreground">Амжилттай</span>
+                </span>
+                <span className="flex items-center gap-1.5 h-8 px-3 rounded-full bg-muted text-sm">
+                  <ThumbsDown className="h-4 w-4 text-red-500" />
+                  <span className="font-display font-semibold tabular">{stats.failedCount}</span>
+                  <span className="text-muted-foreground">Амжилтгүй</span>
+                </span>
               </div>
             </div>
 
-            {/* Action Buttons - Desktop */}
-            <div className="hidden lg:flex flex-col gap-2">
+            {/* Share — desktop */}
+            <div className="hidden lg:flex shrink-0">
               <SocialShareButtons title={providerName} description={profile.about || undefined} />
             </div>
           </div>
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Left Column - About & Contact */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* About Card */}
-            {profile.about && (
-              <div className="bg-card rounded-xl border p-4 md:p-6">
-                <h3 className="font-semibold text-lg mb-4">Тухай</h3>
-                <p className="text-muted-foreground leading-relaxed">{profile.about}</p>
-              </div>
-            )}
+        {/* Main content — single column flow, sections stretch
+            full-width so services, education and work timelines read
+            naturally regardless of how much each profile has filled
+            in. Two-column split on large screens only for the two
+            peer timelines (education + work) when both are present. */}
+        <div className="space-y-6 md:space-y-8">
+          {/* Mobile share (desktop is in hero) */}
+          <div className="lg:hidden">
+            <SocialShareButtons title={providerName} description={profile.about || undefined} />
+          </div>
 
-            {/* Stats Card */}
-            <div className="bg-card rounded-xl border p-4 md:p-6">
-              <h3 className="font-semibold text-lg mb-4">Статистик</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Амжилттай</span>
-                  <span className="font-semibold text-green-600">{stats.completedCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Амжилтгүй</span>
-                  <span className="font-semibold text-red-600">{stats.failedCount}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Амжилтын хувь</span>
-                  <span className="font-semibold text-green-600">
-                    {successRate != null ? `${successRate}%` : "—"}
-                  </span>
-                </div>
-                {totalServices > 0 && (
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-green-500 rounded-full transition-all"
-                      style={{ width: `${successRate}%` }}
-                    />
-                  </div>
+          {/* About */}
+          {profile.about && (
+            <section>
+              <div className="mb-3 md:mb-4">
+                <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">Тухай</h2>
+              </div>
+              <div className="bg-card rounded-2xl ring-1 ring-border p-5 md:p-6">
+                <p className="text-sm md:text-base text-foreground/80 leading-relaxed whitespace-pre-wrap wrap-anywhere">
+                  {profile.about}
+                </p>
+              </div>
+            </section>
+          )}
+
+          {/* Services */}
+          <section>
+            <div className="mb-3 md:mb-4 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
+                  Үйлчилгээнүүд
+                </h2>
+                {listings.length > 0 && (
+                  <p className="text-sm text-muted-foreground mt-0.5 tabular">
+                    {listings.length} зар
+                  </p>
                 )}
               </div>
             </div>
-
-            {/* Mobile Action Buttons */}
-            <div className="lg:hidden">
-              <SocialShareButtons title={providerName} description={profile.about || undefined} />
-            </div>
-          </div>
-
-          {/* Right Column - Services */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Services */}
-            <div className="bg-card rounded-xl border p-4 md:p-6">
-              <h3 className="font-semibold text-lg mb-4">Үйлчилгээнүүд</h3>
-              {listings.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {listings.map((listing, index) => {
-                    const coverImage = listing.images?.[0];
-                    // Only the first two above-the-fold cards paint
-                    // with `priority`; the rest lazy-load via the
-                    // browser's default IntersectionObserver. Matches
-                    // the pattern used by ListingCard elsewhere.
-                    const isPriority = index < 2;
-                    // prefetch={null} keeps Next from shipping a dozen
-                    // RSC payloads for detail pages on mount; hover /
-                    // focus warms the one the user is about to click
-                    // via the shared `prefetchDetail` callback.
-                    return (
+            {listings.length > 0 ? (
+              <div className="stagger grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                {listings.map((listing, index) => {
+                  const coverImage = listing.images?.[0];
+                  const isPriority = index < 4;
+                  return (
+                    <div key={listing.id} className="h-full" style={{ ["--i" as string]: index }}>
                       <Link
-                        key={listing.id}
                         href={`/services/${listing.slug}`}
                         prefetch={null}
                         data-slug={listing.slug}
                         onMouseEnter={prefetchDetail}
                         onFocus={prefetchDetail}
+                        className={cn(
+                          "group relative flex h-full flex-col rounded-2xl overflow-hidden",
+                          "bg-card ring-1 ring-border transition-all duration-200",
+                          "hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
+                        )}
+                        style={{ transitionTimingFunction: "var(--ease-brand)" }}
                       >
-                        <div className="group border rounded-xl overflow-hidden hover:shadow-lg transition-all cursor-pointer">
-                          <div className="aspect-video overflow-hidden bg-muted relative">
-                            {coverImage?.url ? (
+                        <div className="aspect-square overflow-hidden bg-muted relative">
+                          {coverImage?.url ? (
+                            <Image
+                              src={coverImage.url}
+                              alt={coverImage.alt || listing.title}
+                              fill
+                              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                              priority={isPriority}
+                              loading={isPriority ? undefined : "lazy"}
+                              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                              style={{ transitionTimingFunction: "var(--ease-brand)" }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
                               <Image
-                                src={coverImage.url}
-                                alt={coverImage.alt || listing.title}
-                                fill
-                                sizes="(max-width: 640px) 100vw, 50vw"
-                                priority={isPriority}
-                                loading={isPriority ? undefined : "lazy"}
-                                className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                src="/icons/7486744.webp"
+                                alt=""
+                                width={48}
+                                height={48}
+                                className="opacity-50"
                               />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Image
-                                  src="/icons/7486744.webp"
-                                  alt="No image"
-                                  width={48}
-                                  height={48}
-                                  className="opacity-50"
-                                />
-                              </div>
-                            )}
-                          </div>
-                          <div className="p-4">
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-1 flex-col p-3.5 md:p-4 space-y-2">
+                          <div className="space-y-1">
                             {listing.category && (
-                              <span className="text-xs px-2 py-1 bg-muted rounded-full">
+                              <span className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wide font-medium">
                                 {listing.category.name}
                               </span>
                             )}
-                            <h4 className="font-medium mt-2">{listing.title}</h4>
-                            <p className="text-primary font-bold text-lg mt-1">
-                              {listing.price?.toLocaleString()}₮
-                              {listing.is_negotiable && (
-                                <span className="text-sm font-normal text-muted-foreground ml-1">
-                                  (тохиролцоно)
-                                </span>
-                              )}
-                            </p>
-                            {listing.aimag && (
-                              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                                <MapPin className="h-3 w-3" />
-                                {listing.aimag.name}
-                              </p>
-                            )}
+                            <h4 className="font-display font-semibold text-[15px] md:text-base leading-snug line-clamp-2 min-h-10">
+                              {listing.title}
+                            </h4>
                           </div>
+                          <p className="font-display text-lg md:text-xl font-bold tabular tracking-tight">
+                            {formatPrice(listing.price, listing.is_negotiable)}
+                          </p>
+                          {listing.aimag && (
+                            <div className="mt-auto pt-1.5 border-t border-border">
+                              <div className="flex items-center gap-1.5 text-muted-foreground pt-2">
+                                <MapPin className="w-3 h-3 shrink-0" />
+                                <span className="text-[11px] md:text-xs truncate flex-1">
+                                  {listing.aimag.name}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </Link>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Image
-                    src="/icons/7486744.webp"
-                    alt="Үйлчилгээ байхгүй"
-                    width={64}
-                    height={64}
-                    className="mx-auto mb-3 opacity-50"
-                  />
-                  <p>Үйлчилгээ байхгүй байна</p>
-                </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-16 md:py-20 text-center rounded-2xl bg-muted/40">
+                <Image
+                  src="/icons/7486744.webp"
+                  alt=""
+                  width={72}
+                  height={72}
+                  className="mb-4 opacity-50"
+                />
+                <p className="font-display text-lg font-semibold">Үйлчилгээ байхгүй байна</p>
+              </div>
+            )}
+          </section>
+
+          {/* Education + Work — side-by-side on desktop when both
+              exist, single column otherwise. Full-width containers
+              let timelines breathe on any screen. */}
+          {showIndividualSections && (hasEducation || hasWork) && (
+            <div
+              className={cn(
+                "grid gap-6 md:gap-8",
+                hasEducation && hasWork ? "lg:grid-cols-2" : "grid-cols-1"
+              )}
+            >
+              {hasEducation && (
+                <section>
+                  <div className="mb-3 md:mb-4">
+                    <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
+                      <GraduationCap className="h-5 w-5 md:h-6 md:w-6" />
+                      Боловсрол
+                    </h2>
+                  </div>
+                  <div className="bg-card rounded-2xl ring-1 ring-border p-4 md:p-6">
+                    <div className="relative pl-2 space-y-3">
+                      {educations.map((edu) => (
+                        <div
+                          key={edu.id}
+                          className={cn(
+                            "relative pl-10 pr-4 py-3 rounded-xl bg-muted/30 transition-colors",
+                            "before:absolute before:left-4 before:-top-3 before:h-3 before:w-px before:bg-border first:before:hidden",
+                            edu.is_current && "ml-6 ring-1 ring-blue-500/30"
+                          )}
+                        >
+                          <span className="absolute left-2.75 top-5 flex items-center justify-center">
+                            {edu.is_current && (
+                              <span className="absolute inline-flex h-4 w-4 rounded-full bg-blue-500/40 animate-ping" />
+                            )}
+                            <span
+                              className={cn(
+                                "relative w-2.5 h-2.5 rounded-full ring-2 ring-background",
+                                edu.is_current ? "bg-blue-500" : "bg-foreground"
+                              )}
+                            />
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-display font-semibold tracking-tight">
+                                {edu.degree}
+                              </p>
+                              {edu.is_current && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wide">
+                                  <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                                  Одоо
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                            {edu.field_of_study && (
+                              <p className="text-sm text-muted-foreground">{edu.field_of_study}</p>
+                            )}
+                            <p className="text-sm text-muted-foreground mt-1 tabular">
+                              {formatWorkDate(toYearMonth(edu.start_date))} —{" "}
+                              {edu.is_current
+                                ? "Одоог хүртэл"
+                                : edu.end_date
+                                  ? formatWorkDate(toYearMonth(edu.end_date))
+                                  : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {hasWork && (
+                <section>
+                  <div className="mb-3 md:mb-4">
+                    <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 md:h-6 md:w-6" />
+                      Ажлын туршлага
+                    </h2>
+                  </div>
+                  <div className="bg-card rounded-2xl ring-1 ring-border p-4 md:p-6">
+                    <div className="relative pl-2 space-y-3">
+                      {workExperiences.map((work) => (
+                        <div
+                          key={work.id}
+                          className={cn(
+                            "relative pl-10 pr-4 py-3 rounded-xl bg-muted/30 transition-colors",
+                            "before:absolute before:left-4 before:-top-3 before:h-3 before:w-px before:bg-border first:before:hidden",
+                            work.is_current && "ml-6 ring-1 ring-blue-500/30"
+                          )}
+                        >
+                          <span className="absolute left-2.75 top-5 flex items-center justify-center">
+                            {work.is_current && (
+                              <span className="absolute inline-flex h-4 w-4 rounded-full bg-blue-500/40 animate-ping" />
+                            )}
+                            <span
+                              className={cn(
+                                "relative w-2.5 h-2.5 rounded-full ring-2 ring-background",
+                                work.is_current ? "bg-blue-500" : "bg-foreground"
+                              )}
+                            />
+                          </span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-display font-semibold tracking-tight">
+                                {work.position}
+                              </p>
+                              {work.is_current && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-semibold uppercase tracking-wide">
+                                  <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                                  Одоо
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground">{work.company}</p>
+                            <p className="text-sm text-muted-foreground mt-1 tabular">
+                              {formatWorkDate(toYearMonth(work.start_date))} —{" "}
+                              {work.is_current
+                                ? "Одоог хүртэл"
+                                : work.end_date
+                                  ? formatWorkDate(toYearMonth(work.end_date))
+                                  : ""}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
               )}
             </div>
+          )}
 
-            {/* Real reviews — ReviewsList scoped by providerId and
-                seeded from the SSR CTE, so the section renders fully
-                populated on first paint. */}
-            <div className="bg-card rounded-xl border p-4 md:p-6">
+          {/* Reviews */}
+          <section>
+            <div className="mb-3 md:mb-4">
+              <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
+                Сэтгэгдэл
+              </h2>
+            </div>
+            <div className="bg-card rounded-2xl ring-1 ring-border p-4 md:p-6">
               <ReviewsList
                 providerId={profile.id}
                 variant="mobile"
@@ -354,7 +474,7 @@ export function PublicProfileClient({
                 initialTotal={initialReviewsTotal}
               />
             </div>
-          </div>
+          </section>
         </div>
       </div>
 

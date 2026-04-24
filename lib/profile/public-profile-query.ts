@@ -44,6 +44,25 @@ export interface PublicProfileListing {
   aimag: { name: string } | null;
 }
 
+export interface PublicProfileEducation {
+  id: string;
+  degree: string;
+  institution: string;
+  field_of_study: string | null;
+  start_date: string;
+  end_date: string | null;
+  is_current: boolean;
+}
+
+export interface PublicProfileWorkExperience {
+  id: string;
+  company: string;
+  position: string;
+  start_date: string;
+  end_date: string | null;
+  is_current: boolean;
+}
+
 /**
  * Review shape matches ReviewWithClient on the client so
  * <ReviewsList /> can consume it as initialData without coercion.
@@ -72,6 +91,8 @@ export interface PublicProfileData {
   failedJobsCount: number;
   reviews: ReviewWithClient[];
   reviewsTotal: number;
+  educations: PublicProfileEducation[];
+  workExperiences: PublicProfileWorkExperience[];
 }
 
 interface RawRow {
@@ -80,6 +101,8 @@ interface RawRow {
   failed_jobs_count: number | null;
   reviews: PublicProfileReview[] | null;
   reviews_total: number | null;
+  educations: PublicProfileEducation[] | null;
+  work_experiences: PublicProfileWorkExperience[] | null;
 }
 
 export async function fetchPublicProfileData(userId: string): Promise<PublicProfileData> {
@@ -155,13 +178,44 @@ export async function fetchPublicProfileData(userId: string): Promise<PublicProf
       ),
       rev_total AS (
         SELECT COUNT(*)::int AS n FROM reviews WHERE provider_id = ${userId}::uuid
+      ),
+      edu AS (
+        -- Same ordering my-profile-client uses: current first, then
+        -- by start_date desc. Covered by composite index on
+        -- profiles_educations (user_id, is_current, start_date DESC).
+        -- Chronological timeline: old → new. is_current items always
+        -- anchor the "сейчас" end regardless of their start_date, so
+        -- the active row visually sits at the bottom. Matches the
+        -- sort used by /account/me (my-profile-client).
+        SELECT jsonb_agg(row ORDER BY is_current ASC, start_date ASC) AS data FROM (
+          SELECT
+            e.id, e.degree, e.institution, e.field_of_study,
+            e.start_date, e.end_date, e.is_current
+          FROM profiles_educations e
+          WHERE e.user_id = ${userId}::uuid
+        ) row
+      ),
+      work AS (
+        -- Chronological timeline: old → new. is_current items always
+        -- anchor the "сейчас" end regardless of their start_date, so
+        -- the active row visually sits at the bottom. Matches the
+        -- sort used by /account/me (my-profile-client).
+        SELECT jsonb_agg(row ORDER BY is_current ASC, start_date ASC) AS data FROM (
+          SELECT
+            w.id, w.company, w.position,
+            w.start_date, w.end_date, w.is_current
+          FROM profiles_work_experiences w
+          WHERE w.user_id = ${userId}::uuid
+        ) row
       )
       SELECT
         (SELECT to_jsonb(p.*) FROM p) AS profile,
         COALESCE((SELECT data FROM active_listings), '[]'::jsonb) AS listings,
         (SELECT n FROM failed) AS failed_jobs_count,
         COALESCE((SELECT data FROM rev), '[]'::jsonb) AS reviews,
-        (SELECT n FROM rev_total) AS reviews_total
+        (SELECT n FROM rev_total) AS reviews_total,
+        COALESCE((SELECT data FROM edu), '[]'::jsonb) AS educations,
+        COALESCE((SELECT data FROM work), '[]'::jsonb) AS work_experiences
     `;
 
     const row = rows[0];
@@ -172,6 +226,8 @@ export async function fetchPublicProfileData(userId: string): Promise<PublicProf
         failedJobsCount: 0,
         reviews: [],
         reviewsTotal: 0,
+        educations: [],
+        workExperiences: [],
       };
     }
 
@@ -195,6 +251,11 @@ export async function fetchPublicProfileData(userId: string): Promise<PublicProf
         created_at: new Date(r.created_at),
       })),
       reviewsTotal: Number(row.reviews_total ?? 0),
+      // Dates come back as ISO strings; the client formats them via
+      // formatWorkDate which expects YYYY-MM, so we keep them as
+      // strings and slice on the render side.
+      educations: row.educations ?? [],
+      workExperiences: row.work_experiences ?? [],
     };
   } catch (error) {
     console.error("fetchPublicProfileData failed:", error);
@@ -204,6 +265,8 @@ export async function fetchPublicProfileData(userId: string): Promise<PublicProf
       failedJobsCount: 0,
       reviews: [],
       reviewsTotal: 0,
+      educations: [],
+      workExperiences: [],
     };
   }
 }

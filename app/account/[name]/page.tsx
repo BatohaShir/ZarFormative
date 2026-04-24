@@ -164,7 +164,7 @@ export default async function AccountPage({ params }: PageProps) {
     notFound();
   }
 
-  const { profile, listings, failedJobsCount, reviews, reviewsTotal } =
+  const { profile, listings, failedJobsCount, reviews, reviewsTotal, educations, workExperiences } =
     await getPublicProfileData(name);
 
   if (!profile) {
@@ -185,6 +185,8 @@ export default async function AccountPage({ params }: PageProps) {
         }}
         initialReviews={reviews}
         initialReviewsTotal={reviewsTotal}
+        educations={educations}
+        workExperiences={workExperiences}
       />
     </>
   );
