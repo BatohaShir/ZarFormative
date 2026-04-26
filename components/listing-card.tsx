@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { Heart, MapPin, Eye, User, Navigation, Crown } from "lucide-react";
 import { useFavoriteIds, useFavoriteActions } from "@/contexts/favorites-context";
 import { useAuth } from "@/contexts/auth-context";
@@ -68,6 +69,20 @@ export const ListingCard = React.memo(function ListingCard({
   const { isFavorite } = useFavoriteIds();
   const { toggleFavorite, isToggling } = useFavoriteActions();
   const { user } = useAuth();
+  const router = useRouter();
+
+  // Warm the detail page's RSC payload + Data Cache slot the moment
+  // the user shows intent (hover on desktop, touchstart on mobile).
+  // By the time they actually click, the server CTE has already run
+  // and Next.js paints the page from the warm cache instead of
+  // flashing loading.tsx (the visible skeleton flash on prod).
+  // Idempotent — Next.js dedupes prefetches per route.
+  const warmedRef = React.useRef(false);
+  const prefetchDetail = React.useCallback(() => {
+    if (warmedRef.current) return;
+    warmedRef.current = true;
+    router.prefetch(`/services/${listing.slug}`);
+  }, [router, listing.slug]);
   // OPTIMIZATION: Memoize isFavorite check to avoid O(n) search on every render
   const isLiked = React.useMemo(() => isFavorite(listing.id), [isFavorite, listing.id]);
   const isOwnListing = user?.id === listing.user.id;
@@ -140,6 +155,9 @@ export const ListingCard = React.memo(function ListingCard({
     <Link
       href={`/services/${listing.slug}`}
       prefetch={null}
+      onMouseEnter={prefetchDetail}
+      onTouchStart={prefetchDetail}
+      onFocus={prefetchDetail}
       className={cn(
         "group relative flex h-full flex-col rounded-2xl overflow-hidden transition-all duration-200",
         "hover:-translate-y-0.5 active:scale-[0.99]",
