@@ -989,8 +989,16 @@ model reviews {
   // Все могут читать отзывы (публичная информация)
   @@allow('read', true)
 
-  // Клиент может создавать отзыв только на завершённую заявку
-  @@allow('create', auth() != null && auth().id == client_id && request.status == completed)
+  // Клиент создаёт отзыв в момент подтверждения выполнения. В этот
+  // момент статус заявки переходит client → awaiting_payment (после
+  // вашего подтверждения), и только после оплаты провайдером
+  // → completed. Раньше правило требовало строго `completed`, из-за
+  // чего форма отзыва на шаге подтверждения падала с RBAC denied.
+  // Теперь разрешаем create на любом статусе после фактического
+  // выполнения работы провайдером.
+  @@allow('create', auth() != null && auth().id == client_id
+    && (request.status == awaiting_payment
+        || request.status == completed))
 
   // Клиент может редактировать свой отзыв
   @@allow('update', auth() != null && auth().id == client_id)
