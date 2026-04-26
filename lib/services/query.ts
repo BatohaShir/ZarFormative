@@ -670,12 +670,12 @@ export async function fetchServicesPageData(
       },
     };
   } catch (error) {
+    // Re-throw so the unstable_cache wrapper in
+    // app/services/page.tsx ({ revalidate: 10 }) does NOT cache an
+    // empty listings result for 10 seconds after a transient DB
+    // failure. error.tsx will surface the failure and the next
+    // visit retries from a cold slot.
     console.error("fetchServicesPageData failed:", error);
-    return {
-      listings: [],
-      boostedIds: [],
-      nextCursor: null,
-      referenceData: { aimags: [], categories: [], districts: [], districtsAimagId: null },
-    };
+    throw error;
   }
 }

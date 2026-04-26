@@ -258,15 +258,13 @@ export async function fetchPublicProfileData(userId: string): Promise<PublicProf
       workExperiences: row.work_experiences ?? [],
     };
   } catch (error) {
+    // Re-throw on transient DB errors so unstable_cache (5 min TTL
+    // in /account/[name]/page.tsx) does NOT cache an empty/null
+    // result. A swallowed exception here would have served the
+    // "profile not found" branch to every visitor for 5 full
+    // minutes after a single hiccup. Page-level error.tsx surfaces
+    // the failure for one request, the next request retries.
     console.error("fetchPublicProfileData failed:", error);
-    return {
-      profile: null,
-      listings: [],
-      failedJobsCount: 0,
-      reviews: [],
-      reviewsTotal: 0,
-      educations: [],
-      workExperiences: [],
-    };
+    throw error;
   }
 }

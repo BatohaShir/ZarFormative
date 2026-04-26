@@ -117,7 +117,10 @@ export async function fetchMyServicesData(userId: string): Promise<MyServicesSsr
       activeBoosts: row.active_boosts ?? [],
     };
   } catch (error) {
+    // Per-user page, no unstable_cache wrapper, but throwing still
+    // routes the user to error.tsx (with a retry button) instead of
+    // a misleading "no listings" empty state on transient failure.
     console.error("fetchMyServicesData failed:", error);
-    return { listings: [], activeBoosts: [] };
+    throw error;
   }
 }

@@ -53,9 +53,32 @@ interface RawRow {
   reviews_total: number | null;
 }
 
-export async function fetchServiceDetailBySlug(slug: string): Promise<ServiceDetailSsrData> {
-  try {
-    const rows = await prisma.$queryRaw<RawRow[]>`
+/**
+ * One transparent retry on transient DB errors. Vercel iad1 → Supabase
+ * ap-northeast-2 has ~200ms RTT and pgbouncer's transaction pool can
+ * intermittently refuse a connection during a cold lambda warm-up or
+ * when the per-region pool (connection_limit=5) is briefly saturated.
+ * Without this, a single hiccup propagates to the user as an error
+ * page; with one retry after a short backoff most of those failures
+ * are absorbed silently. The retry is bounded — if both attempts
+ * fail, we re-throw so unstable_cache will skip the cache write
+ * (see catch block below).
+ */
+async function runDetailQuery(slug: string): Promise<RawRow[]> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await prismaQuery(slug);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 150));
+    }
+  }
+  throw lastErr;
+}
+
+async function prismaQuery(slug: string): Promise<RawRow[]> {
+  return prisma.$queryRaw<RawRow[]>`
       WITH l AS (
         SELECT * FROM listings WHERE slug = ${slug} LIMIT 1
       ),
@@ -151,6 +174,11 @@ export async function fetchServiceDetailBySlug(slug: string): Promise<ServiceDet
       LEFT JOIN khoroos k    ON k.id = l.khoroo_id
       LEFT JOIN rev          ON TRUE
     `;
+}
+
+export async function fetchServiceDetailBySlug(slug: string): Promise<ServiceDetailSsrData> {
+  try {
+    const rows = await runDetailQuery(slug);
 
     const row = rows[0];
     if (!row?.listing) {
@@ -175,7 +203,19 @@ export async function fetchServiceDetailBySlug(slug: string): Promise<ServiceDet
       reviewsTotal: Number(row.reviews_total ?? 0),
     };
   } catch (error) {
+    // CRITICAL: re-throw on DB errors so unstable_cache does NOT
+    // cache a null result. Previously we swallowed and returned
+    // {listing: null}, which Next.js's Data Cache then served for
+    // the full 60s revalidate window — meaning a single transient
+    // failure (cold neon wakeup, pgbouncer pool exhaustion, supabase
+    // hiccup) showed "Үйлчилгээ олдсонгүй" to every visitor for a
+    // full minute even though the listing existed in the DB.
+    //
+    // Re-throwing causes Next to skip the cache write and surface
+    // the page-level error.tsx instead, which retries on the next
+    // request. The user briefly sees an error page rather than a
+    // 60-second false 404.
     console.error("fetchServiceDetailBySlug failed:", error);
-    return { listing: null, reviews: [], reviewsTotal: 0 };
+    throw error;
   }
 }

@@ -215,13 +215,13 @@ async function runHomeQuery(aimagCode: string) {
       adStories: row.ad_stories ?? [],
     };
   } catch (error) {
+    // Re-throw so the surrounding unstable_cache(["home-page-data",
+    // aimagCode], { revalidate: 10 }) does NOT cache an empty grid
+    // for 10 seconds after a transient DB hiccup. Page-level
+    // error.tsx surfaces the failure for one request and the next
+    // visit tries again with a fresh DB call.
     console.error("Failed to load home page data:", error);
-    return {
-      categories: fallbackCategories as unknown as CategoryWithChildren[],
-      listings: [] as ListingWithRelations[],
-      boostedIds: [] as string[],
-      adStories: [] as DbAdStory[],
-    };
+    throw error;
   }
 }
 

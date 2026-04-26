@@ -164,8 +164,12 @@ export async function fetchRequestsPageData(userId: string): Promise<RequestsPag
       notifiedExpiredIds: (row?.notified_ids as unknown as string[] | null) ?? [],
     };
   } catch (error) {
+    // Page is per-user (revalidate=0, no unstable_cache) so a
+    // swallowed null wouldn't be cached, but throwing still gives
+    // the user a retry path via error.tsx instead of a misleading
+    // "no requests" empty state on a transient DB failure.
     console.error("fetchRequestsPageData failed:", error);
-    return { requests: [], notifiedExpiredIds: [] };
+    throw error;
   }
 }
 
