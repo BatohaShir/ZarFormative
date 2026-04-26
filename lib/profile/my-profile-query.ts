@@ -18,6 +18,7 @@
  */
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 
 export interface MyProfileSsrData {
   profile: {
@@ -90,7 +91,8 @@ export async function fetchMyProfileData(userId: string): Promise<MyProfileSsrDa
 
 async function runQuery(userId: string): Promise<MyProfileSsrData> {
   try {
-    const rows = await prisma.$queryRaw<RawRow[]>`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<RawRow[]>`
       WITH p AS (
         SELECT
           id, first_name, last_name, phone_number, is_company,
@@ -129,7 +131,8 @@ async function runQuery(userId: string): Promise<MyProfileSsrData> {
         COALESCE(edu.data, '[]'::jsonb) AS educations,
         COALESCE(work.data, '[]'::jsonb) AS work_experiences
       FROM edu, work
-    `;
+    `
+    );
 
     const row = rows[0];
     if (!row || !row.profile) {
@@ -145,7 +148,10 @@ async function runQuery(userId: string): Promise<MyProfileSsrData> {
       workExperiences: row.work_experiences ?? [],
     };
   } catch (error) {
+    // Re-throw so the user sees error.tsx (with a retry button)
+    // rather than a misleading "no profile" empty state on
+    // transient DB failure. Page is per-user, no unstable_cache.
     console.error("fetchMyProfileData failed:", error);
-    return { profile: null, educations: [], workExperiences: [] };
+    throw error;
   }
 }

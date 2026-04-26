@@ -10,6 +10,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 import { fallbackCategories, type CategoryWithChildren } from "@/lib/categories";
 import type { ListingWithRelations } from "@/components/listing-card";
 import { getTranslations } from "next-intl/server";
@@ -78,7 +79,8 @@ interface HomeDataRow {
 // one prepared-statement shape instead of forking the SQL at runtime.
 async function runHomeQuery(aimagCode: string) {
   try {
-    const rows = await prisma.$queryRaw<HomeDataRow[]>`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<HomeDataRow[]>`
       WITH cat AS (
         SELECT jsonb_agg(
           to_jsonb(c.*) ORDER BY c.sort_order ASC
@@ -185,7 +187,8 @@ async function runHomeQuery(aimagCode: string) {
         boost.ids AS boosted_ids,
         COALESCE(stories.data, '[]'::jsonb) AS ad_stories
       FROM cat, list, boost, stories
-    `;
+    `
+    );
 
     const row = rows[0] ?? {
       categories: [],

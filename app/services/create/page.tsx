@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 import { createClient } from "@/lib/supabase/server";
 import { CreateListingClient } from "@/components/create-listing-client";
 
@@ -91,12 +92,13 @@ async function getCreatePageData(userId: string | null): Promise<{
   drafts: DraftListing[];
 }> {
   try {
-    const rows = await prisma.$queryRaw<
-      {
-        categories: Omit<Category, "children">[];
-        drafts: DraftListing[];
-      }[]
-    >`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<
+        {
+          categories: Omit<Category, "children">[];
+          drafts: DraftListing[];
+        }[]
+      >`
       WITH cat AS (
         SELECT COALESCE(jsonb_agg(
           jsonb_build_object(
@@ -142,7 +144,8 @@ async function getCreatePageData(userId: string | null): Promise<{
         ) row
       )
       SELECT cat.data AS categories, draft.data AS drafts FROM cat, draft
-    `;
+    `
+    );
 
     const row = rows[0] ?? { categories: [], drafts: [] };
     return {
@@ -155,8 +158,10 @@ async function getCreatePageData(userId: string | null): Promise<{
       })),
     };
   } catch (error) {
+    // Re-throw so user sees error.tsx instead of a broken create
+    // form with empty categories on transient DB failure.
     console.error("getCreatePageData failed:", error);
-    return { categories: [], drafts: [] };
+    throw error;
   }
 }
 

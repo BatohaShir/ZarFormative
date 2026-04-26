@@ -14,6 +14,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 import type { RequestWithRelations } from "@/app/account/me/requests/_components/types";
 
 /**
@@ -63,7 +64,8 @@ interface RawRow {
 
 export async function fetchRequestsPageData(userId: string): Promise<RequestsPageData> {
   try {
-    const rows = await prisma.$queryRaw<RawRow[]>`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<RawRow[]>`
       WITH r AS (
         SELECT jsonb_agg(row ORDER BY created_at DESC) AS data FROM (
           SELECT
@@ -101,11 +103,17 @@ export async function fetchRequestsPageData(userId: string): Promise<RequestsPag
               'latitude', l.latitude,
               'longitude', l.longitude,
               'images', COALESCE(
-                (SELECT jsonb_agg(jsonb_build_object('url', li.url, 'is_cover', li.is_cover))
-                 FROM listings_images li
-                 WHERE li.listing_id = l.id
-                 ORDER BY li.is_cover DESC
-                 LIMIT 1),
+                (SELECT jsonb_agg(
+                   jsonb_build_object('url', li.url, 'is_cover', li.is_cover)
+                   ORDER BY li.is_cover DESC
+                 )
+                 FROM (
+                   SELECT li.url, li.is_cover
+                   FROM listings_images li
+                   WHERE li.listing_id = l.id
+                   ORDER BY li.is_cover DESC
+                   LIMIT 1
+                 ) li),
                 '[]'::jsonb
               )
             ) AS listing,
@@ -156,7 +164,8 @@ export async function fetchRequestsPageData(userId: string): Promise<RequestsPag
       SELECT
         COALESCE((SELECT data FROM r), '[]'::jsonb) AS requests,
         (SELECT ids FROM notified) AS notified_ids
-    `;
+    `
+    );
 
     const row = rows[0];
     return {

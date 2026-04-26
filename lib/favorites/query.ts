@@ -13,6 +13,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 
 // Card uses line-clamp-1 on description — anything past this length is
 // invisible in the UI but still inflates the SSR HTML payload.
@@ -65,7 +66,8 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
   if (!userId) return [];
 
   try {
-    const rows = await prisma.$queryRaw<FavoriteDataRow[]>`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<FavoriteDataRow[]>`
       WITH fav AS (
         SELECT jsonb_agg(row ORDER BY created_at DESC) AS data FROM (
           SELECT
@@ -129,7 +131,8 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
         ) row
       )
       SELECT COALESCE(fav.data, '[]'::jsonb)::jsonb AS favorites FROM fav
-    `;
+    `
+    );
 
     const favorites = rows[0]?.favorites ?? [];
     // Coerce pg numerics. price + lat/long are Decimal → string via JSON;
@@ -144,7 +147,10 @@ export async function fetchFavoritesPageData(userId: string | null): Promise<Fav
       },
     }));
   } catch (error) {
+    // Per-user, no unstable_cache, but throwing routes to error.tsx
+    // with a retry button instead of misleading "no favorites" empty
+    // state on transient DB failure.
     console.error("fetchFavoritesPageData failed:", error);
-    return [];
+    throw error;
   }
 }

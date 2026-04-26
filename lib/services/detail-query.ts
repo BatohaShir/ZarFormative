@@ -12,6 +12,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 import type { ServiceDetailListing } from "@/components/service-detail-client";
 
 /**
@@ -51,30 +52,6 @@ interface RawRow {
     | null;
   reviews: ReviewSsrRow[] | null;
   reviews_total: number | null;
-}
-
-/**
- * One transparent retry on transient DB errors. Vercel iad1 → Supabase
- * ap-northeast-2 has ~200ms RTT and pgbouncer's transaction pool can
- * intermittently refuse a connection during a cold lambda warm-up or
- * when the per-region pool (connection_limit=5) is briefly saturated.
- * Without this, a single hiccup propagates to the user as an error
- * page; with one retry after a short backoff most of those failures
- * are absorbed silently. The retry is bounded — if both attempts
- * fail, we re-throw so unstable_cache will skip the cache write
- * (see catch block below).
- */
-async function runDetailQuery(slug: string): Promise<RawRow[]> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      return await prismaQuery(slug);
-    } catch (err) {
-      lastErr = err;
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 150));
-    }
-  }
-  throw lastErr;
 }
 
 async function prismaQuery(slug: string): Promise<RawRow[]> {
@@ -178,7 +155,7 @@ async function prismaQuery(slug: string): Promise<RawRow[]> {
 
 export async function fetchServiceDetailBySlug(slug: string): Promise<ServiceDetailSsrData> {
   try {
-    const rows = await runDetailQuery(slug);
+    const rows = await withDbRetry(() => prismaQuery(slug));
 
     const row = rows[0];
     if (!row?.listing) {

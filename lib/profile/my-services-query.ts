@@ -17,6 +17,7 @@
  * enough that a 30s TTL would make toggle/boost feel stale.
  */
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 
 export interface MyServiceRow {
   id: string;
@@ -59,7 +60,8 @@ interface RawRow {
 
 export async function fetchMyServicesData(userId: string): Promise<MyServicesSsrData> {
   try {
-    const rows = await prisma.$queryRaw<RawRow[]>`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<RawRow[]>`
       WITH my_listings AS (
         SELECT jsonb_agg(row ORDER BY created_at DESC) AS data FROM (
           SELECT
@@ -105,7 +107,8 @@ export async function fetchMyServicesData(userId: string): Promise<MyServicesSsr
         COALESCE(my_listings.data, '[]'::jsonb)::jsonb AS listings,
         COALESCE(my_boosts.data, '[]'::jsonb)::jsonb AS active_boosts
       FROM my_listings, my_boosts
-    `;
+    `
+    );
 
     const row = rows[0];
     if (!row) return { listings: [], activeBoosts: [] };

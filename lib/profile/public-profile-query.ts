@@ -15,6 +15,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 import type { ReviewWithClient } from "@/components/ui/review-item";
 
 export interface PublicProfilePayload {
@@ -107,7 +108,8 @@ interface RawRow {
 
 export async function fetchPublicProfileData(userId: string): Promise<PublicProfileData> {
   try {
-    const rows = await prisma.$queryRaw<RawRow[]>`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<RawRow[]>`
       WITH p AS (
         SELECT
           id, first_name, last_name, company_name, is_company,
@@ -216,7 +218,8 @@ export async function fetchPublicProfileData(userId: string): Promise<PublicProf
         (SELECT n FROM rev_total) AS reviews_total,
         COALESCE((SELECT data FROM edu), '[]'::jsonb) AS educations,
         COALESCE((SELECT data FROM work), '[]'::jsonb) AS work_experiences
-    `;
+    `
+    );
 
     const row = rows[0];
     if (!row || !row.profile) {

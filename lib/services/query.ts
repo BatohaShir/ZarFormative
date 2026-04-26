@@ -9,6 +9,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { withDbRetry } from "@/lib/db/retry";
 import type { ListingWithRelations } from "@/components/listing-card";
 
 export const PAGE_SIZE = 12;
@@ -362,7 +363,8 @@ export async function fetchServices(
   // cursor for the next page and we trim it off the result.
   const fetchLimit = limit + 1;
 
-  const rows = await prisma.$queryRaw<ServicesDataRow[]>`
+  const rows = await withDbRetry(
+    () => prisma.$queryRaw<ServicesDataRow[]>`
     WITH list AS (
       SELECT jsonb_agg(row) AS data FROM (
         SELECT
@@ -426,7 +428,8 @@ export async function fetchServices(
       COALESCE(list.data, '[]'::jsonb) AS listings,
       boost.ids AS boosted_ids
     FROM list, boost
-  `;
+  `
+  );
 
   const row = rows[0] ?? { listings: [], boosted_ids: [] };
   const rawListings = row.listings ?? [];
@@ -534,13 +537,14 @@ export async function fetchServicesPageData(
   const fetchLimit = limit + 1;
 
   try {
-    const rows = await prisma.$queryRaw<
-      (ServicesDataRow & {
-        ref_aimags: aimags[];
-        ref_categories: categories[];
-        ref_districts: districts[];
-      })[]
-    >`
+    const rows = await withDbRetry(
+      () => prisma.$queryRaw<
+        (ServicesDataRow & {
+          ref_aimags: aimags[];
+          ref_categories: categories[];
+          ref_districts: districts[];
+        })[]
+      >`
       WITH list AS (
         SELECT jsonb_agg(row) AS data FROM (
           SELECT
@@ -622,7 +626,8 @@ export async function fetchServicesPageData(
         ref_c.data AS ref_categories,
         ref_d.data AS ref_districts
       FROM list, boost, ref_a, ref_c, ref_d
-    `;
+    `
+    );
 
     const row = rows[0];
     const rawListings = row?.listings ?? [];
