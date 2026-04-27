@@ -111,8 +111,8 @@ export default function UsersPage() {
 
   // Realtime подписка
   const refetchProfiles = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["profiles"] });
-    queryClient.refetchQueries({ queryKey: ["profiles"], type: "active" });
+    queryClient.invalidateQueries({ queryKey: ["zenstack", "profiles"] });
+    queryClient.refetchQueries({ queryKey: ["zenstack", "profiles"], type: "active" });
   }, [queryClient]);
 
   useEffect(() => {

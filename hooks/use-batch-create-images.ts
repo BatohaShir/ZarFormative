@@ -35,8 +35,8 @@ export function useBatchCreateImages() {
       });
 
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ["listings_images"] });
-      queryClient.invalidateQueries({ queryKey: ["listings"] });
+      queryClient.invalidateQueries({ queryKey: ["zenstack", "listings_images"] });
+      queryClient.invalidateQueries({ queryKey: ["zenstack", "listings"] });
 
       return {
         success: true,

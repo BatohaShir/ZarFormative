@@ -762,13 +762,13 @@ export function RequestForm({
         // Invalidate only the current user's request queries + provider's
         // Scoped invalidation avoids refetching data for all users
         queryClient.invalidateQueries({
-          queryKey: ["listing_requests"],
+          queryKey: ["zenstack", "listing_requests"],
           predicate: (query) => {
             const key = JSON.stringify(query.queryKey);
             return key.includes(user.id) || key.includes(providerId);
           },
         });
-        queryClient.invalidateQueries({ queryKey: ["notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["zenstack", "notifications"] });
       }
 
       toast.success("Хүсэлт амжилттай илгээгдлээ!");

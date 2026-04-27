@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
 import {
   Calendar,
   User,
@@ -39,28 +38,36 @@ interface RequestListItemProps {
   onPrefetch?: () => void;
 }
 
-// Get status color for top bar
-function getStatusColor(status: string, isExpired: boolean): string {
-  if (isExpired) return "bg-gradient-to-r from-red-500 to-red-400";
+// Top status accent — semantic colors from design system
+function getStatusAccent(status: string, isExpired: boolean): string {
+  if (isExpired) return "bg-destructive";
   switch (status) {
     case "pending":
-      return "bg-gradient-to-r from-amber-500 to-orange-400";
+      return "bg-amber-500";
     case "price_proposed":
-      return "bg-gradient-to-r from-purple-500 to-violet-400";
+      return "bg-violet-500";
     case "accepted":
-      return "bg-gradient-to-r from-green-500 to-emerald-500";
+      return "bg-emerald-500";
     case "in_progress":
-      return "bg-gradient-to-r from-blue-500 to-blue-400";
+      return "bg-blue-500";
     case "completed":
-      return "bg-gradient-to-r from-emerald-500 to-teal-500";
+      return "bg-emerald-500";
     case "rejected":
     case "cancelled_by_client":
     case "cancelled_by_provider":
-      return "bg-gradient-to-r from-gray-400 to-gray-300";
+      return "bg-muted-foreground/40";
     default:
-      return "bg-gradient-to-r from-gray-400 to-gray-300";
+      return "bg-muted-foreground/40";
   }
 }
+
+// Buttons — editorial pill style. Centralized so all action rows match.
+const PRIMARY_BTN =
+  "flex-1 h-9 px-4 rounded-full text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50";
+const OUTLINE_DESTRUCTIVE_BTN =
+  "flex-1 h-9 px-4 rounded-full text-xs font-semibold border border-border bg-card hover:bg-muted text-destructive transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50";
+const OUTLINE_BTN =
+  "flex-1 h-9 px-4 rounded-full text-xs font-semibold border border-border bg-card hover:bg-muted text-foreground transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50";
 
 // Мемоизированный компонент для предотвращения лишних ре-рендеров
 export const RequestListItem = React.memo(function RequestListItem({
@@ -105,10 +112,7 @@ export const RequestListItem = React.memo(function RequestListItem({
       })
     : null;
 
-  // Format time nicely
-  const formattedTime = request.preferred_time
-    ? request.preferred_time.replace(":", "᠄") // Mongolian colon for style
-    : null;
+  const formattedTime = request.preferred_time || null;
 
   const handleClick = React.useCallback(() => {
     onSelect(request);
@@ -170,7 +174,6 @@ export const RequestListItem = React.memo(function RequestListItem({
     [onRejectPrice, request.id]
   );
 
-  // Show chat button for accepted or in_progress
   const showChatButton = request.status === "accepted" || request.status === "in_progress";
 
   // Build address string
@@ -192,61 +195,61 @@ export const RequestListItem = React.memo(function RequestListItem({
         onMouseEnter={onPrefetch}
         onTouchStart={onPrefetch}
         onFocus={onPrefetch}
-        className={`relative w-full text-left bg-card border rounded-xl overflow-hidden hover:border-primary/30 hover:shadow-md transition-all ${
-          isExpired ? "border-red-300 dark:border-red-800" : ""
+        style={{ transitionTimingFunction: "var(--ease-brand)" }}
+        className={`relative w-full text-left bg-card rounded-2xl ring-1 ring-border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99] ${
+          isExpired ? "ring-destructive/40" : ""
         }`}
       >
-        {/* Status indicator bar */}
+        {/* Status accent bar */}
         <div
-          className={`absolute top-0 left-0 right-0 h-1 ${getStatusColor(request.status, isExpired)}`}
+          className={`absolute top-0 left-0 right-0 h-1 ${getStatusAccent(request.status, isExpired)}`}
         />
 
-        <div className="px-3 py-2">
-          {/* Overdue warning banner */}
+        <div className="p-4 pt-5">
+          {/* Overdue warning */}
           {isExpired && (
-            <div className="mb-1.5 -mx-3 -mt-2 px-3 py-1 bg-red-50 dark:bg-red-950/50 border-b border-red-200 dark:border-red-800">
-              <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                <AlertTriangle className="h-3 w-3 shrink-0" />
-                <span className="text-[11px] font-medium">Хугацаа дууссан</span>
+            <div className="mb-3 -mx-4 -mt-5 px-4 py-2 bg-destructive/5 border-b border-destructive/20">
+              <div className="flex items-center gap-1.5 text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-xs font-medium">Хугацаа дууссан</span>
               </div>
             </div>
           )}
 
           {/* Near deadline warning */}
           {!isExpired && overdueInfo.message && request.status === "pending" && (
-            <div className="mb-1.5 -mx-3 -mt-2 px-3 py-1 bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800">
-              <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
-                <Clock className="h-3 w-3 shrink-0" />
-                <span className="text-[11px] font-medium">{overdueInfo.message}</span>
+            <div className="mb-3 -mx-4 -mt-5 px-4 py-2 bg-amber-500/5 border-b border-amber-500/20">
+              <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-xs font-medium">{overdueInfo.message}</span>
               </div>
             </div>
           )}
 
-          {/* Row 1: Status + Price */}
-          <div className="flex items-center justify-between gap-2 mb-2">
+          {/* Status + Price */}
+          <div className="flex items-center justify-between gap-2 mb-3">
             {getStatusBadge(request.status, type)}
-            <div>
+            <div className="tabular">
               {request.proposed_price ? (
-                <span className="text-[13px] font-semibold text-purple-600 dark:text-purple-400">
+                <span className="font-display text-sm font-bold text-violet-600 dark:text-violet-400">
                   {Number(request.proposed_price).toLocaleString()}₮
                 </span>
               ) : isNegotiable ? (
-                <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
                   Тохиролцоно
                 </span>
               ) : request.listing.price ? (
-                <span className="text-[13px] font-semibold text-emerald-600 dark:text-emerald-400">
+                <span className="font-display text-sm font-bold text-foreground">
                   {Number(request.listing.price).toLocaleString()}₮
                 </span>
               ) : null}
             </div>
           </div>
 
-          {/* Row 2: Image + Title + Person */}
-          <div className="flex items-center gap-2">
-            {/* Service image */}
+          {/* Image + Title + Person */}
+          <div className="flex items-center gap-3">
             <div
-              className={`relative w-10 h-10 rounded-md overflow-hidden shrink-0 ${
+              className={`relative w-12 h-12 rounded-xl overflow-hidden bg-muted shrink-0 ring-1 ring-border ${
                 isExpired ? "opacity-60 grayscale" : ""
               }`}
             >
@@ -254,19 +257,21 @@ export const RequestListItem = React.memo(function RequestListItem({
                 src={getListingImage(request.listing)}
                 alt={request.listing.title}
                 fill
+                sizes="48px"
                 className="object-cover"
               />
             </div>
 
-            {/* Title + Person */}
             <div className="min-w-0 flex-1">
               <h3
-                className={`font-medium text-[13px] truncate ${isExpired ? "text-muted-foreground" : ""}`}
+                className={`font-display font-semibold text-sm leading-snug line-clamp-1 ${
+                  isExpired ? "text-muted-foreground" : ""
+                }`}
               >
                 {request.listing.title}
               </h3>
-              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <User className="h-2.5 w-2.5 shrink-0" />
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                <User className="h-3 w-3 shrink-0" />
                 <span className="truncate">{getPersonName(otherPerson)}</span>
               </div>
             </div>
@@ -274,134 +279,127 @@ export const RequestListItem = React.memo(function RequestListItem({
 
           {/* Message */}
           {request.message && (
-            <p className="mt-1.5 text-[11px] text-muted-foreground truncate pl-12">
+            <p className="mt-2 text-xs text-muted-foreground line-clamp-1 pl-15">
               {request.message}
             </p>
           )}
 
-          {/* Footer: Date/Time + Address - responsive */}
-          <div className="mt-1.5 pl-12 text-[10px] text-muted-foreground">
-            {/* Mobile: stack vertically, Desktop: single row */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
-              <div className="flex items-center gap-2">
-                {preferredDateStr && (
-                  <span className="flex items-center gap-0.5">
-                    <Calendar className="h-2.5 w-2.5 text-orange-500" />
-                    {preferredDateStr}
-                  </span>
-                )}
-                {formattedTime && (
-                  <span className="flex items-center gap-0.5 bg-purple-100 dark:bg-purple-900/30 px-1 rounded text-purple-700 dark:text-purple-300">
-                    <Clock className="h-2.5 w-2.5" />
-                    {formattedTime}
-                  </span>
-                )}
-              </div>
-              <span className="flex items-center gap-0.5 truncate">
-                <MapPin className="h-2.5 w-2.5 shrink-0 text-emerald-500" />
-                <span className="truncate">{addressStr}</span>
-              </span>
+          {/* Footer: Date/Time + Address */}
+          <div className="mt-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 text-xs text-muted-foreground tabular">
+            <div className="flex items-center gap-3">
+              {preferredDateStr && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-orange-500" />
+                  {preferredDateStr}
+                </span>
+              )}
+              {formattedTime && (
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3 text-violet-500" />
+                  {formattedTime}
+                </span>
+              )}
             </div>
+            <span className="flex items-center gap-1 truncate min-w-0">
+              <MapPin className="h-3 w-3 shrink-0 text-emerald-500" />
+              <span className="truncate">{addressStr}</span>
+            </span>
           </div>
 
           {/* Action buttons for incoming pending - hidden if expired */}
           {!isMyRequest && request.status === "pending" && !isExpired && (
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 h-9 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
                 onClick={handleReject}
                 disabled={isUpdating}
+                className={OUTLINE_DESTRUCTIVE_BTN}
               >
-                <X className="h-3.5 w-3.5 mr-1" />
+                <X className="h-3.5 w-3.5" />
                 Татгалзах
-              </Button>
-              {/* For negotiable listings - show price proposal button */}
+              </button>
               {isNegotiable ? (
-                <Button
-                  size="sm"
-                  className="flex-1 h-9 text-xs bg-purple-600 hover:bg-purple-700"
+                <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowPriceModal(true);
                   }}
                   disabled={isUpdating}
+                  className={PRIMARY_BTN}
                 >
-                  <Banknote className="h-3.5 w-3.5 mr-1" />
+                  <Banknote className="h-3.5 w-3.5" />
                   Үнэ санал болгох
-                </Button>
+                </button>
               ) : (
-                <Button
-                  size="sm"
-                  className="flex-1 h-9 text-xs bg-green-600 hover:bg-green-700"
+                <button
+                  type="button"
                   onClick={handleAccept}
                   disabled={isUpdating}
+                  className={PRIMARY_BTN}
                 >
-                  <Check className="h-3.5 w-3.5 mr-1" />
+                  <Check className="h-3.5 w-3.5" />
                   Хүлээн авах
-                </Button>
+                </button>
               )}
             </div>
           )}
 
           {/* Cancel button for sent pending requests (client cancels) - hidden if expired */}
           {isMyRequest && request.status === "pending" && !isExpired && (
-            <div className="mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full h-9 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+            <div className="mt-4">
+              <button
+                type="button"
                 onClick={handleCancelByClient}
                 disabled={isUpdating}
+                className={OUTLINE_DESTRUCTIVE_BTN}
               >
-                <X className="h-3.5 w-3.5 mr-1" />
+                <X className="h-3.5 w-3.5" />
                 Цуцлах
-              </Button>
+              </button>
             </div>
           )}
 
           {/* Client: Price proposed - show confirm/reject buttons */}
           {isMyRequest && request.status === "price_proposed" && request.proposed_price && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
-                <Banknote className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-center gap-2 px-3 py-2 bg-violet-500/5 rounded-xl ring-1 ring-violet-500/20">
+                <Banknote className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                <span className="text-xs font-medium text-violet-700 dark:text-violet-300 tabular">
                   Санал болгосон үнэ: {Number(request.proposed_price).toLocaleString()}₮
                 </span>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 h-9 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+                <button
+                  type="button"
                   onClick={handleRejectPrice}
                   disabled={isUpdating}
+                  className={OUTLINE_DESTRUCTIVE_BTN}
                 >
-                  <X className="h-3.5 w-3.5 mr-1" />
+                  <X className="h-3.5 w-3.5" />
                   Татгалзах
-                </Button>
-                <Button
-                  size="sm"
-                  className="flex-1 h-9 text-xs bg-green-600 hover:bg-green-700"
+                </button>
+                <button
+                  type="button"
                   onClick={handleConfirmPrice}
                   disabled={isUpdating}
+                  className={PRIMARY_BTN}
                 >
-                  <Check className="h-3.5 w-3.5 mr-1" />
+                  <Check className="h-3.5 w-3.5" />
                   Зөвшөөрөх
-                </Button>
+                </button>
               </div>
             </div>
           )}
 
           {/* Provider: Price proposed - waiting for client */}
           {!isMyRequest && request.status === "price_proposed" && request.proposed_price && (
-            <div className="mt-3">
-              <div className="flex items-center justify-center gap-2 px-3 py-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
-                <Clock className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <span className="text-sm text-purple-700 dark:text-purple-300">
+            <div className="mt-4">
+              <div className="flex items-center justify-center gap-2 px-3 py-2 bg-violet-500/5 rounded-xl ring-1 ring-violet-500/20">
+                <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                <span className="text-xs text-violet-700 dark:text-violet-300 tabular">
                   Санал болгосон үнэ:{" "}
-                  <span className="font-medium">
+                  <span className="font-semibold">
                     {Number(request.proposed_price).toLocaleString()}₮
                   </span>{" "}
                   — Хүлээгдэж байна
@@ -412,53 +410,40 @@ export const RequestListItem = React.memo(function RequestListItem({
 
           {/* Cancel button for received accepted requests (provider cancels) */}
           {!isMyRequest && request.status === "accepted" && (
-            <div className="flex gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex-1 h-9 text-xs text-red-600 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
                 onClick={handleCancelByProvider}
                 disabled={isUpdating}
+                className={OUTLINE_DESTRUCTIVE_BTN}
               >
-                <X className="h-3.5 w-3.5 mr-1" />
+                <X className="h-3.5 w-3.5" />
                 Цуцлах
-              </Button>
-              <Button
-                size="sm"
-                className="flex-1 h-9 text-xs bg-indigo-600 hover:bg-indigo-700"
-                onClick={handleOpenChat}
-              >
-                <MessageCircle className="h-3.5 w-3.5 mr-1" />
+              </button>
+              <button type="button" onClick={handleOpenChat} className={PRIMARY_BTN}>
+                <MessageCircle className="h-3.5 w-3.5" />
                 Чат
-              </Button>
+              </button>
             </div>
           )}
 
           {/* Chat button for in_progress (both client and provider) */}
           {showChatButton && request.status === "in_progress" && (
-            <div className="mt-3">
-              <Button
-                size="sm"
-                className="w-full h-9 text-xs bg-indigo-600 hover:bg-indigo-700"
-                onClick={handleOpenChat}
-              >
-                <MessageCircle className="h-3.5 w-3.5 mr-1" />
+            <div className="mt-4">
+              <button type="button" onClick={handleOpenChat} className={OUTLINE_BTN}>
+                <MessageCircle className="h-3.5 w-3.5" />
                 Чат нээх
-              </Button>
+              </button>
             </div>
           )}
 
           {/* Chat button for client on accepted status */}
           {isMyRequest && request.status === "accepted" && (
-            <div className="mt-3">
-              <Button
-                size="sm"
-                className="w-full h-9 text-xs bg-indigo-600 hover:bg-indigo-700"
-                onClick={handleOpenChat}
-              >
-                <MessageCircle className="h-3.5 w-3.5 mr-1" />
+            <div className="mt-4">
+              <button type="button" onClick={handleOpenChat} className={PRIMARY_BTN}>
+                <MessageCircle className="h-3.5 w-3.5" />
                 Чат нээх
-              </Button>
+              </button>
             </div>
           )}
         </div>

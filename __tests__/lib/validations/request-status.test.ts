@@ -73,8 +73,11 @@ describe("validateStatusTransition", () => {
       expect(result).toBeNull();
     });
 
-    it("allows client to complete after payment", () => {
-      const result = validateStatusTransition("awaiting_payment", "completed", "client");
+    it("allows provider to mark payment received and complete the request", () => {
+      // The provider is the one who gets paid (via the QR code flow)
+      // and confirms cash in hand, so the awaiting_payment → completed
+      // transition is provider-side, not client-side.
+      const result = validateStatusTransition("awaiting_payment", "completed", "provider");
       expect(result).toBeNull();
     });
 
@@ -156,8 +159,8 @@ describe("validateStatusTransition", () => {
       expect(result).not.toBeNull();
     });
 
-    it("rejects client completing payment step (only client can, so provider should fail)", () => {
-      const result = validateStatusTransition("awaiting_payment", "completed", "provider");
+    it("rejects client completing payment step (only provider can)", () => {
+      const result = validateStatusTransition("awaiting_payment", "completed", "client");
       expect(result).not.toBeNull();
     });
 

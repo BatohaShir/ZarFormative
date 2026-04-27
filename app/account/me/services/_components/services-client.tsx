@@ -354,19 +354,32 @@ interface ServicesClientProps {
    * renders the grid immediately.
    */
   ssrData?: MyServicesSsrData;
+  /**
+   * Current user id as known on the server — see RequestsClient for
+   * the same pattern. Passed so the seed below can hash the hook's
+   * args on the very first render even if the client-side Supabase
+   * auth singleton hasn't resolved yet.
+   */
+  ssrUserId?: string;
 }
 
-export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
+export function ServicesClient({ ssrData, ssrUserId }: ServicesClientProps = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
+  const effectiveUserId = ssrUserId || user?.id || "";
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [listingToDelete, setListingToDelete] = React.useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [filterStatus, setFilterStatus] = React.useState<FilterStatus>("all");
 
   // Query key для cache updates - используем findMany prefix как ZenStack
-  const queryKey = React.useMemo(() => ["listings", "findMany"], []);
+  // ZenStack writes findMany cache slots under
+  //   ["zenstack", model, op, args, {infinite, optimisticUpdate}]
+  // A naive ["listings", "findMany"] prefix never matched and every
+  // optimistic toggle / delete silently no-oped. Use the real prefix
+  // so setQueriesData / getQueryData hit the live cache row.
+  const queryKey = React.useMemo(() => ["zenstack", "listings", "findMany"], []);
 
   // Show login modal if not authenticated
   React.useEffect(() => {
@@ -376,22 +389,15 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   }, [isAuthenticated]);
 
   // Seed React Query from SSR once, before the child hooks run their
-  // useQuery. Keys mirror the exact args passed to
-  // useFindManylistings / useFindManylisting_boosts below so the
-  // hooks see isFetched: true on mount. Dates come back from the CTE
-  // as ISO strings; we coerce to Date to match Prisma's native shape.
+  // useQuery. Key off ssrUserId (server-known) so the seed runs on
+  // the very first render — without it the useState initializer
+  // sees user?.id still null and skips, leaving the hook to issue a
+  // cold REST call.
   React.useState(() => {
-    if (!ssrData || !user?.id) return null;
+    if (!ssrData || !ssrUserId) return null;
 
-    // IMPORTANT: ZenStack's real cache key is
-    //   ["zenstack", model, operation, args, {infinite, optimisticUpdate}]
-    // — not the naive ["model", "operation", args] I was writing.
-    // Handrolled keys never matched the hook's key, so the seed was
-    // silently ignored and the dropdown always fell through to a cold
-    // REST fetch (skeleton → "нет объявлений" → real data). Use the
-    // same getQueryKey helper the hook uses internally.
     const listingsArgs = {
-      where: { user_id: user.id },
+      where: { user_id: ssrUserId },
       include: {
         category: { select: { name: true, slug: true } },
         images: {
@@ -421,7 +427,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
     const threshold = new Date(Math.floor(Date.now() / fiveMin) * fiveMin).toISOString();
     const boostsArgs = {
       where: {
-        user_id: user.id,
+        user_id: ssrUserId,
         status: "boost_active",
         expires_at: { gt: threshold },
       },
@@ -442,7 +448,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const { data: listings } = useFindManylistings(
     {
       where: {
-        user_id: user?.id,
+        user_id: effectiveUserId,
       },
       include: {
         category: { select: { name: true, slug: true } },
@@ -456,7 +462,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
       orderBy: { created_at: "desc" },
     },
     {
-      enabled: !!user?.id,
+      enabled: !!effectiveUserId,
       staleTime: 30 * 1000,
     }
   );
@@ -473,13 +479,13 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
   const { data: activeBoosts } = useFindManylisting_boosts(
     {
       where: {
-        user_id: user?.id,
+        user_id: effectiveUserId,
         status: "boost_active",
         expires_at: { gt: boostDateThreshold },
       },
       orderBy: { expires_at: "desc" },
     },
-    { enabled: !!user?.id, staleTime: 30 * 1000 }
+    { enabled: !!effectiveUserId, staleTime: 30 * 1000 }
   );
 
   const boostByListing = React.useMemo(() => {
@@ -655,7 +661,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
       created_at: new Date(),
     };
     queryClient.setQueriesData<unknown>(
-      { queryKey: ["listing_boosts", "findMany"] },
+      { queryKey: ["zenstack", "listing_boosts", "findMany"] },
       (old: unknown) => {
         if (!Array.isArray(old)) return old;
         return [provisional, ...old];
@@ -681,7 +687,7 @@ export function ServicesClient({ ssrData }: ServicesClientProps = {}) {
     } catch (err) {
       // Roll back the optimistic insert.
       queryClient.setQueriesData<unknown>(
-        { queryKey: ["listing_boosts", "findMany"] },
+        { queryKey: ["zenstack", "listing_boosts", "findMany"] },
         (old: unknown) => {
           if (!Array.isArray(old)) return old;
           return (old as { id: string }[]).filter((b) => b.id !== provisional.id);

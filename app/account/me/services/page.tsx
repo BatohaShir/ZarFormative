@@ -18,7 +18,11 @@ export default async function MyServicesPage() {
 
   // Single CTE round-trip for listings + active boosts. Client seeds
   // React Query on mount so the ZenStack hooks skip their fetch.
+  // ssrUserId is passed separately so the seed hashes the hook's
+  // args on first render — without waiting for the client-side
+  // Supabase auth singleton to hydrate. Otherwise the seed is
+  // skipped and the listings hook fires a cold REST call.
   const ssrData = await fetchMyServicesData(user.id);
 
-  return <ServicesClient ssrData={ssrData} />;
+  return <ServicesClient ssrData={ssrData} ssrUserId={user.id} />;
 }

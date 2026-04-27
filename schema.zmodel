@@ -753,7 +753,15 @@ model listing_requests {
   client_id    String        @db.Uuid  // Кто отправил заявку
   provider_id  String        @db.Uuid  // Владелец объявления (денормализация для быстрых запросов)
   message      String        @db.Text  // Сообщение клиента
-  status       RequestStatus @default(pending)
+  // Updates to `status` are denied through the REST/ZenStack path —
+  // the only writer is the `transitionRequest` Server Action, which
+  // bypasses these field rules because it runs against raw prisma.
+  // Without this deny, a client could craft a direct
+  // PUT /api/model/listing_requests/update body that flips status
+  // straight to `completed` (or any terminal state), bypassing
+  // the state-machine + role checks the action enforces. Read is
+  // still allowed — the field is shipped in every list payload.
+  status       RequestStatus @default(pending) @deny('update', true)
 
   // Контактный телефон клиента
   client_phone   String?       // Номер телефона клиента для связи

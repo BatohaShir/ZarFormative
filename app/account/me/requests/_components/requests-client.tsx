@@ -1,23 +1,16 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AuthModal } from "@/components/auth-modal";
-import { FavoritesButton } from "@/components/favorites-button";
-import { RequestsButton } from "@/components/requests-button";
-import { NotificationsButton } from "@/components/notifications-button";
+import { SiteHeader } from "@/components/site-header";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  ChevronLeft,
   Search,
   Send,
   Inbox,
@@ -45,15 +38,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   useFindManylisting_requests,
-  useUpdatelisting_requests,
   useDeletelisting_requests,
-  useCreatenotifications,
   useCreateManynotifications,
-  useCreatereviews,
 } from "@/lib/hooks";
 import { getQueryKey } from "@zenstackhq/tanstack-query/runtime-v5";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import { useRealtimeRequests } from "@/hooks/use-realtime-requests";
+import { useStatusTransition } from "./use-status-transition";
 import {
   RequestListItem,
   type RequestWithRelations,
@@ -185,7 +176,7 @@ const ElapsedTimeCounter = dynamic(
 
 // MobileActiveRequestsButton removed - replaced by "Ажилд" tab
 
-// Empty state component
+// Empty state — matches services-client EmptyState (rounded-2xl bg-muted/40)
 const EmptyState = React.memo(function EmptyState({
   icon,
   title,
@@ -196,23 +187,23 @@ const EmptyState = React.memo(function EmptyState({
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="w-20 h-20 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-        <div className="text-muted-foreground/50">{icon}</div>
+    <div className="flex flex-col items-center justify-center py-20 md:py-24 text-center rounded-2xl bg-muted/40">
+      <div className="h-14 w-14 rounded-2xl bg-card ring-1 ring-border flex items-center justify-center mb-5 text-foreground">
+        {icon}
       </div>
-      <p className="text-base font-medium text-foreground mb-1">{title}</p>
-      <p className="text-sm text-muted-foreground text-center max-w-xs">{description}</p>
+      <p className="font-display text-lg font-semibold">{title}</p>
+      <p className="text-muted-foreground text-sm mt-1 max-w-sm px-6">{description}</p>
     </div>
   );
 });
 
-// Loading skeleton
+// Loading skeleton — editorial: rounded-2xl ring-1 ring-border
 function LoadingState() {
   return (
     <div className="space-y-3">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-card border rounded-xl p-3 flex gap-3">
-          <Skeleton className="w-16 h-16 md:w-20 md:h-20 rounded-lg shrink-0" />
+        <div key={i} className="bg-card rounded-2xl ring-1 ring-border p-4 flex gap-3">
+          <Skeleton className="w-14 h-14 rounded-xl shrink-0" />
           <div className="flex-1 space-y-2">
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-3 w-1/2" />
@@ -615,12 +606,17 @@ function RequestsPageContent({
     new Set(ssrData?.notifiedExpiredIds ?? [])
   );
 
-  // Mutations
-  const updateRequest = useUpdatelisting_requests();
+  // Mutations. Status changes go through the `transitionRequest`
+  // Server Action (see useStatusTransition below) — that's why
+  // there's no useUpdatelisting_requests hook here. The remaining
+  // ones cover side flows that aren't gated by the state machine:
+  //
+  //   - deleteRequest: hard-deletes a request row (admin / owner UI)
+  //   - createManyNotifications: batch-create the "request expired"
+  //     notifications the page fires on mount for any pending
+  //     request whose preferred date has already passed
   const deleteRequest = useDeletelisting_requests();
-  const createNotification = useCreatenotifications();
   const createManyNotifications = useCreateManynotifications();
-  const createReview = useCreatereviews();
 
   // Create notifications for expired requests in ONE batch instead
   // of a for-loop firing N separate REST calls (each ~600ms on
@@ -704,525 +700,167 @@ function RequestsPageContent({
     [queryClient, queryKey, selectedRequest?.id]
   );
 
-  // Action handlers with optimistic updates
+  // Status-transition runner. Each handler below is now a small
+  // declarative config — the Server Action (`transitionRequest`)
+  // owns the state machine, role check, and side effects (status
+  // update + notification + optional review) inside one
+  // prisma.$transaction. The hook just wraps optimistic UI + revert.
+  // `isTransitionPending` is true while any in-flight transition
+  // hasn't settled — UI uses it to disable buttons / show spinners.
+  const { runTransition, isPending: isTransitionPending } = useStatusTransition({
+    allRequests: allRequests as RequestWithRelations[] | undefined,
+    optimisticUpdate,
+    revertOptimisticUpdate,
+  });
+
+  // ────────────────── Provider-side actions ──────────────────
   const handleAccept = React.useCallback(
-    async (requestId: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "accepted", { accepted_at: new Date() });
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "accepted", accepted_at: new Date() },
-        });
-
-        // Create notification for client
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "request_accepted",
-              title: "Хүсэлт зөвшөөрөгдлөө",
-              message: `"${request.listing.title}" хүсэлт зөвшөөрөгдлөө`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Хүсэлт зөвшөөрөгдлөө!");
-        dispatch({ type: "CLOSE_MODAL" });
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
-  );
-
-  // Price proposal handler (provider proposes price for negotiable listings)
-  const handleProposePrice = React.useCallback(
-    async (requestId: string, price: number) => {
-      const request = normalizedRequests.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "price_proposed", { proposed_price: price });
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "price_proposed", proposed_price: price },
-        });
-
-        // Create notification for client
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "new_message",
-              title: "Үнийн санал ирлээ",
-              message: `"${request.listing.title}" үйлчилгээнд ${price.toLocaleString()}₮ үнэ санал болголоо`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Үнийн санал илгээгдлээ!");
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      normalizedRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
-  );
-
-  // Client confirms the proposed price
-  const handleConfirmPrice = React.useCallback(
-    async (requestId: string) => {
-      const request = normalizedRequests.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "accepted", { accepted_at: new Date() });
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "accepted", accepted_at: new Date() },
-        });
-
-        // Create notification for provider
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.provider_id,
-              type: "request_accepted",
-              title: "Үнэ зөвшөөрөгдлөө",
-              message: `"${request.listing.title}" үнийн санал зөвшөөрөгдлөө`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Үнэ зөвшөөрөгдлөө!");
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      normalizedRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
-  );
-
-  // Client rejects the proposed price
-  const handleRejectPrice = React.useCallback(
-    async (requestId: string) => {
-      const request = normalizedRequests.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "rejected");
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "rejected", proposed_price: null },
-        });
-
-        // Create notification for provider
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.provider_id,
-              type: "request_rejected",
-              title: "Үнэ татгалзагдлаа",
-              message: `"${request.listing.title}" үнийн санал татгалзагдлаа`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Үнэ татгалзагдлаа");
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      normalizedRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "accept",
+        toStatus: "accepted",
+        optimisticData: { accepted_at: new Date() },
+        successToast: "Хүсэлт зөвшөөрөгдлөө!",
+        onSuccess: () => dispatch({ type: "CLOSE_MODAL" }),
+      }),
+    [runTransition]
   );
 
   const handleReject = React.useCallback(
-    async (requestId: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "rejected");
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "rejected" },
-        });
-
-        // Create notification for client
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "request_rejected",
-              title: "Хүсэлт татгалзагдлаа",
-              message: `"${request.listing.title}" хүсэлт татгалзагдлаа`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Хүсэлт татгалзагдлаа");
-        dispatch({ type: "CLOSE_MODAL" });
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
-  );
-
-  const handleCancelByClient = React.useCallback(
-    async (requestId: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "cancelled_by_client");
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "cancelled_by_client" },
-        });
-
-        // Create notification for provider
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.provider_id,
-              type: "request_cancelled",
-              title: "Хүсэлт цуцлагдлаа",
-              message: `"${request.listing.title}" хүсэлт захиалагчаас цуцлагдлаа`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Хүсэлт цуцлагдлаа");
-        dispatch({ type: "CLOSE_MODAL" });
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
-  );
-
-  const handleCancelByProvider = React.useCallback(
-    async (requestId: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "cancelled_by_provider");
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "cancelled_by_provider" },
-        });
-
-        // Create notification for client
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "cancelled_by_provider",
-              title: "Захиалга цуцлагдлаа",
-              message: `"${request.listing.title}" захиалга үйлчилгээ үзүүлэгчээс цуцлагдлаа`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Хүсэлт цуцлагдлаа");
-        dispatch({ type: "CLOSE_MODAL" });
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "reject",
+        toStatus: "rejected",
+        successToast: "Хүсэлт татгалзагдлаа",
+        onSuccess: () => dispatch({ type: "CLOSE_MODAL" }),
+      }),
+    [runTransition]
   );
 
   const handleStartWork = React.useCallback(
-    async (requestId: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "in_progress");
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: {
-            status: "in_progress",
-            started_at: new Date().toISOString(),
-          },
-        });
-
-        // Create notification for client
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "work_started",
-              title: "Ажил эхэллээ",
-              message: `"${request.listing.title}" ажил эхэллээ`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Ажил эхэллээ!");
-        dispatch({ type: "CLOSE_MODAL" });
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "start_work",
+        toStatus: "in_progress",
+        optimisticData: { started_at: new Date() },
+        successToast: "Ажил эхэллээ!",
+        onSuccess: () => dispatch({ type: "CLOSE_MODAL" }),
+      }),
+    [runTransition]
   );
 
-  // Legacy handleComplete - no longer used in new workflow
+  const handleProposePrice = React.useCallback(
+    (requestId: string, price: number) =>
+      runTransition({
+        requestId,
+        action: "propose_price",
+        toStatus: "price_proposed",
+        optimisticData: { proposed_price: price },
+        proposedPrice: price,
+        successToast: "Үнийн санал илгээгдлээ!",
+      }),
+    [runTransition]
+  );
+
+  const handleCancelByProvider = React.useCallback(
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "cancel_by_provider",
+        toStatus: "cancelled_by_provider",
+        successToast: "Хүсэлт цуцлагдлаа",
+        onSuccess: () => dispatch({ type: "CLOSE_MODAL" }),
+      }),
+    [runTransition]
+  );
+
+  const handleProviderSubmitDetails = React.useCallback(
+    (requestId: string, description: string, photoUrls: string[]) =>
+      runTransition({
+        requestId,
+        action: "provider_submit_details",
+        toStatus: "awaiting_client_confirmation",
+        optimisticData: {
+          completion_description: description,
+          completion_photos: photoUrls,
+        },
+        completionDescription: description,
+        completionPhotos: photoUrls,
+        successToast: "Ажлын тайлан илгээгдлээ!",
+      }),
+    [runTransition]
+  );
+
+  // ────────────────── Client-side actions ──────────────────
+  const handleConfirmPrice = React.useCallback(
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "confirm_price",
+        toStatus: "accepted",
+        optimisticData: { accepted_at: new Date() },
+        successToast: "Үнэ зөвшөөрөгдлөө!",
+      }),
+    [runTransition]
+  );
+
+  const handleRejectPrice = React.useCallback(
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "reject_price",
+        toStatus: "rejected",
+        optimisticData: { proposed_price: null },
+        successToast: "Үнэ татгалзагдлаа",
+      }),
+    [runTransition]
+  );
+
+  const handleCancelByClient = React.useCallback(
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "cancel_by_client",
+        toStatus: "cancelled_by_client",
+        successToast: "Хүсэлт цуцлагдлаа",
+        onSuccess: () => dispatch({ type: "CLOSE_MODAL" }),
+      }),
+    [runTransition]
+  );
+
+  // Legacy stub kept because RequestActions interface still names it
+  // — modern UI calls handleProviderSubmitDetails to advance from
+  // in_progress.
   const handleComplete = React.useCallback(async (_requestId: string) => {
-    // This is now handled by opening ProviderCompletionForm directly
+    /* no-op, see handleProviderSubmitDetails */
   }, []);
 
-  // Step 2: Client confirms and leaves review (awaiting_client_confirmation -> awaiting_payment)
   const handleClientConfirmCompletion = React.useCallback(
-    async (requestId: string, rating: number, comment: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "awaiting_payment");
-
-      try {
-        // Update request status to awaiting_payment
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "awaiting_payment" },
-        });
-
-        // Create review
-        if (request && user?.id) {
-          await createReview.mutateAsync({
-            data: {
-              request_id: requestId,
-              client_id: user.id,
-              provider_id: request.provider_id,
-              rating,
-              comment: comment || null,
-            },
-          });
-        }
-
-        // Create notification for provider - ready for payment
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.provider_id,
-              type: "client_confirmed_completion",
-              title: "Захиалагч баталгаажууллаа",
-              message: `"${request.listing.title}" ажлыг захиалагч баталгаажууллаа. Төлбөр хүлээгдэж байна.`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Амжилттай баталгаажууллаа!");
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createReview,
-      createNotification,
-      user?.id,
-    ]
+    (requestId: string, rating: number, comment: string) =>
+      runTransition({
+        requestId,
+        action: "client_confirm_completion",
+        toStatus: "awaiting_payment",
+        rating,
+        comment,
+        successToast: "Амжилттай баталгаажууллаа!",
+      }),
+    [runTransition]
   );
 
-  // Step 2: Provider submits work details (in_progress -> awaiting_client_confirmation)
-  // Changed workflow: Provider writes report FIRST, then client confirms
-  const handleProviderSubmitDetails = React.useCallback(
-    async (requestId: string, description: string, photoUrls: string[]) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "awaiting_client_confirmation", {
-        completion_description: description,
-        completion_photos: photoUrls,
-      });
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: {
-            status: "awaiting_client_confirmation",
-            completion_description: description,
-            completion_photos: photoUrls,
-          },
-        });
-
-        // Create notification for client
-        if (request && user?.id) {
-          createNotification.mutate({
-            data: {
-              user_id: request.client_id,
-              type: "work_awaiting_confirmation",
-              title: "Ажил дууссаныг баталгаажуулна уу",
-              message: `"${request.listing.title}" ажил дууслаа. Баталгаажуулна уу.`,
-              request_id: requestId,
-              actor_id: user.id,
-            },
-          });
-        }
-
-        toast.success("Ажлын тайлан илгээгдлээ!");
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
-  );
-
-  // Step 3: Payment complete (awaiting_payment -> completed)
   const handlePaymentComplete = React.useCallback(
-    async (requestId: string) => {
-      const request = (allRequests as RequestWithRelations[])?.find((r) => r.id === requestId);
-      const oldStatus = request?.status;
-      optimisticUpdate(requestId, "completed", { completed_at: new Date() });
-
-      try {
-        await updateRequest.mutateAsync({
-          where: { id: requestId },
-          data: { status: "completed", completed_at: new Date() },
-        });
-
-        // OPTIMIZED: Create notifications for both parties in parallel
-        if (request && user?.id) {
-          Promise.all([
-            // Notification for client
-            createNotification.mutateAsync({
-              data: {
-                user_id: request.client_id,
-                type: "work_completed",
-                title: "Ажил дууслаа",
-                message: `"${request.listing.title}" ажил амжилттай дууслаа. Баярлалаа!`,
-                request_id: requestId,
-                actor_id: user.id,
-              },
-            }),
-            // Notification for provider
-            createNotification.mutateAsync({
-              data: {
-                user_id: request.provider_id,
-                type: "payment_received",
-                title: "Төлбөр хүлээн авлаа",
-                message: `"${request.listing.title}" ажлын төлбөр хүлээн авлаа. Баярлалаа!`,
-                request_id: requestId,
-                actor_id: user.id,
-              },
-            }),
-          ]).catch(() => {
-            // Silently fail - notifications are not critical
-          });
-        }
-
-        // OPTIMIZED: Invalidate cache to ensure consistency
-      } catch {
-        if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
-        toast.error("Алдаа гарлаа");
-      }
-    },
-    [
-      allRequests,
-      optimisticUpdate,
-      revertOptimisticUpdate,
-      updateRequest,
-      createNotification,
-      user?.id,
-    ]
+    (requestId: string) =>
+      runTransition({
+        requestId,
+        action: "payment_complete",
+        toStatus: "completed",
+        optimisticData: { completed_at: new Date() },
+        successToast: "Ажил дууслаа!",
+      }),
+    [runTransition]
   );
 
   const handleDelete = React.useCallback(async () => {
@@ -1254,17 +892,27 @@ function RequestsPageContent({
     dispatch({ type: "OPEN_CHAT_FOR_REQUEST", payload: request });
   }, []);
 
-  // Track if modal was manually closed to prevent useEffect from reopening
+  // Track if modal was manually closed to prevent useEffect from reopening.
+  // Set synchronously inside handleCloseModal; the URL→modal sync effect
+  // checks-and-clears it, so a stale ?request=ID still in the URL right
+  // after close (Next.js router.replace is async) does not bounce the
+  // modal back open.
   const wasManuallyClosedRef = React.useRef(false);
 
   const handleCloseModal = React.useCallback(() => {
-    // Mark as manually closed to prevent useEffect from reopening
     wasManuallyClosedRef.current = true;
-    // Remove request param from URL
+    // Drop both `request` (canonical) and any leftover `highlight` /
+    // `openChat` from the original notification deeplink — otherwise
+    // the highlight effect (or a re-render with stale searchParams)
+    // can re-trigger and reopen the modal.
     const params = new URLSearchParams(searchParams.toString());
     params.delete("request");
-    router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
-    // Close modal
+    params.delete("highlight");
+    params.delete("openChat");
+    const qs = params.toString();
+    router.replace(qs ? `/account/me/requests?${qs}` : "/account/me/requests", {
+      scroll: false,
+    });
     dispatch({ type: "CLOSE_MODAL" });
   }, [searchParams, router]);
 
@@ -1295,7 +943,7 @@ function RequestsPageContent({
       onProviderSubmitDetails: handleProviderSubmitDetails,
       onClientConfirmCompletion: handleClientConfirmCompletion,
       onPaymentComplete: handlePaymentComplete,
-      isUpdating: updateRequest.isPending,
+      isUpdating: isTransitionPending,
       isDeleting: deleteRequest.isPending,
     }),
     [
@@ -1308,7 +956,7 @@ function RequestsPageContent({
       handleProviderSubmitDetails,
       handleClientConfirmCompletion,
       handlePaymentComplete,
-      updateRequest.isPending,
+      isTransitionPending,
       deleteRequest.isPending,
     ]
   );
@@ -1340,13 +988,18 @@ function RequestsPageContent({
     }
   }, [highlightRequestId, openChatParam, allRequests, requestsLoading, selectedRequest, router]);
 
-  // Handle request URL parameter - restore open modal on page refresh
+  // Handle request URL parameter - restore open modal on page refresh.
+  // The guard ref is cleared only once the URL has actually lost its
+  // `request` param — keeping it set across the in-between renders so
+  // the URL→modal sync effect doesn't re-add `?request=ID` from stale
+  // selectedRequest while the close is settling.
   React.useEffect(() => {
     const requestIdFromUrl = searchParams.get("request");
 
-    // Don't reopen if user just closed the modal
     if (wasManuallyClosedRef.current) {
-      wasManuallyClosedRef.current = false;
+      if (!requestIdFromUrl) {
+        wasManuallyClosedRef.current = false;
+      }
       return;
     }
 
@@ -1363,17 +1016,19 @@ function RequestsPageContent({
 
   // Sync URL when selectedRequest changes (for cases where modal is opened via dispatch)
   React.useEffect(() => {
+    // Skip while a manual close is in flight. Otherwise React can run
+    // this effect on a render where selectedRequest is still the old
+    // object but searchParams has just dropped `request` — we'd then
+    // re-add the param and the close-effect bounces the modal back open.
+    if (wasManuallyClosedRef.current) return;
+
     const requestIdFromUrl = searchParams.get("request");
 
-    // If a request is selected but not in URL, add it
     if (selectedRequest && requestIdFromUrl !== selectedRequest.id) {
       const params = new URLSearchParams(searchParams.toString());
       params.set("request", selectedRequest.id);
       router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
     }
-
-    // NOTE: Removal of request param from URL is handled in handleCloseModal
-    // to prevent race condition with the above useEffect
   }, [selectedRequest, searchParams, router]);
 
   if (authLoading) {
@@ -1388,99 +1043,71 @@ function RequestsPageContent({
     return null;
   }
 
+  const totalCount = myRequests.length + incomingRequests.length + activeJobs.length;
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      {/* Header */}
-      <header className="border-b sticky top-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
-        <div className="container mx-auto px-4 py-3 md:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 md:gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => router.push("/")}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
-                <span className="text-[#015197]">Tsogts</span>
-                <span className="text-[#c4272f]">.mn</span>
-              </h1>
-            </Link>
+      <SiteHeader backHref="/" />
+
+      <div className="container mx-auto px-4 md:px-6 py-6 md:py-10">
+        {/* Editorial page title */}
+        <div className="flex items-end justify-between gap-3 mb-6 md:mb-8">
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight">
+              Хүсэлтүүд
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1.5 tabular">
+              {totalCount} хүсэлт байна
+            </p>
           </div>
-          {/* Mobile Nav */}
-          <div className="flex md:hidden items-center gap-2">
-            <ThemeToggle />
-            <NotificationsButton />
-          </div>
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-4">
-            <NotificationsButton />
-            <RequestsButton />
-            <FavoritesButton />
-            <ThemeToggle />
-            <AuthModal />
-          </nav>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-4 md:py-6">
-        <h2 className="text-xl md:text-2xl font-bold mb-4">Хүсэлтүүд</h2>
-
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* Search — pill input */}
+        <div className="relative mb-6">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Хайх..."
+            placeholder="Гарчиг, мессеж, хэрэглэгчээр хайх..."
             value={searchInput}
             onChange={(e) => dispatch({ type: "SET_SEARCH_INPUT", payload: e.target.value })}
-            className="pl-10"
+            className="pl-11 h-11 rounded-full bg-muted border-0 focus-visible:ring-2 focus-visible:ring-foreground/20"
           />
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <div className="flex justify-center mb-6">
-            <TabsList className="inline-flex p-1 h-10 md:h-11 bg-muted/50 rounded-full">
-              <TabsTrigger
-                value="my_requests"
-                className="rounded-full px-3 md:px-5 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs md:text-sm font-medium"
-              >
-                <Send className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Илгээсэн</span>
-                {myRequests.length > 0 && (
-                  <span className="ml-1 md:ml-2 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold min-w-5 text-center">
-                    {myRequests.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="incoming"
-                className="rounded-full px-3 md:px-5 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs md:text-sm font-medium"
-              >
-                <Inbox className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Ирсэн</span>
-                {incomingRequests.length > 0 && (
-                  <span className="ml-1 md:ml-2 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold min-w-5 text-center">
-                    {incomingRequests.length}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger
-                value="active_jobs"
-                className="rounded-full px-3 md:px-5 data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs md:text-sm font-medium"
-              >
-                <Play className="h-4 w-4 md:mr-2" />
-                <span className="hidden md:inline">Явагдаж буй</span>
-                {activeJobs.length > 0 && (
-                  <span className="ml-1 md:ml-2 px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 text-xs font-semibold min-w-5 text-center">
-                    {activeJobs.length}
-                  </span>
-                )}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        {/* Tabs — editorial pill row */}
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full mb-6">
+          <TabsList className="w-full grid grid-cols-3 p-1 h-10 md:h-11 bg-muted rounded-full">
+            <TabsTrigger
+              value="my_requests"
+              className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-foreground data-[state=active]:text-background text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
+            >
+              <Send className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4" />
+              Илгээсэн
+              <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-background/15 text-[9px] sm:text-[10px] md:text-xs font-semibold tabular">
+                {myRequests.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="incoming"
+              className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-foreground data-[state=active]:text-background text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
+            >
+              <Inbox className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4" />
+              Ирсэн
+              <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-background/15 text-[9px] sm:text-[10px] md:text-xs font-semibold tabular">
+                {incomingRequests.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="active_jobs"
+              className="rounded-full px-2 sm:px-3 md:px-4 data-[state=active]:bg-foreground data-[state=active]:text-background text-[11px] sm:text-xs md:text-sm font-medium gap-1 sm:gap-1.5"
+            >
+              <Play className="hidden sm:block h-3.5 w-3.5 md:h-4 md:w-4" />
+              <span className="hidden sm:inline">Явагдаж буй</span>
+              <span className="sm:hidden">Идэвх</span>
+              <span className="px-1 sm:px-1.5 py-0.5 rounded-full bg-background/15 text-[9px] sm:text-[10px] md:text-xs font-semibold tabular">
+                {activeJobs.length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
 
           {/* My Requests - миний илгээсэн хүсэлтүүд */}
           <TabsContent value="my_requests" className="mt-0">
@@ -1488,7 +1115,7 @@ function RequestsPageContent({
               <LoadingState />
             ) : filteredMyRequests.length === 0 ? (
               <EmptyState
-                icon={<Send className="h-12 w-12" />}
+                icon={<Send className="h-6 w-6" />}
                 title="Илгээсэн хүсэлт байхгүй"
                 description="Та үйлчилгээнд хүсэлт илгээхэд энд харагдана"
               />
@@ -1504,7 +1131,7 @@ function RequestsPageContent({
                     onCancelByClient={handleCancelByClient}
                     onConfirmPrice={handleConfirmPrice}
                     onRejectPrice={handleRejectPrice}
-                    isUpdating={updateRequest.isPending}
+                    isUpdating={isTransitionPending}
                     onPrefetch={warmDetailModal}
                   />
                 ))}
@@ -1518,7 +1145,7 @@ function RequestsPageContent({
               <LoadingState />
             ) : filteredIncomingRequests.length === 0 ? (
               <EmptyState
-                icon={<Inbox className="h-12 w-12" />}
+                icon={<Inbox className="h-6 w-6" />}
                 title="Ирсэн хүсэлт байхгүй"
                 description="Таны үйлчилгээнд сонирхсон хүмүүс энд харагдана"
               />
@@ -1535,7 +1162,7 @@ function RequestsPageContent({
                     onReject={handleReject}
                     onCancelByProvider={handleCancelByProvider}
                     onProposePrice={handleProposePrice}
-                    isUpdating={updateRequest.isPending}
+                    isUpdating={isTransitionPending}
                     onPrefetch={warmDetailModal}
                   />
                 ))}
@@ -1549,7 +1176,7 @@ function RequestsPageContent({
               <LoadingState />
             ) : filteredActiveJobs.length === 0 ? (
               <EmptyState
-                icon={<Play className="h-12 w-12" />}
+                icon={<Play className="h-6 w-6" />}
                 title="Идэвхтэй ажил байхгүй"
                 description="Хүлээн авсан болон эхэлсэн ажлууд энд харагдана"
               />
@@ -1577,28 +1204,30 @@ function RequestsPageContent({
                       onMouseEnter={warmDetailModal}
                       onTouchStart={warmDetailModal}
                       onFocus={warmDetailModal}
-                      className="relative w-full text-left bg-card border rounded-xl overflow-hidden hover:border-primary/30 hover:shadow-md transition-all"
+                      style={{ transitionTimingFunction: "var(--ease-brand)" }}
+                      className="relative w-full text-left bg-card rounded-2xl ring-1 ring-border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl active:scale-[0.99]"
                     >
                       {/* Status indicator bar */}
                       <div
                         className={`absolute top-0 left-0 right-0 h-1 ${
                           request.status === "in_progress"
-                            ? "bg-gradient-to-r from-blue-500 to-blue-400"
+                            ? "bg-blue-500"
                             : isVirtualActive
-                              ? "bg-gradient-to-r from-amber-500 to-orange-400"
-                              : "bg-gradient-to-r from-green-500 to-emerald-500"
+                              ? "bg-amber-500"
+                              : "bg-emerald-500"
                         }`}
                       />
 
-                      <div className="p-3 pt-4">
+                      <div className="p-4 pt-5">
                         {/* Top row: status badge + service info */}
                         <div className="flex items-start gap-3">
                           {/* Service image */}
-                          <div className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0">
+                          <div className="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 bg-muted ring-1 ring-border">
                             <Image
                               src={getListingImage(request.listing)}
                               alt={request.listing.title}
                               fill
+                              sizes="56px"
                               className="object-cover"
                             />
                           </div>
@@ -1606,12 +1235,12 @@ function RequestsPageContent({
                           {/* Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="font-semibold text-sm line-clamp-1">
+                              <h3 className="font-display font-semibold text-sm leading-snug line-clamp-1">
                                 {request.listing.title}
                               </h3>
                               {/* Price display */}
                               {request.proposed_price ? (
-                                <span className="text-xs font-medium text-purple-600 dark:text-purple-400">
+                                <span className="font-display text-sm font-bold tabular text-violet-600 dark:text-violet-400">
                                   {Number(request.proposed_price).toLocaleString()}₮
                                 </span>
                               ) : request.listing.is_negotiable ? (
@@ -1619,17 +1248,17 @@ function RequestsPageContent({
                                   Тохиролцоно
                                 </span>
                               ) : request.listing.price ? (
-                                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                <span className="font-display text-sm font-bold tabular text-foreground">
                                   {Number(request.listing.price).toLocaleString()}₮
                                 </span>
                               ) : null}
                               <div
-                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium ring-1 ${
                                   request.status === "in_progress"
-                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                                    ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/20"
                                     : isVirtualActive
-                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
-                                      : "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300"
+                                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20"
+                                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20"
                                 }`}
                               >
                                 <span
@@ -1638,7 +1267,7 @@ function RequestsPageContent({
                                       ? "bg-blue-500 animate-pulse"
                                       : isVirtualActive
                                         ? "bg-amber-500 animate-pulse"
-                                        : "bg-green-500"
+                                        : "bg-emerald-500"
                                   }`}
                                 />
                                 {request.status === "in_progress"
@@ -1659,8 +1288,8 @@ function RequestsPageContent({
                               const person = isMyRequest ? request.provider : request.client;
                               const label = isMyRequest ? "Үйлчилгээ үзүүлэгч" : "Захиалагч";
                               return (
-                                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
-                                  <div className="relative w-5 h-5 rounded-full overflow-hidden bg-muted shrink-0">
+                                <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
+                                  <div className="relative w-5 h-5 rounded-full overflow-hidden bg-muted shrink-0 ring-1 ring-border">
                                     {person.avatar_url ? (
                                       <Image
                                         src={person.avatar_url}
@@ -1687,8 +1316,8 @@ function RequestsPageContent({
 
                         {/* Message - compact */}
                         {request.message && (
-                          <div className="mt-2 px-2 py-1.5 bg-muted/50 rounded-lg">
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <div className="mt-3 px-3 py-2 bg-muted/60 rounded-xl">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                               <MessageSquare className="h-3 w-3 shrink-0" />
                               <span className="truncate">{request.message}</span>
                             </p>
@@ -1696,17 +1325,17 @@ function RequestsPageContent({
                         )}
 
                         {/* Details row - inline */}
-                        <div className="flex items-center gap-3 mt-2 text-xs">
-                          <div className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-                            <Calendar className="h-3.5 w-3.5" />
+                        <div className="flex items-center gap-3 mt-3 text-xs tabular text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5 text-orange-500" />
                             <span>{preferredDateStr || "—"}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
-                            <Clock className="h-3.5 w-3.5" />
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-violet-500" />
                             <span>{request.preferred_time || "—"}</span>
                           </div>
-                          <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 truncate">
-                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <div className="flex items-center gap-1 truncate">
+                            <MapPin className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                             <span className="truncate">
                               {request.listing.service_type === "remote"
                                 ? // remote = клиент приходит к исполнителю, показываем адрес исполнителя
@@ -1727,7 +1356,7 @@ function RequestsPageContent({
                         </div>
 
                         {/* Actions */}
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-4 flex gap-2">
                           {/* Client actions */}
                           {request.client_id === user?.id && (
                             <>
@@ -1739,8 +1368,8 @@ function RequestsPageContent({
                                     e.stopPropagation();
                                     handleCancelByClient(request.id);
                                   }}
-                                  disabled={updateRequest.isPending}
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                  disabled={isTransitionPending}
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold border border-border bg-card hover:bg-muted text-destructive transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                   Цуцлах
@@ -1754,7 +1383,7 @@ function RequestsPageContent({
                                     e.stopPropagation();
                                     handleSelectRequest(request);
                                   }}
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5"
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98]"
                                 >
                                   <CheckCircle className="h-3.5 w-3.5" />
                                   Баталгаажуулах
@@ -1775,8 +1404,8 @@ function RequestsPageContent({
                                     e.stopPropagation();
                                     handleCancelByProvider(request.id);
                                   }}
-                                  disabled={updateRequest.isPending}
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                  disabled={isTransitionPending}
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold border border-border bg-card hover:bg-muted text-destructive transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                   Цуцлах
@@ -1792,10 +1421,10 @@ function RequestsPageContent({
                                       payload: request.id,
                                     });
                                   }}
-                                  disabled={updateRequest.isPending}
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                  disabled={isTransitionPending}
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
                                 >
-                                  {updateRequest.isPending ? (
+                                  {isTransitionPending ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
                                     <Play className="h-3.5 w-3.5" />
@@ -1814,10 +1443,10 @@ function RequestsPageContent({
                                       payload: request,
                                     });
                                   }}
-                                  disabled={updateRequest.isPending}
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                  disabled={isTransitionPending}
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
                                 >
-                                  {updateRequest.isPending ? (
+                                  {isTransitionPending ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                   ) : (
                                     <CheckCircle className="h-3.5 w-3.5" />
@@ -1829,7 +1458,7 @@ function RequestsPageContent({
                                 <button
                                   type="button"
                                   disabled
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-gray-400 text-white transition-colors flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold bg-muted text-muted-foreground transition-colors flex items-center justify-center gap-1.5 opacity-70 cursor-not-allowed"
                                 >
                                   <Clock className="h-3.5 w-3.5" />
                                   Хүлээж байна...
@@ -1843,8 +1472,8 @@ function RequestsPageContent({
                                     // Open detail modal with QR payment auto-opened
                                     dispatch({ type: "OPEN_QR_FOR_REQUEST", payload: request });
                                   }}
-                                  disabled={updateRequest.isPending}
-                                  className="flex-1 h-9 px-3 rounded-lg text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                  disabled={isTransitionPending}
+                                  className="flex-1 h-9 px-4 rounded-full text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 transition-colors flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
                                 >
                                   <CreditCard className="h-3.5 w-3.5" />
                                   Төлбөр авах
@@ -1861,7 +1490,7 @@ function RequestsPageContent({
             )}
           </TabsContent>
         </Tabs>
-      </main>
+      </div>
 
       {/* ActiveRequestsSidebar removed - replaced by "Ажилд" tab */}
 
@@ -1900,7 +1529,10 @@ function RequestsPageContent({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Болих</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               {deleteRequest.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
               Устгах
             </AlertDialogAction>
@@ -1930,9 +1562,9 @@ function RequestsPageContent({
                 }
                 dispatch({ type: "CLOSE_START_WORK_DIALOG" });
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="rounded-full bg-foreground text-background hover:bg-foreground/90"
             >
-              {updateRequest.isPending ? (
+              {isTransitionPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Play className="h-4 w-4 mr-2" />

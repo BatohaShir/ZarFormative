@@ -52,7 +52,15 @@ export function useEducations(userId?: string, options?: UseEducationsOptions) {
   const queryClient = useQueryClient();
 
   const targetUserId = userId || currentUserId;
-  const queryKey = ["profiles_educations", "findMany", { where: { user_id: targetUserId ?? "" } }];
+  // ZenStack writes findMany cache slots under
+  //   ["zenstack", model, op, args, {infinite, optimisticUpdate}]
+  // — TanStack Query v5 prefix-matches from index 0, so this prefix
+  // catches every educations-list slot regardless of the args/select
+  // shape the caller used. Optimistic mutations below patch the
+  // cache through setQueriesData with this prefix so they actually
+  // land in the same slot the hook reads from (the previous narrow
+  // exact-key approach silently no-oped).
+  const queryKeyPrefix = ["zenstack", "profiles_educations", "findMany"];
 
   // Fetch educations - optimized with select to reduce data transfer
   const {
@@ -104,27 +112,27 @@ export function useEducations(userId?: string, options?: UseEducationsOptions) {
       is_current: data.is_current ?? false,
     };
 
-    // Сохраняем предыдущее состояние для rollback
-    const previousData = queryClient.getQueryData(queryKey);
+    // Snapshot every slot we're about to patch so we can roll back
+    // each one individually on error — the prefix can match multiple
+    // queries if the same user's educations are read with different
+    // selects across the app.
+    const snapshots = queryClient.getQueriesData<Education[]>({ queryKey: queryKeyPrefix });
 
-    // Оптимистично добавляем в кэш
-    queryClient.setQueryData(queryKey, (old: Education[] | undefined) => {
-      return old ? [...old, optimisticEdu] : [optimisticEdu];
-    });
+    queryClient.setQueriesData<Education[]>({ queryKey: queryKeyPrefix }, (old) =>
+      old ? [...old, optimisticEdu] : [optimisticEdu]
+    );
 
     try {
       await createMutation.mutateAsync({
-        data: {
-          ...data,
-          user_id: currentUserId,
-        },
+        data: { ...data, user_id: currentUserId },
       });
-      // После успеха - инвалидируем для получения реального ID
-      queryClient.invalidateQueries({ queryKey });
+      // Invalidate so the optimistic placeholder is replaced with
+      // the real row (real id, real created_at).
+      queryClient.invalidateQueries({ queryKey: queryKeyPrefix });
       return { error: null };
     } catch (error) {
-      // Rollback при ошибке
-      queryClient.setQueryData(queryKey, previousData);
+      // Roll back every patched slot.
+      for (const [key, prev] of snapshots) queryClient.setQueryData(key, prev);
       return { error: error instanceof Error ? error.message : "Create failed" };
     }
   };
@@ -133,24 +141,18 @@ export function useEducations(userId?: string, options?: UseEducationsOptions) {
   const updateEducation = async (id: string, data: UpdateEducationInput) => {
     if (!currentUserId) return { error: "Not authenticated" };
 
-    // Сохраняем предыдущее состояние
-    const previousData = queryClient.getQueryData(queryKey);
+    const snapshots = queryClient.getQueriesData<Education[]>({ queryKey: queryKeyPrefix });
 
-    // Оптимистично обновляем в кэше
-    queryClient.setQueryData(queryKey, (old: Education[] | undefined) => {
+    queryClient.setQueriesData<Education[]>({ queryKey: queryKeyPrefix }, (old) => {
       if (!old) return old;
       return old.map((edu) => (edu.id === id ? { ...edu, ...data } : edu));
     });
 
     try {
-      await updateMutation.mutateAsync({
-        where: { id },
-        data,
-      });
+      await updateMutation.mutateAsync({ where: { id }, data });
       return { error: null };
     } catch (error) {
-      // Rollback при ошибке
-      queryClient.setQueryData(queryKey, previousData);
+      for (const [key, prev] of snapshots) queryClient.setQueryData(key, prev);
       return { error: error instanceof Error ? error.message : "Update failed" };
     }
   };
@@ -159,23 +161,18 @@ export function useEducations(userId?: string, options?: UseEducationsOptions) {
   const deleteEducation = async (id: string) => {
     if (!currentUserId) return { error: "Not authenticated" };
 
-    // Сохраняем предыдущее состояние
-    const previousData = queryClient.getQueryData(queryKey);
+    const snapshots = queryClient.getQueriesData<Education[]>({ queryKey: queryKeyPrefix });
 
-    // Оптимистично удаляем из кэша
-    queryClient.setQueryData(queryKey, (old: Education[] | undefined) => {
+    queryClient.setQueriesData<Education[]>({ queryKey: queryKeyPrefix }, (old) => {
       if (!old) return old;
       return old.filter((edu) => edu.id !== id);
     });
 
     try {
-      await deleteMutation.mutateAsync({
-        where: { id },
-      });
+      await deleteMutation.mutateAsync({ where: { id } });
       return { error: null };
     } catch (error) {
-      // Rollback при ошибке
-      queryClient.setQueryData(queryKey, previousData);
+      for (const [key, prev] of snapshots) queryClient.setQueryData(key, prev);
       return { error: error instanceof Error ? error.message : "Delete failed" };
     }
   };

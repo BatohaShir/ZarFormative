@@ -22,7 +22,10 @@ export default async function MyProfilePage() {
   // Single CTE round-trip: profile + educations + work. Client hook
   // receives this as initialData so the UI paints on first render
   // instead of waiting three sequential ZenStack REST calls.
+  // ssrUserId is passed separately so the seed hashes the hook's
+  // args on first render — without waiting for the client-side
+  // Supabase auth singleton to hydrate.
   const ssrData = await fetchMyProfileData(user.id);
 
-  return <MyProfileClient ssrData={ssrData} />;
+  return <MyProfileClient ssrData={ssrData} ssrUserId={user.id} />;
 }

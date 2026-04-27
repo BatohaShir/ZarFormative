@@ -37,7 +37,7 @@ export function useRealtimeProfile(userId?: string) {
   const refetchProfile = useCallback(() => {
     if (!targetUserId) return;
     queryClient.invalidateQueries({
-      queryKey: ["profiles", "findUnique", { where: { id: targetUserId } }],
+      queryKey: ["zenstack", "profiles", "findUnique", { where: { id: targetUserId } }],
     });
   }, [queryClient, targetUserId]);
 
@@ -47,7 +47,12 @@ export function useRealtimeProfile(userId?: string) {
   const refetchEducations = useCallback(() => {
     if (!targetUserId) return;
     queryClient.invalidateQueries({
-      queryKey: ["profiles_educations", "findMany", { where: { user_id: targetUserId } }],
+      queryKey: [
+        "zenstack",
+        "profiles_educations",
+        "findMany",
+        { where: { user_id: targetUserId } },
+      ],
     });
   }, [queryClient, targetUserId]);
 
@@ -55,7 +60,12 @@ export function useRealtimeProfile(userId?: string) {
   const refetchWorkExperiences = useCallback(() => {
     if (!targetUserId) return;
     queryClient.invalidateQueries({
-      queryKey: ["profiles_work_experiences", "findMany", { where: { user_id: targetUserId } }],
+      queryKey: [
+        "zenstack",
+        "profiles_work_experiences",
+        "findMany",
+        { where: { user_id: targetUserId } },
+      ],
     });
   }, [queryClient, targetUserId]);
 

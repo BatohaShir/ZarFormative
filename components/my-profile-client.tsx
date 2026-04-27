@@ -108,9 +108,17 @@ interface MyProfileClientProps {
    * useCurrentUser picks it up as already-fresh data.
    */
   ssrData?: MyProfileSsrData;
+  /**
+   * Current user id as known on the server. Passed so the seed
+   * below hashes ZenStack's hook key on the very first render —
+   * relying on user?.id from the client auth singleton is too late,
+   * the singleton hydrates async and the useState initializer would
+   * have already skipped.
+   */
+  ssrUserId?: string;
 }
 
-export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
+export function MyProfileClient({ ssrData, ssrUserId }: MyProfileClientProps = {}) {
   const router = useRouter();
   const t = useTranslations();
   const queryClient = useQueryClient();
@@ -135,7 +143,7 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
   // here would be too late (hooks below would already have dispatched
   // a network fetch against an empty cache).
   React.useState(() => {
-    if (!ssrData || !user?.id) return null;
+    if (!ssrData || !ssrUserId) return null;
 
     // IMPORTANT: use getQueryKey() — ZenStack's real cache key is
     //   ["zenstack", model, operation, args, {infinite, optimisticUpdate}]
@@ -144,11 +152,13 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
     //
     // Args below mirror the exact useFind* calls in useCurrentUser /
     // useEducations / useWorkExperiences — any drift and the seed
-    // silently misses its slot.
+    // silently misses its slot. Keying on ssrUserId (server-known)
+    // not user?.id (async client singleton) so the seed lands
+    // synchronously on first render.
     if (ssrData.profile) {
       queryClient.setQueryData(
         getQueryKey("profiles", "findUnique", {
-          where: { id: user.id },
+          where: { id: ssrUserId },
           select: {
             id: true,
             first_name: true,
@@ -176,7 +186,7 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
     // consumed by downstream components.
     queryClient.setQueryData(
       getQueryKey("profiles_educations", "findMany", {
-        where: { user_id: user.id },
+        where: { user_id: ssrUserId },
         orderBy: { start_date: "desc" },
         select: {
           id: true,
@@ -198,7 +208,7 @@ export function MyProfileClient({ ssrData }: MyProfileClientProps = {}) {
 
     queryClient.setQueryData(
       getQueryKey("profiles_work_experiences", "findMany", {
-        where: { user_id: user.id },
+        where: { user_id: ssrUserId },
         orderBy: { start_date: "desc" },
         select: {
           id: true,

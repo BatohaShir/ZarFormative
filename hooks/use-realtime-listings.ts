@@ -40,28 +40,32 @@ export function useRealtimeListings() {
           table: "listings",
           filter: "status=eq.active",
         },
-        (payload: { eventType: string; old: Record<string, unknown> | null; new: Record<string, unknown> | null }) => {
+        (payload: {
+          eventType: string;
+          old: Record<string, unknown> | null;
+          new: Record<string, unknown> | null;
+        }) => {
           const typedPayload = payload as unknown as ListingPayload;
 
           // Инвалидируем кэш при изменениях
           if (typedPayload.eventType === "INSERT") {
             // Новое объявление - обновляем списки
-            queryClient.invalidateQueries({ queryKey: ["listings", "findMany"] });
+            queryClient.invalidateQueries({ queryKey: ["zenstack", "listings", "findMany"] });
           } else if (typedPayload.eventType === "UPDATE") {
             // Обновление - обновляем конкретное объявление
             const listingId = typedPayload.new?.id;
             if (listingId) {
               queryClient.invalidateQueries({
-                queryKey: ["listings", "findUnique", { where: { id: listingId } }],
+                queryKey: ["zenstack", "listings", "findUnique", { where: { id: listingId } }],
               });
               // Также обновляем списки если изменился views_count
               if (typedPayload.old?.views_count !== typedPayload.new?.views_count) {
-                queryClient.invalidateQueries({ queryKey: ["listings", "findMany"] });
+                queryClient.invalidateQueries({ queryKey: ["zenstack", "listings", "findMany"] });
               }
             }
           } else if (typedPayload.eventType === "DELETE") {
             // Удаление - обновляем списки
-            queryClient.invalidateQueries({ queryKey: ["listings", "findMany"] });
+            queryClient.invalidateQueries({ queryKey: ["zenstack", "listings", "findMany"] });
           }
         }
       )

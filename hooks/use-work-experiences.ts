@@ -49,11 +49,11 @@ export function useWorkExperiences(userId?: string, options?: UseWorkExperiences
   const queryClient = useQueryClient();
 
   const targetUserId = userId || currentUserId;
-  const queryKey = [
-    "profiles_work_experiences",
-    "findMany",
-    { where: { user_id: targetUserId ?? "" } },
-  ];
+  // Prefix-match for ZenStack's actual cache key shape
+  // ["zenstack", model, op, args, options]. The previous narrow
+  // exact key (without "zenstack") never matched the slot the hook
+  // reads from, so optimistic mutations silently no-oped.
+  const queryKeyPrefix = ["zenstack", "profiles_work_experiences", "findMany"];
 
   // Fetch work experiences - optimized with select to reduce data transfer
   const {
@@ -105,27 +105,22 @@ export function useWorkExperiences(userId?: string, options?: UseWorkExperiences
       is_current: data.is_current ?? false,
     };
 
-    // Сохраняем предыдущее состояние для rollback
-    const previousData = queryClient.getQueryData(queryKey);
-
-    // Оптимистично добавляем в кэш
-    queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
-      return old ? [...old, optimisticWork] : [optimisticWork];
+    const snapshots = queryClient.getQueriesData<WorkExperience[]>({
+      queryKey: queryKeyPrefix,
     });
+
+    queryClient.setQueriesData<WorkExperience[]>({ queryKey: queryKeyPrefix }, (old) =>
+      old ? [...old, optimisticWork] : [optimisticWork]
+    );
 
     try {
       await createMutation.mutateAsync({
-        data: {
-          ...data,
-          user_id: currentUserId,
-        },
+        data: { ...data, user_id: currentUserId },
       });
-      // После успеха - инвалидируем для получения реального ID
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: queryKeyPrefix });
       return { error: null };
     } catch (error) {
-      // Rollback при ошибке
-      queryClient.setQueryData(queryKey, previousData);
+      for (const [key, prev] of snapshots) queryClient.setQueryData(key, prev);
       return { error: error instanceof Error ? error.message : "Create failed" };
     }
   };
@@ -134,24 +129,20 @@ export function useWorkExperiences(userId?: string, options?: UseWorkExperiences
   const updateWorkExperience = async (id: string, data: UpdateWorkExperienceInput) => {
     if (!currentUserId) return { error: "Not authenticated" };
 
-    // Сохраняем предыдущее состояние
-    const previousData = queryClient.getQueryData(queryKey);
+    const snapshots = queryClient.getQueriesData<WorkExperience[]>({
+      queryKey: queryKeyPrefix,
+    });
 
-    // Оптимистично обновляем в кэше
-    queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
+    queryClient.setQueriesData<WorkExperience[]>({ queryKey: queryKeyPrefix }, (old) => {
       if (!old) return old;
       return old.map((work) => (work.id === id ? { ...work, ...data } : work));
     });
 
     try {
-      await updateMutation.mutateAsync({
-        where: { id },
-        data,
-      });
+      await updateMutation.mutateAsync({ where: { id }, data });
       return { error: null };
     } catch (error) {
-      // Rollback при ошибке
-      queryClient.setQueryData(queryKey, previousData);
+      for (const [key, prev] of snapshots) queryClient.setQueryData(key, prev);
       return { error: error instanceof Error ? error.message : "Update failed" };
     }
   };
@@ -160,23 +151,20 @@ export function useWorkExperiences(userId?: string, options?: UseWorkExperiences
   const deleteWorkExperience = async (id: string) => {
     if (!currentUserId) return { error: "Not authenticated" };
 
-    // Сохраняем предыдущее состояние
-    const previousData = queryClient.getQueryData(queryKey);
+    const snapshots = queryClient.getQueriesData<WorkExperience[]>({
+      queryKey: queryKeyPrefix,
+    });
 
-    // Оптимистично удаляем из кэша
-    queryClient.setQueryData(queryKey, (old: WorkExperience[] | undefined) => {
+    queryClient.setQueriesData<WorkExperience[]>({ queryKey: queryKeyPrefix }, (old) => {
       if (!old) return old;
       return old.filter((work) => work.id !== id);
     });
 
     try {
-      await deleteMutation.mutateAsync({
-        where: { id },
-      });
+      await deleteMutation.mutateAsync({ where: { id } });
       return { error: null };
     } catch (error) {
-      // Rollback при ошибке
-      queryClient.setQueryData(queryKey, previousData);
+      for (const [key, prev] of snapshots) queryClient.setQueryData(key, prev);
       return { error: error instanceof Error ? error.message : "Delete failed" };
     }
   };

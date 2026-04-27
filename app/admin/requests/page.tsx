@@ -207,8 +207,11 @@ export default function RequestsPage() {
 
   // Realtime подписка
   const refetchRequests = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ["listing_requests"] });
-    queryClient.refetchQueries({ queryKey: ["listing_requests"], type: "active" });
+    queryClient.invalidateQueries({ queryKey: ["zenstack", "listing_requests"] });
+    queryClient.refetchQueries({
+      queryKey: ["zenstack", "listing_requests"],
+      type: "active",
+    });
   }, [queryClient]);
 
   useEffect(() => {

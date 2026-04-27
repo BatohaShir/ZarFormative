@@ -1146,7 +1146,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
 
       // Push into every cached ad_stories query (there's typically
       // just the one on the homepage, but this covers future callers).
-      queryClient.setQueriesData<DbAdStory[]>({ queryKey: ["ad_stories"] }, (prev) => [
+      queryClient.setQueriesData<DbAdStory[]>({ queryKey: ["zenstack", "ad_stories"] }, (prev) => [
         optimistic,
         ...(prev ?? []),
       ]);
@@ -1169,11 +1169,12 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
         .then(() => {
           // Let the next background refresh replace the provisional
           // row with the real one (same image, same user → same ring).
-          queryClient.invalidateQueries({ queryKey: ["ad_stories"] });
+          queryClient.invalidateQueries({ queryKey: ["zenstack", "ad_stories"] });
         })
         .catch(() => {
-          queryClient.setQueriesData<DbAdStory[]>({ queryKey: ["ad_stories"] }, (prev) =>
-            (prev ?? []).filter((s) => s.id !== tempId)
+          queryClient.setQueriesData<DbAdStory[]>(
+            { queryKey: ["zenstack", "ad_stories"] },
+            (prev) => (prev ?? []).filter((s) => s.id !== tempId)
           );
           toast.error("Stories-г хадгалж чадсангүй. Дахин оролдоно уу.");
         });

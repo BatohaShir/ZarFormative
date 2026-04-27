@@ -33,10 +33,7 @@ import {
 import { useRealtimeChat } from "@/hooks/use-realtime-chat";
 import type { RequestWithRelations, PersonInfo } from "./types";
 import { formatCreatedAt, getPersonName, getPersonInitials } from "./utils";
-import {
-  uploadChatAttachment,
-  validateImageFile,
-} from "@/lib/storage/chat-attachments";
+import { uploadChatAttachment, validateImageFile } from "@/lib/storage/chat-attachments";
 
 // Цвета для аватарок на основе имени
 const AVATAR_COLORS = [
@@ -74,13 +71,7 @@ function ChatAvatar({
 
   if (person.avatar_url) {
     return (
-      <div
-        className={cn(
-          "relative rounded-full overflow-hidden shrink-0",
-          sizeClasses,
-          className
-        )}
-      >
+      <div className={cn("relative rounded-full overflow-hidden shrink-0", sizeClasses, className)}>
         <Image
           src={person.avatar_url}
           alt=""
@@ -140,7 +131,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   const currentPerson: PersonInfo = isClient ? request.client : request.provider;
 
   // Fetch messages (без polling - используем Realtime)
-  const { data: messages, refetch, isLoading: isLoadingMessages } = useFindManychat_messages(
+  const { data: messages, isLoading: isLoadingMessages } = useFindManychat_messages(
     {
       where: { request_id: request.id },
       orderBy: { created_at: "asc" },
@@ -178,7 +169,12 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   // Track which messages we've already marked as read to prevent duplicate calls
   const markedAsReadRef = React.useRef<Set<string>>(new Set());
 
-  // Realtime chat subscription with retry logic
+  // Realtime chat. The hook patches the cache directly on every
+  // INSERT / UPDATE / DELETE — no manual refetch needed. We still
+  // accept onNewMessage / onMessageRead callbacks for side effects
+  // (e.g. unread badges), but they no longer need to invalidate the
+  // list query. Keeping them as no-ops would be wasteful, so we omit
+  // them entirely; the cache is already authoritative.
   const {
     isConnected: isChatConnected,
     addOptimisticMessage,
@@ -186,12 +182,6 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
   } = useRealtimeChat({
     requestId: request.id,
     enabled: !!request.id && !!user?.id,
-    onNewMessage: () => {
-      refetch();
-    },
-    onMessageRead: () => {
-      refetch();
-    },
   });
 
   // Mark unread messages as read when opening chat
@@ -343,11 +333,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
 
       // Handle image upload
       if (currentAttachment?.type === "image" && currentAttachment.file) {
-        const result = await uploadChatAttachment(
-          request.id,
-          user.id,
-          currentAttachment.file
-        );
+        const result = await uploadChatAttachment(request.id, user.id, currentAttachment.file);
 
         if (result.error) {
           alert(result.error);
@@ -409,11 +395,12 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
       // Send notification to the other person (non-blocking)
       try {
         const senderName = getPersonName(currentPerson);
-        const notificationMessage = attachmentType === "image"
-          ? `${senderName}: [Зураг] илгээсэн`
-          : attachmentType === "location"
-          ? `${senderName}: [Байршил] илгээсэн`
-          : `${senderName}: ${messageText.slice(0, 50)}${messageText.length > 50 ? "..." : ""}`;
+        const notificationMessage =
+          attachmentType === "image"
+            ? `${senderName}: [Зураг] илгээсэн`
+            : attachmentType === "location"
+              ? `${senderName}: [Байршил] илгээсэн`
+              : `${senderName}: ${messageText.slice(0, 50)}${messageText.length > 50 ? "..." : ""}`;
 
         const notificationData = {
           user_id: otherPersonId,
@@ -431,8 +418,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
         // Notification failed but message was sent - don't block
       }
 
-      // Refetch to get the real message ID
-      refetch();
+      // No refetch — realtime INSERT replaces the optimistic row.
     } catch {
       // Message sending failed - remove optimistic message
       if (pendingMessageId) {
@@ -461,9 +447,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
           <ChatAvatar person={otherPerson} size="md" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold truncate">{getPersonName(otherPerson)}</p>
-            <p className="text-xs text-muted-foreground truncate">
-              {request.listing.title}
-            </p>
+            <p className="text-xs text-muted-foreground truncate">{request.listing.title}</p>
           </div>
           {!isChatConnected && (
             <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-full">
@@ -481,38 +465,34 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
           {isLoadingMessages ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-8">
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-              <p className="text-sm font-medium text-muted-foreground">
-                Чат ачааллаж байна...
-              </p>
+              <p className="text-sm font-medium text-muted-foreground">Чат ачааллаж байна...</p>
             </div>
           ) : !messages || (messages as unknown[]).length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-8">
               <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
                 <MessageCircle className="h-8 w-8 text-muted-foreground/50" />
               </div>
-              <p className="text-sm text-muted-foreground">
-                Чат эхлээгүй байна
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Мессеж илгээж чатыг эхлүүлээрэй
-              </p>
+              <p className="text-sm text-muted-foreground">Чат эхлээгүй байна</p>
+              <p className="text-xs text-muted-foreground mt-1">Мессеж илгээж чатыг эхлүүлээрэй</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {(messages as {
-                id: string;
-                message: string;
-                sender_id: string;
-                created_at: string | Date;
-                sender: PersonInfo;
-                attachment_type?: string | null;
-                attachment_url?: string | null;
-                location_lat?: number | null;
-                location_lng?: number | null;
-                location_name?: string | null;
-                is_read?: boolean;
-                $optimistic?: boolean;
-              }[]).map((msg) => {
+              {(
+                messages as {
+                  id: string;
+                  message: string;
+                  sender_id: string;
+                  created_at: string | Date;
+                  sender: PersonInfo;
+                  attachment_type?: string | null;
+                  attachment_url?: string | null;
+                  location_lat?: number | null;
+                  location_lng?: number | null;
+                  location_name?: string | null;
+                  is_read?: boolean;
+                  $optimistic?: boolean;
+                }[]
+              ).map((msg) => {
                 const isMe = msg.sender_id === user?.id;
                 const isOptimistic = msg.$optimistic;
                 return (
@@ -549,43 +529,47 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                             className="rounded-lg object-cover max-w-50 max-h-37.5"
                             onError={(e) => {
                               // Hide broken image
-                              (e.target as HTMLImageElement).style.display = 'none';
+                              (e.target as HTMLImageElement).style.display = "none";
                             }}
                           />
                         </button>
                       )}
 
                       {/* Location attachment */}
-                      {msg.attachment_type === "location" && msg.location_lat && msg.location_lng && (
-                        <a
-                          href={`https://www.google.com/maps?q=${msg.location_lat},${msg.location_lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={cn(
-                            "flex items-center gap-2 p-2 rounded-lg mb-2 transition-colors",
-                            isMe
-                              ? "bg-primary-foreground/10 hover:bg-primary-foreground/20"
-                              : "bg-muted hover:bg-muted/80"
-                          )}
-                        >
-                          <MapPin className="h-5 w-5 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium">Байршил</p>
-                            {msg.location_name && (
-                              <p className="text-xs truncate opacity-70">
-                                {msg.location_name}
-                              </p>
+                      {msg.attachment_type === "location" &&
+                        msg.location_lat &&
+                        msg.location_lng && (
+                          <a
+                            href={`https://www.google.com/maps?q=${msg.location_lat},${msg.location_lng}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded-lg mb-2 transition-colors",
+                              isMe
+                                ? "bg-primary-foreground/10 hover:bg-primary-foreground/20"
+                                : "bg-muted hover:bg-muted/80"
                             )}
-                          </div>
-                        </a>
-                      )}
+                          >
+                            <MapPin className="h-5 w-5 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium">Байршил</p>
+                              {msg.location_name && (
+                                <p className="text-xs truncate opacity-70">{msg.location_name}</p>
+                              )}
+                            </div>
+                          </a>
+                        )}
 
                       {/* Text message (hide if only attachment placeholder) */}
-                      {msg.message && !(msg.attachment_type && (msg.message === "📷 Зураг" || msg.message === "📍 Байршил")) && (
-                        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                          {msg.message}
-                        </p>
-                      )}
+                      {msg.message &&
+                        !(
+                          msg.attachment_type &&
+                          (msg.message === "📷 Зураг" || msg.message === "📍 Байршил")
+                        ) && (
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                            {msg.message}
+                          </p>
+                        )}
 
                       <div
                         className={cn(
@@ -595,15 +579,14 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                       >
                         <span className="text-[10px]">{formatCreatedAt(msg.created_at)}</span>
                         {/* Status indicator - only for my messages */}
-                        {isMe && (
-                          isOptimistic ? (
+                        {isMe &&
+                          (isOptimistic ? (
                             <Loader2 className="h-3 w-3 animate-spin" />
                           ) : msg.is_read ? (
                             <CheckCheck className="h-3 w-3 text-blue-400" />
                           ) : (
                             <Check className="h-3 w-3" />
-                          )
-                        )}
+                          ))}
                       </div>
                     </div>
                   </div>
@@ -630,7 +613,8 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
                 <div className="flex items-center gap-2 px-3 py-2 bg-background rounded-lg border">
                   <MapPin className="h-4 w-4 text-primary" />
                   <span className="text-sm">
-                    {attachment.location.name || `${attachment.location.lat.toFixed(4)}, ${attachment.location.lng.toFixed(4)}`}
+                    {attachment.location.name ||
+                      `${attachment.location.lat.toFixed(4)}, ${attachment.location.lng.toFixed(4)}`}
                   </span>
                 </div>
               )}

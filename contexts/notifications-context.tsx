@@ -36,10 +36,16 @@ export interface NotificationWithRelations {
 }
 
 // Partial-key matcher for every notifications findMany cache entry,
-// regardless of the select/orderBy args the caller used. We patch
-// cache in place instead of invalidating the whole ["notifications"]
-// key, because invalidation re-runs findMany + 2 joins (~2s MN→Seoul).
-const NOTIFICATIONS_FINDMANY_KEY = { queryKey: ["notifications", "findMany"] };
+// regardless of the select/orderBy args the caller used. ZenStack's
+// generated hooks key under ["zenstack", model, op, args, options],
+// and TanStack Query v5 prefix-matches from index 0 — so this
+// catches every args variant. The previous prefix was missing the
+// "zenstack" segment and silently no-oped, which meant a fresh
+// notification arriving via realtime never appeared in the open
+// dropdown until the user manually reopened it.
+const NOTIFICATIONS_FINDMANY_KEY = {
+  queryKey: ["zenstack", "notifications", "findMany"],
+};
 
 // ========== CONTEXTS ==========
 // The provider only exposes count + actions now. The full list is
@@ -90,10 +96,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   );
 
   // Local delta applied on top of the server count so INSERT / mark-
-  // as-read reflect in the badge synchronously. The next real count
-  // refetch (realtime invalidate below) resets it to 0.
+  // as-read reflect in the badge synchronously. Reset to 0 every
+  // time the authoritative dbUnreadCount changes — that's the
+  // server-truth refresh, the delta has done its job and would
+  // otherwise drift the badge by every realtime tick.
   const [countDelta, setCountDelta] = React.useState(0);
   const unreadCount = Math.max(0, (dbUnreadCount as number) + countDelta);
+  React.useEffect(() => {
+    setCountDelta(0);
+  }, [dbUnreadCount]);
 
   // ========== REALTIME ==========
   //
@@ -124,6 +135,13 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
         (payload: { new: Record<string, unknown> }) => {
           setHasNewNotification(true);
           setCountDelta((d) => d + 1);
+          // Schedule a real count refresh on the next tick. The local
+          // delta keeps the badge synchronous; the refetch reconciles
+          // the count back to the server number so deltas don't drift
+          // (e.g. after several INSERT/UPDATE events the badge would
+          // otherwise stay one ahead of reality until the staleTime
+          // window expired).
+          queryClient.invalidateQueries({ queryKey: ["zenstack", "notifications", "count"] });
 
           // Optional browser push if the user granted permission.
           if (
@@ -146,7 +164,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
           // fetch entirely.
           const activeListQueries = queryClient
             .getQueryCache()
-            .findAll({ queryKey: ["notifications", "findMany"] });
+            .findAll({ queryKey: ["zenstack", "notifications", "findMany"] });
           if (activeListQueries.length === 0) return;
 
           const newId = payload.new.id as string;
@@ -231,11 +249,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             }
           );
           // If the row flipped to is_read=true, the count is stale by
-          // one. The authoritative count query will refetch on its own
-          // staleTime; meanwhile nudge the local delta so the badge
-          // matches what the user sees in the list.
+          // one. Nudge the local delta so the badge updates instantly
+          // and invalidate the count query so it refetches the new
+          // authoritative number; the effect above will then reset
+          // delta back to 0.
           if (fresh.is_read === true) {
             setCountDelta((d) => d - 1);
+            queryClient.invalidateQueries({
+              queryKey: ["zenstack", "notifications", "count"],
+            });
           }
         }
       )

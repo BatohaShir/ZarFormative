@@ -203,7 +203,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["user_favorites"] });
+      queryClient.invalidateQueries({ queryKey: ["zenstack", "user_favorites"] });
     },
   });
 
@@ -215,7 +215,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["user_favorites"] });
+      queryClient.invalidateQueries({ queryKey: ["zenstack", "user_favorites"] });
     },
   });
 
@@ -286,10 +286,13 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       // on a remote Supabase link).
       if (isCurrentlyFavorite) {
         // Remove matching rows from every user_favorites cache entry.
-        queryClient.setQueriesData<unknown>({ queryKey: ["user_favorites"] }, (prev: unknown) => {
-          if (!Array.isArray(prev)) return prev;
-          return (prev as { listing_id: string }[]).filter((f) => f.listing_id !== listingId);
-        });
+        queryClient.setQueriesData<unknown>(
+          { queryKey: ["zenstack", "user_favorites"] },
+          (prev: unknown) => {
+            if (!Array.isArray(prev)) return prev;
+            return (prev as { listing_id: string }[]).filter((f) => f.listing_id !== listingId);
+          }
+        );
       } else if (listingSnapshot) {
         // Insert a provisional row at the top. id is synthetic; when
         // the real row lands via refetch onSettled below it replaces
@@ -298,27 +301,30 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         // reduced placeholder — the UI that consumes that shape only
         // needs listing_id anyway.
         const provisionalId = `optimistic-${listingId}`;
-        queryClient.setQueriesData<unknown>({ queryKey: ["user_favorites"] }, (prev: unknown) => {
-          if (!Array.isArray(prev)) return prev;
-          const list = prev as Array<Record<string, unknown>>;
-          if (list.some((f) => f.listing_id === listingId)) return list;
-          const hasListingShape = list[0] && "listing" in list[0];
-          const provisional = hasListingShape
-            ? {
-                id: provisionalId,
-                user_id: user.id,
-                listing_id: listingId,
-                created_at: new Date().toISOString(),
-                listing: listingSnapshot,
-              }
-            : {
-                id: provisionalId,
-                user_id: user.id,
-                listing_id: listingId,
-                created_at: new Date().toISOString(),
-              };
-          return [provisional, ...list];
-        });
+        queryClient.setQueriesData<unknown>(
+          { queryKey: ["zenstack", "user_favorites"] },
+          (prev: unknown) => {
+            if (!Array.isArray(prev)) return prev;
+            const list = prev as Array<Record<string, unknown>>;
+            if (list.some((f) => f.listing_id === listingId)) return list;
+            const hasListingShape = list[0] && "listing" in list[0];
+            const provisional = hasListingShape
+              ? {
+                  id: provisionalId,
+                  user_id: user.id,
+                  listing_id: listingId,
+                  created_at: new Date().toISOString(),
+                  listing: listingSnapshot,
+                }
+              : {
+                  id: provisionalId,
+                  user_id: user.id,
+                  listing_id: listingId,
+                  created_at: new Date().toISOString(),
+                };
+            return [provisional, ...list];
+          }
+        );
       }
 
       // Фоновая синхронизация с сервером (без await)
