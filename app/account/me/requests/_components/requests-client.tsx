@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -24,14 +23,12 @@ import {
   Inbox,
   Play,
   Loader2,
-  Undo2,
   Clock,
   CheckCircle,
   User,
   MapPin,
   Calendar,
   MessageSquare,
-  MessageCircle,
   CreditCard,
   X,
 } from "lucide-react";
@@ -63,7 +60,6 @@ import {
   type RequestActions,
   getPersonName,
   getListingImage,
-  formatCreatedAt,
   checkRequestOverdue,
 } from ".";
 import { reviveRequest, type RequestsPageData } from "@/lib/requests/list-query";
@@ -158,10 +154,24 @@ const REQUEST_LIST_ARGS_FOR_USER = (userId: string) => ({
 });
 
 // Lazy load heavy components
-const RequestDetailModal = dynamic(
-  () => import("./request-detail-modal").then((mod) => ({ default: mod.RequestDetailModal })),
-  { ssr: false }
-);
+// Lazy import the detail modal. The shared loader is reused by
+// `warmDetailModal` so a hover/touchstart on a list item starts the
+// chunk download before the user clicks — by the time the click
+// fires, the module is already in memory and the modal renders
+// without the lazy-loader's transient null frame.
+const detailModalLoader = () =>
+  import("./request-detail-modal").then((mod) => ({ default: mod.RequestDetailModal }));
+const RequestDetailModal = dynamic(detailModalLoader, { ssr: false });
+
+let detailModalWarmed = false;
+const warmDetailModal = () => {
+  if (detailModalWarmed) return;
+  detailModalWarmed = true;
+  // Fire-and-forget; if it fails, the real import will retry on click.
+  detailModalLoader().catch(() => {
+    detailModalWarmed = false;
+  });
+};
 
 const ElapsedTimeCounter = dynamic(
   () =>
@@ -292,24 +302,27 @@ function requestsReducer(state: RequestsPageState, action: RequestsPageAction): 
   }
 }
 
-function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
+function RequestsPageContent({
+  ssrData,
+  ssrUserId,
+}: {
+  ssrData?: RequestsPageData;
+  ssrUserId?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Seed React Query once, before the findMany below mounts. Uses
-  // ZenStack's own getQueryKey so the seed lands in the exact slot
-  // the hook will read — same pattern as /account/me and
-  // /account/me/services. Without this the hook fires a cold REST
-  // call and the user stares at a loader for ~2s on MN→Seoul.
-  //
-  // useState initializer runs before any other hook in this render,
-  // so the subsequent useFindManylisting_requests sees isFetched=true.
+  // Seed React Query with the SSR payload before the findMany below
+  // mounts. Keying on ssrUserId (server-known) rather than user?.id
+  // from the client auth singleton — the singleton hydrates async,
+  // so by the time it resolves this useState initializer has already
+  // run and skipped. The hook would then fire a cold REST call.
   React.useState(() => {
-    if (!ssrData || !user?.id) return null;
+    if (!ssrData || !ssrUserId) return null;
     queryClient.setQueryData(
-      getQueryKey("listing_requests", "findMany", REQUEST_LIST_ARGS_FOR_USER(user.id)),
+      getQueryKey("listing_requests", "findMany", REQUEST_LIST_ARGS_FOR_USER(ssrUserId)),
       ssrData.requests.map(reviveRequest)
     );
     return null;
@@ -379,8 +392,12 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
   const highlightRequestId = searchParams.get("highlight");
   const openChatParam = searchParams.get("openChat");
 
-  // Query key для invalidation - используем findMany prefix как ZenStack
-  const queryKey = React.useMemo(() => ["listing_requests", "findMany"], []);
+  // Broad prefix match against every ZenStack findMany cache slot for
+  // listing_requests. ZenStack builds keys as
+  //   ["zenstack", model, op, args, {infinite, optimisticUpdate}]
+  // and TanStack Query v5's { queryKey } filter uses prefix matching,
+  // so this patches args-variants (seeded + hook-mounted) in one call.
+  const queryKey = React.useMemo(() => ["zenstack", "listing_requests", "findMany"], []);
 
   // REALTIME: Подписка на изменения статусов заявок
   // When status changes via realtime, update selectedRequest if modal is open
@@ -402,12 +419,15 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
     onStatusChange: handleRealtimeStatusChange,
   });
 
-  // Same args the page hook below uses — extracted so the cache
-  // seed earlier and the real findMany hook below both hash to the
-  // same key. Drift here = cold REST call on mount.
-  const listArgs = REQUEST_LIST_ARGS_FOR_USER(user?.id || "");
+  // Same args the seed above uses, keyed on ssrUserId so the hash
+  // matches deterministically on the very first render even if the
+  // client auth singleton hasn't resolved user yet. Falls back to
+  // client user?.id on soft-nav cases where the page rendered
+  // without SSR data (defensive — shouldn't happen on this route).
+  const effectiveUserId = ssrUserId || user?.id || "";
+  const listArgs = REQUEST_LIST_ARGS_FOR_USER(effectiveUserId);
   const { data: allRequests, isLoading: requestsLoading } = useFindManylisting_requests(listArgs, {
-    enabled: !!user?.id,
+    enabled: !!effectiveUserId,
     ...CACHE_TIMES.SERVICE_REQUESTS,
   });
 
@@ -711,9 +731,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Хүсэлт зөвшөөрөгдлөө!");
         dispatch({ type: "CLOSE_MODAL" });
       } catch {
@@ -728,8 +745,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -760,7 +775,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        await queryClient.invalidateQueries({ queryKey });
         toast.success("Үнийн санал илгээгдлээ!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -774,8 +788,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -806,7 +818,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        await queryClient.invalidateQueries({ queryKey });
         toast.success("Үнэ зөвшөөрөгдлөө!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -820,8 +831,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -852,7 +861,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        await queryClient.invalidateQueries({ queryKey });
         toast.success("Үнэ татгалзагдлаа");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -866,8 +874,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -897,9 +903,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Хүсэлт татгалзагдлаа");
         dispatch({ type: "CLOSE_MODAL" });
       } catch {
@@ -914,8 +917,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -945,9 +946,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Хүсэлт цуцлагдлаа");
         dispatch({ type: "CLOSE_MODAL" });
       } catch {
@@ -962,8 +960,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -993,9 +989,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Хүсэлт цуцлагдлаа");
         dispatch({ type: "CLOSE_MODAL" });
       } catch {
@@ -1010,8 +1003,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -1044,9 +1035,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Ажил эхэллээ!");
         dispatch({ type: "CLOSE_MODAL" });
       } catch {
@@ -1061,8 +1049,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -1112,9 +1098,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Амжилттай баталгаажууллаа!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -1129,8 +1112,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       createReview,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -1169,9 +1150,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
           });
         }
 
-        // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
-
         toast.success("Ажлын тайлан илгээгдлээ!");
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
@@ -1185,8 +1163,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -1234,7 +1210,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
         }
 
         // OPTIMIZED: Invalidate cache to ensure consistency
-        await queryClient.invalidateQueries({ queryKey });
       } catch {
         if (oldStatus) revertOptimisticUpdate(requestId, oldStatus);
         toast.error("Алдаа гарлаа");
@@ -1247,8 +1222,6 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
       updateRequest,
       createNotification,
       user?.id,
-      queryClient,
-      queryKey,
     ]
   );
 
@@ -1532,6 +1505,7 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
                     onConfirmPrice={handleConfirmPrice}
                     onRejectPrice={handleRejectPrice}
                     isUpdating={updateRequest.isPending}
+                    onPrefetch={warmDetailModal}
                   />
                 ))}
               </div>
@@ -1562,6 +1536,7 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
                     onCancelByProvider={handleCancelByProvider}
                     onProposePrice={handleProposePrice}
                     isUpdating={updateRequest.isPending}
+                    onPrefetch={warmDetailModal}
                   />
                 ))}
               </div>
@@ -1599,6 +1574,9 @@ function RequestsPageContent({ ssrData }: { ssrData?: RequestsPageData }) {
                       type="button"
                       key={request.id}
                       onClick={() => handleSelectRequest(request)}
+                      onMouseEnter={warmDetailModal}
+                      onTouchStart={warmDetailModal}
+                      onFocus={warmDetailModal}
                       className="relative w-full text-left bg-card border rounded-xl overflow-hidden hover:border-primary/30 hover:shadow-md transition-all"
                     >
                       {/* Status indicator bar */}
@@ -1976,18 +1954,18 @@ interface RequestsClientProps {
    * client round-trips and paint on first render.
    */
   ssrData?: RequestsPageData;
+  /**
+   * Current user id as known on the server. Passed so the seed hashes
+   * the hook's args immediately, without waiting for the client
+   * Supabase auth singleton to finish initializing.
+   */
+  ssrUserId?: string;
 }
 
-export function RequestsClient({ ssrData }: RequestsClientProps = {}) {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      }
-    >
-      <RequestsPageContent ssrData={ssrData} />
-    </Suspense>
-  );
+// No Suspense wrapper: the page is dynamic (revalidate=0) and SSR
+// already resolves the data + session before the client mounts. The
+// fallback never had a chance to render and just added one frame of
+// component tree noise on every navigation.
+export function RequestsClient({ ssrData, ssrUserId }: RequestsClientProps = {}) {
+  return <RequestsPageContent ssrData={ssrData} ssrUserId={ssrUserId} />;
 }

@@ -18,6 +18,34 @@ interface ListingRequestPayload {
   [key: string]: unknown;
 }
 
+// Allowlist of scalar columns the cache row carries. postgres_changes
+// payloads include EVERY scalar column on the table (including ones we
+// don't surface in SSR like `note`), and a naive {...r, ...fresh}
+// merge would inject extras into the cached row — harmless at runtime
+// but not type-safe and easy to mistake for "available data" in the UI.
+// Only the fields below get merged on a realtime UPDATE.
+const PATCHABLE_FIELDS = new Set([
+  "status",
+  "provider_response",
+  "image_url",
+  "preferred_date",
+  "preferred_time",
+  "updated_at",
+  "accepted_at",
+  "started_at",
+  "completed_at",
+  "completion_description",
+  "completion_photos",
+  "proposed_price",
+  "aimag_id",
+  "district_id",
+  "khoroo_id",
+  "address_detail",
+  "latitude",
+  "longitude",
+  "client_phone",
+]);
+
 // Сообщения о статусах на монгольском
 const STATUS_MESSAGES: Record<string, { title: string; description: string }> = {
   accepted: {
@@ -94,17 +122,30 @@ export function useRealtimeRequests(options?: {
   // Patch every listing_requests findMany cache slot with a merged
   // version of the changed row. No REST round-trip — the slot just
   // ships with fresh fields on the next render.
+  //
+  // Key prefix is ["zenstack", model, op] to match the keys ZenStack's
+  // generated hooks write. TanStack Query v5's { queryKey } filter
+  // uses prefix-matching from index 0, so this catches every args
+  // variant (seeded payload + the hook's runtime args).
   const patchRow = useCallback(
     (fresh: ListingRequestPayload) => {
       queryClient.setQueriesData<Array<Record<string, unknown> & { id: string }>>(
-        { queryKey: ["listing_requests", "findMany"] },
+        { queryKey: ["zenstack", "listing_requests", "findMany"] },
         (old) => {
           if (!old) return old;
           let changed = false;
           const next = old.map((r) => {
             if (r.id !== fresh.id) return r;
             changed = true;
-            return { ...r, ...fresh };
+            // Only merge known scalar columns (allowlist). Realtime
+            // payload also carries fields like `note` that aren't in
+            // the SSR shape — copying them in pollutes the cached
+            // type without a UI consumer.
+            const patch: Record<string, unknown> = {};
+            for (const key in fresh) {
+              if (PATCHABLE_FIELDS.has(key)) patch[key] = fresh[key];
+            }
+            return { ...r, ...patch };
           });
           return changed ? next : old;
         }
@@ -116,7 +157,7 @@ export function useRealtimeRequests(options?: {
   const removeRow = useCallback(
     (id: string) => {
       queryClient.setQueriesData<Array<Record<string, unknown> & { id: string }>>(
-        { queryKey: ["listing_requests", "findMany"] },
+        { queryKey: ["zenstack", "listing_requests", "findMany"] },
         (old) => {
           if (!old) return old;
           const next = old.filter((r) => r.id !== id);
@@ -132,7 +173,7 @@ export function useRealtimeRequests(options?: {
   // UPDATE.
   const refetchOnInsert = useCallback(() => {
     queryClient.invalidateQueries({
-      queryKey: ["listing_requests", "findMany"],
+      queryKey: ["zenstack", "listing_requests", "findMany"],
       refetchType: "active",
     });
   }, [queryClient]);

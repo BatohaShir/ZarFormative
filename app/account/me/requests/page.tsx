@@ -25,5 +25,10 @@ export default async function RequestsPage() {
   // a separate findMany.
   const ssrData = await fetchRequestsPageData(user.id);
 
-  return <RequestsClient ssrData={ssrData} />;
+  // user.id is passed separately so the React Query seed below hashes
+  // the hook's args on the very first render — without waiting for
+  // the client-side Supabase auth singleton to resolve. Otherwise the
+  // useState initializer runs while user?.id is still null, the seed
+  // skips, and the findMany hook fires a cold REST call ~2s later.
+  return <RequestsClient ssrData={ssrData} ssrUserId={user.id} />;
 }
