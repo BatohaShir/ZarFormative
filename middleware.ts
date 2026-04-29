@@ -3,7 +3,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// Allowed origins for CSRF protection (localhost only in development)
+// Allowed origins for CSRF protection (localhost only in development).
+// In production we *also* accept the request's own host as same-origin —
+// otherwise a missing NEXT_PUBLIC_SITE_URL env var (or a Vercel
+// preview deploy on a different vercel.app subdomain) silently 403s
+// every Server Action while the page itself still loads via GET. The
+// CSRF guarantee is "browser refuses to send Origin from anywhere
+// other than the document's own origin", so allowing the document's
+// origin is the actual baseline; this list is for cross-origin
+// allow-listing on top of that.
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_SITE_URL,
   process.env.NEXTAUTH_URL,
@@ -39,7 +47,15 @@ function validateOrigin(request: NextRequest): NextResponse | null {
     return null;
   }
 
-  const isAllowed = ALLOWED_ORIGINS.some((allowed) => checkUrl === allowed);
+  // Same-origin: the request's Origin header matches the host the
+  // request came in on. This is the natural "I'm on my own site"
+  // case — CSRF attacks rely on Origin pointing AT US from somewhere
+  // ELSE, so accepting our own host is safe regardless of env config.
+  const requestHost = request.headers.get("host");
+  const requestProto = request.headers.get("x-forwarded-proto") || "https";
+  const sameOrigin = requestHost ? `${requestProto}://${requestHost}` === checkUrl : false;
+
+  const isAllowed = sameOrigin || ALLOWED_ORIGINS.some((allowed) => checkUrl === allowed);
   if (!isAllowed) {
     return NextResponse.json(
       { error: "CSRF validation failed: origin not allowed" },

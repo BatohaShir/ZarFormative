@@ -784,7 +784,23 @@ export function RequestForm({
     } catch (error) {
       // ROLLBACK: Revert optimistic update on error
       setIsSuccess(false);
-      toast.error(error instanceof Error ? error.message : "Хүсэлт илгээхэд алдаа гарлаа");
+      // The DB has a partial unique index on (listing_id, client_id)
+      // for non-terminal statuses, so a second submit while a prior
+      // request is still active throws P2002. Surface that as a
+      // human-readable message rather than the raw Prisma string —
+      // and refetch the existing-request lookup so the form switches
+      // to its "you already have a request, here's its status" view.
+      const code =
+        (error as { info?: { code?: string }; code?: string })?.info?.code ??
+        (error as { code?: string })?.code;
+      if (code === "P2002") {
+        toast.error(
+          "Та энэ үйлчилгээнд идэвхтэй хүсэлт илгээсэн байна. Эхлээд өмнөх хүсэлтээ дуусгана уу."
+        );
+        refetchExisting();
+      } else {
+        toast.error(error instanceof Error ? error.message : "Хүсэлт илгээхэд алдаа гарлаа");
+      }
     }
   };
 
