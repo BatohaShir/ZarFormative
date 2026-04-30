@@ -24,6 +24,50 @@ interface NotificationBellProps {
 }
 
 /**
+ * Single source of truth for the dropdown's findMany args. Used both
+ * by the live hook inside the dropdown content and by the prefetch
+ * helper below so they hash to the EXACT same ZenStack cache slot —
+ * if the shapes diverged, the prefetch would land in a dead slot and
+ * the dropdown would still pay a cold fetch on first open.
+ */
+function notificationsListArgs(userId: string) {
+  return {
+    where: { user_id: userId },
+    select: {
+      id: true,
+      user_id: true,
+      type: true,
+      title: true,
+      message: true,
+      is_read: true,
+      request_id: true,
+      actor_id: true,
+      created_at: true,
+      read_at: true,
+      actor: {
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          avatar_url: true,
+          company_name: true,
+          is_company: true,
+          is_verified: true,
+        },
+      },
+      request: {
+        select: {
+          id: true,
+          listing: { select: { id: true, title: true, slug: true } },
+        },
+      },
+    },
+    orderBy: { created_at: "desc" as const },
+    take: 20,
+  };
+}
+
+/**
  * Dropdown content. Only mounts when the dropdown is open, so the
  * full notifications list (with actor / listing joins) is never
  * fetched on pages where the user doesn't open the bell. This is the
@@ -41,40 +85,7 @@ function NotificationDropdownContent({
   const { unreadCount } = useNotificationsCount();
 
   const { data: rawNotifications = [], isLoading } = useFindManynotifications(
-    {
-      where: { user_id: user?.id },
-      select: {
-        id: true,
-        user_id: true,
-        type: true,
-        title: true,
-        message: true,
-        is_read: true,
-        request_id: true,
-        actor_id: true,
-        created_at: true,
-        read_at: true,
-        actor: {
-          select: {
-            id: true,
-            first_name: true,
-            last_name: true,
-            avatar_url: true,
-            company_name: true,
-            is_company: true,
-            is_verified: true,
-          },
-        },
-        request: {
-          select: {
-            id: true,
-            listing: { select: { id: true, title: true, slug: true } },
-          },
-        },
-      },
-      orderBy: { created_at: "desc" },
-      take: 20,
-    },
+    user?.id ? notificationsListArgs(user.id) : { where: { user_id: "" } },
     {
       enabled: !!user?.id,
       ...CACHE_TIMES.NOTIFICATIONS,
@@ -176,11 +187,29 @@ function NotificationDropdownContent({
 }
 
 /**
+ * Hidden prefetch component. Mounting it spins up a TanStack Query
+ * observer for the same key as the visible dropdown — `enabled: true`
+ * triggers the fetch right away, so the data is in the cache by the
+ * time the user finishes opening the dropdown. Returns null so it
+ * has no DOM footprint. Stays mounted while the bell button is
+ * focused/hovered/about to be clicked.
+ */
+function NotificationsPrefetcher() {
+  const { user } = useAuth();
+  useFindManynotifications(user?.id ? notificationsListArgs(user.id) : { where: { user_id: "" } }, {
+    enabled: !!user?.id,
+    ...CACHE_TIMES.NOTIFICATIONS,
+  });
+  return null;
+}
+
+/**
  * NotificationBell — subscribes only to Count context for the badge.
  * Data context is loaded lazily inside the dropdown when opened.
  */
 export function NotificationBell({ className }: NotificationBellProps) {
   const [open, setOpen] = React.useState(false);
+  const [intentToOpen, setIntentToOpen] = React.useState(false);
   const { resolvedTheme } = useTheme();
   const { unreadCount, hasNewNotification } = useNotificationsCount();
 
@@ -188,6 +217,17 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const hasUnread = unreadCount > 0;
 
   const handleClose = React.useCallback(() => setOpen(false), []);
+
+  // Warm the dropdown's findMany the moment the user signals intent
+  // (hover/focus/touchstart on the bell). When that fires we mount
+  // the data hook hidden — it issues the network call right away,
+  // and by the time `open` flips a few hundred ms later the cache
+  // is hot. Without this the query was cold-called only on click,
+  // giving the "Ачаалж байна..." spinner ~1-2s of airtime on
+  // MN → Seoul because of the two relation joins.
+  const handleIntent = React.useCallback(() => {
+    if (!intentToOpen) setIntentToOpen(true);
+  }, [intentToOpen]);
 
   // Add class to wrapper for mobile centering
   React.useEffect(() => {
@@ -205,8 +245,22 @@ export function NotificationBell({ className }: NotificationBellProps) {
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
+      {/* Mounting the prefetcher fires the network call as soon as the
+          user signals intent (hover/focus/touchstart on the button).
+          Until then there's nothing — the bell is on every page and
+          we don't want every logged-in pageload to issue this query.
+          Once mounted, it stays for the rest of the session: re-mounts
+          on every hover would refetch needlessly. */}
+      {intentToOpen && <NotificationsPrefetcher />}
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className={`relative ${className}`}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`relative ${className}`}
+          onMouseEnter={handleIntent}
+          onTouchStart={handleIntent}
+          onFocus={handleIntent}
+        >
           <Bell
             className={`h-5 w-5 ${hasUnread ? "fill-amber-400 text-amber-500" : ""} ${
               hasNewNotification
