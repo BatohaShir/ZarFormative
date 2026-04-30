@@ -102,9 +102,15 @@ export function AuthModal({ isOpen: controlledOpen, onClose }: AuthModalProps = 
       </DialogTrigger>
       <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="text-center text-lg sm:text-2xl">
-            <span className="text-[#015197]">Tsogts</span>
-            <span className="text-[#c4272f]">.mn</span>
+          <DialogTitle className="flex justify-center">
+            <Image
+              src="/logo.png"
+              alt="Tsogts.mn"
+              width={160}
+              height={48}
+              priority
+              className="h-10 sm:h-12 w-auto"
+            />
           </DialogTitle>
         </DialogHeader>
         <Tabs defaultValue="login" className="w-full">

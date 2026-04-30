@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const SOCIAL = [
@@ -25,10 +26,13 @@ export function Footer() {
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8">
           {/* Brand */}
           <div className="max-w-sm">
-            <h2 className="font-display text-2xl font-bold tracking-tight mb-3">
-              <span className="text-[#015197]">Tsogts</span>
-              <span className="text-brand">.mn</span>
-            </h2>
+            <Image
+              src="/logo.png"
+              alt="Tsogts.mn"
+              width={160}
+              height={48}
+              className="h-12 w-auto mb-3"
+            />
             <p className="text-sm text-muted-foreground leading-relaxed">
               Монголын хамгийн том үйлчилгээний платформ.
             </p>

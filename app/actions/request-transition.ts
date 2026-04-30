@@ -274,13 +274,15 @@ function buildSideEffects(
       };
 
     case "provider_submit_details":
-      if (!input.completionDescription || !Array.isArray(input.completionPhotos)) {
-        return { error: "Ажлын тайлан буруу байна" };
-      }
+      // Both description and photos are optional — the form lets the
+      // provider submit either, both, or neither (the previous strict
+      // check refused submits with no photos, blocking simple jobs
+      // where there's nothing visual to show). Normalise to an empty
+      // string / empty array so the column write never lands `null`.
       return {
         data: {
-          completion_description: input.completionDescription,
-          completion_photos: input.completionPhotos,
+          completion_description: input.completionDescription?.trim() || "",
+          completion_photos: Array.isArray(input.completionPhotos) ? input.completionPhotos : [],
         },
         notifications: [
           {

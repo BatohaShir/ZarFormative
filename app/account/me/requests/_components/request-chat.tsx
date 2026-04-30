@@ -154,11 +154,18 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
     }
   );
 
-  // Create message mutation
-  const createMessage = useCreatechat_messages();
+  // Create message mutation. We disable ZenStack's auto-invalidate
+  // because our `useRealtimeChat` hook already patches the cache
+  // surgically on every postgres_changes INSERT — letting ZenStack
+  // also invalidate would force a redundant findMany REST round-trip
+  // right after every send, briefly emptying the message list while
+  // the refetch is in flight.
+  const createMessage = useCreatechat_messages({ invalidateQueries: false });
 
-  // Mark messages as read
-  const markAsRead = useUpdateManychat_messages();
+  // Mark messages as read. Same reason: realtime UPDATE event for
+  // `is_read` flipping to true reaches the sender via patchRow, no
+  // findMany invalidation needed.
+  const markAsRead = useUpdateManychat_messages({ invalidateQueries: false });
 
   // Create notification mutation
   const createNotification = useCreatenotifications();
@@ -179,6 +186,7 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
     isConnected: isChatConnected,
     addOptimisticMessage,
     removeOptimisticMessage,
+    replaceOptimisticMessage,
   } = useRealtimeChat({
     requestId: request.id,
     enabled: !!request.id && !!user?.id,
@@ -379,7 +387,13 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
 
       setPendingMessageId(optimisticId);
 
-      await createMessage.mutateAsync({
+      // Send + capture the server-confirmed row. The mutation
+      // response is the canonical record (real id, server timestamp);
+      // we drop it straight into the cache so the optimistic
+      // placeholder is replaced before the realtime event even
+      // arrives. The realtime INSERT will then idempotently patch
+      // the same id in place — no duplicate row, no flicker.
+      const created = (await createMessage.mutateAsync({
         data: {
           request_id: request.id,
           sender_id: user.id,
@@ -390,7 +404,33 @@ export function RequestChat({ request, onClose }: RequestChatProps) {
           location_lng: locationLng,
           location_name: locationName,
         },
-      });
+      })) as { id: string; created_at: string | Date; updated_at?: string | Date } | undefined;
+
+      if (created?.id) {
+        replaceOptimisticMessage(optimisticId, {
+          id: created.id,
+          request_id: request.id,
+          sender_id: user.id,
+          message: messageText || (attachmentType === "image" ? "📷 Зураг" : "📍 Байршил"),
+          attachment_type: attachmentType || null,
+          attachment_url: attachmentUrl || null,
+          location_lat: null,
+          location_lng: null,
+          location_name: locationName || null,
+          is_read: false,
+          read_at: null,
+          created_at: new Date(created.created_at),
+          updated_at: new Date(created.updated_at ?? created.created_at),
+          sender: {
+            id: user.id,
+            first_name: currentPerson.first_name,
+            last_name: currentPerson.last_name,
+            company_name: currentPerson.company_name,
+            is_company: currentPerson.is_company,
+            avatar_url: currentPerson.avatar_url,
+          },
+        });
+      }
 
       // Send notification to the other person (non-blocking)
       try {
