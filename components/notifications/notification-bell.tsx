@@ -92,8 +92,15 @@ function NotificationDropdownContent({
     }
   );
 
+  // Local "hide read items" toggle. Flipped on once the user hits
+  // "Бүгдийг уншсан" — from that moment we filter the list to unread
+  // only, so already-acknowledged items disappear instead of just
+  // dimming. Resets next time the dropdown re-mounts.
+  const [hideRead, setHideRead] = React.useState(false);
+
   const notifications = rawNotifications as NotificationWithRelations[];
-  const recentNotifications = notifications.slice(0, 5);
+  const visibleNotifications = hideRead ? notifications.filter((n) => !n.is_read) : notifications;
+  const recentNotifications = visibleNotifications.slice(0, 5);
 
   return (
     <>
@@ -108,7 +115,14 @@ function NotificationDropdownContent({
         </h3>
         {unreadCount > 0 && (
           <button
-            onClick={() => markAllAsRead()}
+            onClick={() => {
+              markAllAsRead();
+              // Hide already-acknowledged items right away — clicking
+              // "mark all read" reads as "I'm done with this list",
+              // and leaving the read rows in the dropdown defeats
+              // the gesture. Resets next time the dropdown opens.
+              setHideRead(true);
+            }}
             className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
               isDark ? "text-slate-400 hover:text-white" : "text-gray-500 hover:text-gray-900"
             }`}
@@ -173,7 +187,7 @@ function NotificationDropdownContent({
           /account/me/notifications, which is the *settings* page —
           a broken navigation we've removed. When a dedicated full
           list view lands, drop a link here. */}
-      {notifications.length > 5 && (
+      {visibleNotifications.length > 5 && (
         <div
           className={`border-t px-5 py-3 text-center text-xs ${
             isDark ? "border-white/10 text-slate-500" : "border-gray-100 text-gray-500"
