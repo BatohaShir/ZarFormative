@@ -99,12 +99,18 @@ export function NotificationItem({
     onClick?.();
   };
 
-  // Get actor name
+  // Get actor name. For people: "L. Firstname" — last-name initial +
+  // full first name (Mongolian convention). Falls back gracefully when
+  // either part is missing. Companies render their company_name as-is.
   const actorName = notification.actor
     ? notification.actor.is_company && notification.actor.company_name
       ? notification.actor.company_name
-      : [notification.actor.first_name, notification.actor.last_name].filter(Boolean).join(" ") ||
-        "Хэрэглэгч"
+      : (() => {
+          const first = notification.actor.first_name?.trim() || "";
+          const last = notification.actor.last_name?.trim() || "";
+          if (last && first) return `${last[0]}. ${first}`;
+          return first || last || "Хэрэглэгч";
+        })()
     : null;
 
   // Dark variant (для dropdown)
@@ -163,17 +169,16 @@ export function NotificationItem({
           >
             {notification.message}
           </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            <p className="text-xs text-slate-500">{formatCreatedAt(notification.created_at)}</p>
+          <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+            <p className="text-xs text-slate-500 shrink-0">
+              {formatCreatedAt(notification.created_at)}
+            </p>
             {actorName && (
-              <>
-                <span className="text-slate-700">•</span>
-                <p className="text-xs text-slate-500 truncate flex items-center gap-1">
-                  <User className="h-3 w-3" />
-                  <span className="truncate">{actorName}</span>
-                  <VerifiedBadge verified={notification.actor?.is_verified} size="sm" />
-                </p>
-              </>
+              <p className="text-xs text-slate-500 truncate flex items-center gap-1 min-w-0">
+                <User className="h-3 w-3 shrink-0" />
+                <span className="truncate">{actorName}</span>
+                <VerifiedBadge verified={notification.actor?.is_verified} size="sm" />
+              </p>
             )}
           </div>
         </div>
@@ -257,28 +262,26 @@ export function NotificationItem({
         >
           {notification.message}
         </p>
-        <div className="flex items-center gap-2 mt-1.5">
-          <p className={cn("text-xs", inDropdown ? "text-gray-500" : "text-muted-foreground")}>
+        <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+          <p
+            className={cn(
+              "text-xs shrink-0",
+              inDropdown ? "text-gray-500" : "text-muted-foreground"
+            )}
+          >
             {formatCreatedAt(notification.created_at)}
           </p>
           {actorName && (
-            <>
-              <span
-                className={cn("text-xs", inDropdown ? "text-gray-300" : "text-muted-foreground/50")}
-              >
-                •
-              </span>
-              <p
-                className={cn(
-                  "text-xs truncate flex items-center gap-1",
-                  inDropdown ? "text-gray-500" : "text-muted-foreground"
-                )}
-              >
-                <User className="h-3 w-3" />
-                <span className="truncate">{actorName}</span>
-                <VerifiedBadge verified={notification.actor?.is_verified} size="sm" />
-              </p>
-            </>
+            <p
+              className={cn(
+                "text-xs truncate flex items-center gap-1 min-w-0",
+                inDropdown ? "text-gray-500" : "text-muted-foreground"
+              )}
+            >
+              <User className="h-3 w-3 shrink-0" />
+              <span className="truncate">{actorName}</span>
+              <VerifiedBadge verified={notification.actor?.is_verified} size="sm" />
+            </p>
           )}
         </div>
       </div>
