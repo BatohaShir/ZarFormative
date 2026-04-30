@@ -968,25 +968,45 @@ function RequestsPageContent({
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Handle highlight and openChat URL parameters from notifications
+  // Handle highlight and openChat URL parameters from notifications.
+  // One-shot per highlight value: a ref records which `?highlight=`
+  // we've already acted on so the effect doesn't reopen the modal
+  // every time `selectedRequest` flips back to null. The previous
+  // version listed `selectedRequest` in deps without guarding, so
+  // closing the modal (selectedRequest -> null) re-fired the effect
+  // while React still saw the original `highlightRequestId` from
+  // the in-flight router.replace, and the modal popped right back
+  // open the moment the user hit the X.
+  const handledHighlightRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     if (!highlightRequestId || !allRequests || requestsLoading) return;
+    if (handledHighlightRef.current === highlightRequestId) return;
 
     const requestToHighlight = (allRequests as RequestWithRelations[])?.find(
       (r) => r.id === highlightRequestId
     );
 
-    if (requestToHighlight && !selectedRequest) {
+    if (requestToHighlight) {
+      handledHighlightRef.current = highlightRequestId;
       // If openChat param is present, open chat directly
       if (openChatParam === "true") {
         dispatch({ type: "OPEN_CHAT_FOR_REQUEST", payload: requestToHighlight });
       } else {
         dispatch({ type: "SET_SELECTED_REQUEST", payload: requestToHighlight });
       }
-      // Clear URL params after handling
-      router.replace("/account/me/requests", { scroll: false });
+      // Convert the deeplink to the canonical `?request=ID` shape.
+      // Doing it in one router.replace (rather than wiping all params
+      // and letting the URL→modal sync effect re-add them) avoids a
+      // race where two queued navigations overwrite each other and
+      // either the highlight or the request param ends up missing.
+      const params = new URLSearchParams();
+      params.set("request", highlightRequestId);
+      // Preserve the active tab when notifications deep-link in.
+      const tab = searchParams.get("tab");
+      if (tab) params.set("tab", tab);
+      router.replace(`/account/me/requests?${params.toString()}`, { scroll: false });
     }
-  }, [highlightRequestId, openChatParam, allRequests, requestsLoading, selectedRequest, router]);
+  }, [highlightRequestId, openChatParam, allRequests, requestsLoading, router, searchParams]);
 
   // Handle request URL parameter - restore open modal on page refresh.
   // The guard ref is cleared only once the URL has actually lost its

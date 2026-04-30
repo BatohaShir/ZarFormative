@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -12,15 +11,11 @@ import { ChevronLeft } from "lucide-react";
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center" aria-label="Tsogts.mn">
-      <Image
-        src="/logo.png"
-        alt="Tsogts.mn"
-        width={140}
-        height={40}
-        priority
-        className="h-9 md:h-10 w-auto"
-      />
+    <Link href="/">
+      <span className="text-lg md:text-2xl font-bold" aria-label="Tsogts.mn">
+        <span className="text-[#015197]">Tsogts</span>
+        <span className="text-[#c4272f]">.mn</span>
+      </span>
     </Link>
   );
 }
