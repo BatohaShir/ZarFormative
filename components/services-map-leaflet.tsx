@@ -47,6 +47,12 @@ import { getListingsWithCoords, type ListingWithCoords } from "./services-map-ut
 interface ServicesMapLeafletProps {
   listings: ListingWithRelations[];
   listingsWithCoords?: ListingWithCoords[]; // OPTIMIZATION: Можно передать предвычисленные
+  /**
+   * IDs of VIP-boosted listings. Clusters containing any boosted
+   * listing render with the amber/crown style — same brand language
+   * the grid uses to flag VIP cards.
+   */
+  boostedIds?: string[];
   isFullscreen?: boolean;
   onFullscreen?: () => void;
   onLocationSelect?: (districtId: string | null, aimagId: string | null) => void;
@@ -58,11 +64,15 @@ interface ServicesMapLeafletProps {
 export function ServicesMapLeaflet({
   listings,
   listingsWithCoords: propListingsWithCoords,
+  boostedIds,
   isFullscreen,
   onFullscreen,
   onLocationSelect,
   onClusterSelect,
 }: ServicesMapLeafletProps) {
+  // Convert the prop array to a Set once so cluster checks below are
+  // O(1) per group instead of O(n) per group × O(m) ids.
+  const boostedSet = React.useMemo(() => new Set(boostedIds ?? []), [boostedIds]);
   const [myLocation, setMyLocation] = React.useState<[number, number] | null>(null);
   const [isLocating, setIsLocating] = React.useState(false);
   const [flyToPosition, setFlyToPosition] = React.useState<[number, number] | null>(null);
@@ -129,13 +139,28 @@ export function ServicesMapLeaflet({
     }
   };
 
-  // Create marker icons - мемоизируем для предотвращения пересоздания
-  const createClusterIcon = React.useCallback((count: number) => {
+  // Create marker icons - мемоизируем для предотвращения пересоздания.
+  // VIP variant: amber gradient bg, white ring, gold glow ring around,
+  // and a tiny Crown badge pinned to the top-right so VIP clusters
+  // read at a glance from the same brand language as the grid.
+  const createClusterIcon = React.useCallback((count: number, isVip: boolean) => {
+    const html = isVip
+      ? `<div class="relative w-9 h-9 transform -translate-x-1/2 -translate-y-1/2">
+           <div class="absolute inset-0 rounded-full bg-amber-400/40 blur-md animate-pulse"></div>
+           <div class="relative w-9 h-9 rounded-full border-2 border-white shadow-lg flex items-center justify-center" style="background: linear-gradient(135deg,#fbbf24 0%,#f59e0b 60%,#b45309 100%)">
+             <span class="text-white text-xs font-bold drop-shadow-sm">${count}</span>
+             <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-white shadow-md flex items-center justify-center">
+               <svg viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-2.5 h-2.5"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>
+             </div>
+           </div>
+         </div>`
+      : `<div class="w-8 h-8 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"><span class="text-white text-xs font-bold">${count}</span></div>`;
+
     return L.divIcon({
       className: "cluster-marker",
-      html: `<div class="w-8 h-8 bg-blue-500 rounded-full border-2 border-white shadow-lg flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2"><span class="text-white text-xs font-bold">${count}</span></div>`,
-      iconSize: [32, 32] as [number, number],
-      iconAnchor: [16, 16] as [number, number],
+      html,
+      iconSize: isVip ? ([36, 36] as [number, number]) : ([32, 32] as [number, number]),
+      iconAnchor: isVip ? ([18, 18] as [number, number]) : ([16, 16] as [number, number]),
       popupAnchor: [0, -16] as [number, number],
     });
   }, []);
@@ -192,16 +217,21 @@ export function ServicesMapLeaflet({
           </>
         )}
 
-        {/* Listing markers - show count only, click to filter */}
+        {/* Listing markers - show count only, click to filter.
+            A cluster is rendered VIP if any listing inside it is on
+            the boosted list — same threshold the grid uses to put a
+            card under the "VIP" rail above. */}
         {groupedListings.map((group, groupIndex) => {
           const firstListing = group[0];
           const listingIds = group.map((l) => l.id);
+          const hasVip = boostedSet.size > 0 && listingIds.some((id) => boostedSet.has(id));
 
           return (
             <Marker
               key={`group-${groupIndex}`}
               position={[firstListing.lat, firstListing.lng]}
-              icon={createClusterIcon(group.length)}
+              icon={createClusterIcon(group.length, hasVip)}
+              zIndexOffset={hasVip ? 1000 : 0}
               eventHandlers={{
                 click: () => handleClusterClick(listingIds),
               }}

@@ -604,6 +604,7 @@ function ServicesListContent({
             <div className="mb-6 rounded-2xl overflow-hidden ring-1 ring-border">
               <ServicesMap
                 listings={listingsData}
+                boostedIds={boostedIdsFromQuery}
                 className="h-50 md:h-70"
                 onLocationSelect={handleLocationSelectFromMap}
                 onClusterSelect={handleClusterSelectFromMap}

@@ -10,6 +10,13 @@ import { getListingsWithCoords, type ListingWithCoords } from "./services-map-ut
 
 interface ServicesMapProps {
   listings: ListingWithRelations[];
+  /**
+   * IDs of listings that have an active VIP boost. Marker clusters
+   * containing any of these are rendered with the amber/crown style
+   * so VIP listings stand out on the map the same way they do in the
+   * grid above.
+   */
+  boostedIds?: string[];
   className?: string;
   onLocationSelect?: (districtId: string | null, aimagId: string | null) => void;
   onClusterSelect?: (listingIds: string[]) => void;
@@ -34,6 +41,7 @@ export { getListingsWithCoords } from "./services-map-utils";
 
 export function ServicesMap({
   listings,
+  boostedIds,
   className,
   onLocationSelect,
   onClusterSelect,
@@ -102,6 +110,7 @@ export function ServicesMap({
             <ServicesMapLeaflet
               listings={listings}
               listingsWithCoords={listingsWithCoords}
+              boostedIds={boostedIds}
               onFullscreen={() => setIsFullscreen(true)}
               onLocationSelect={handleLocationSelect}
               onClusterSelect={handleClusterSelect}
@@ -148,6 +157,7 @@ export function ServicesMap({
               <ServicesMapLeaflet
                 listings={listings}
                 listingsWithCoords={listingsWithCoords}
+                boostedIds={boostedIds}
                 isFullscreen
                 onLocationSelect={handleLocationSelect}
                 onClusterSelect={handleClusterSelect}
