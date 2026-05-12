@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -196,11 +197,18 @@ export function StatsClient() {
             >
               <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
             </Button>
-            <Link href="/">
-              <h1 className="text-lg md:text-2xl font-bold">
+            <Link href="/" className="flex flex-col items-center leading-none">
+              <Image
+                src="/logo.svg"
+                alt=""
+                width={2393}
+                height={2029}
+                className="h-7 md:h-9 w-auto"
+              />
+              <span className="font-display font-bold tracking-tight text-[10px] md:text-xs mt-0.5">
                 <span className="text-[#015197]">Tsogts</span>
                 <span className="text-[#c4272f]">.mn</span>
-              </h1>
+              </span>
             </Link>
           </div>
           <div className="flex md:hidden items-center gap-2">

@@ -132,41 +132,18 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
   const isProtectedRoute = request.nextUrl.pathname.startsWith("/account/me");
 
-  // OPTIMIZATION: Only call getUser() (network request) for protected/admin routes
-  // For public routes, skip auth check entirely to speed up navigation
-  if (isAdminRoute || isProtectedRoute) {
+  // OPTIMIZATION: Only call getUser() (network request) for protected routes
+  // For public routes, skip auth check entirely to speed up navigation.
+  // (The /admin route guard was removed alongside the admin UI — the
+  // mobile app will take over admin workflows on its own surface.)
+  if (isProtectedRoute) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (isAdminRoute) {
-      if (!user) {
-        return NextResponse.redirect(new URL("/", request.url));
-      }
-
-      // Use JWT app_metadata.role first (no DB query needed)
-      // Falls back to DB query only if JWT doesn't have role
-      const jwtRole = user.app_metadata?.role;
-      let role = jwtRole;
-
-      if (!role) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-        role = profile?.role;
-      }
-
-      if (role !== "admin" && role !== "manager") {
-        return NextResponse.redirect(new URL("/", request.url));
-      }
-    }
-
-    if (isProtectedRoute && !user) {
+    if (!user) {
       // Redirect to home with auth modal trigger
       const redirectUrl = new URL("/", request.url);
       redirectUrl.searchParams.set("auth", "required");

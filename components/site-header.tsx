@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -45,13 +46,19 @@ export function SiteHeader({ backHref }: SiteHeaderProps = {}) {
               <ChevronLeft className="h-4 w-4 md:h-5 md:w-5" />
             </Link>
           )}
-          <Link
-            href="/"
-            className="text-lg md:text-xl font-display font-bold tracking-tight"
-            aria-label="Tsogts.mn"
-          >
-            <span className="text-[#015197]">Tsogts</span>
-            <span className="text-brand">.mn</span>
+          <Link href="/" className="flex flex-col items-center leading-none" aria-label="Tsogts.mn">
+            <Image
+              src="/logo.svg"
+              alt=""
+              width={2393}
+              height={2029}
+              priority
+              className="h-7 md:h-8 w-auto"
+            />
+            <span className="font-display font-bold tracking-tight text-[10px] md:text-xs mt-0.5">
+              <span className="text-[#015197]">Tsogts</span>
+              <span className="text-brand">.mn</span>
+            </span>
           </Link>
         </div>
 

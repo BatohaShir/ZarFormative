@@ -13,7 +13,6 @@ import {
   RotateCw,
   Sticker,
   Sun,
-  Sparkles,
 } from "lucide-react";
 import type { DbAdStory, EditorData } from "./types";
 import { cn } from "@/lib/utils";
@@ -1043,7 +1042,6 @@ function StoryEditor({
 
 const STORY_PLAN_DURATIONS: Record<string, number> = {
   "1day": 24 * 60 * 60 * 1000,
-  "2day": 48 * 60 * 60 * 1000,
 };
 
 function CreateAdModal({ onClose }: { onClose: () => void }) {
@@ -1336,8 +1334,11 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
     );
   }
 
-  // Step 3: payment / plan selection
-  const planPrice = plan === "2day" ? 9000 : 5000;
+  // Step 3: payment / plan selection. Only one plan now ("1day") so
+  // the price collapses to a constant — kept as a variable so the
+  // footer total + the radio rows read from one source if more plans
+  // come back later.
+  const planPrice = 1000;
 
   return (
     <div className="fixed inset-0 z-100 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4">
@@ -1421,7 +1422,7 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
               </p>
             </div>
             <div className="text-right shrink-0">
-              <p className="font-display font-bold text-base tabular">5,000₮</p>
+              <p className="font-display font-bold text-base tabular">1,000₮</p>
             </div>
             <div
               className={cn(
@@ -1430,76 +1431,6 @@ function CreateAdModal({ onClose }: { onClose: () => void }) {
               )}
             >
               {plan === "1day" && (
-                <svg viewBox="0 0 12 12" className="w-3 h-3 text-foreground" fill="none">
-                  <path
-                    d="M2.5 6.5L5 9l4.5-5.5"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
-            </div>
-          </label>
-
-          {/* 2 days — popular */}
-          <label
-            className={cn(
-              "group relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all",
-              plan === "2day"
-                ? "bg-foreground text-background"
-                : "bg-card ring-1 ring-border hover:ring-foreground"
-            )}
-          >
-            {/* Popular badge */}
-            <span className="absolute -top-2 right-4 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide bg-brand text-brand-foreground">
-              Хэмнэлттэй
-            </span>
-            <input
-              type="radio"
-              name="plan"
-              checked={plan === "2day"}
-              onChange={() => setPlan("2day")}
-              className="sr-only"
-            />
-            <div
-              className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-                plan === "2day" ? "bg-background/10" : "bg-muted"
-              )}
-            >
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-display font-semibold text-base leading-tight">2 хоног</p>
-              <p
-                className={cn(
-                  "text-xs mt-0.5",
-                  plan === "2day" ? "text-background/70" : "text-muted-foreground"
-                )}
-              >
-                48 цагийн турш харагдана
-              </p>
-            </div>
-            <div className="text-right shrink-0">
-              <p className="font-display font-bold text-base tabular">9,000₮</p>
-              <p
-                className={cn(
-                  "text-[10px] tabular",
-                  plan === "2day" ? "text-background/60" : "text-muted-foreground"
-                )}
-              >
-                <span className="line-through">10,000₮</span>
-              </p>
-            </div>
-            <div
-              className={cn(
-                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shrink-0",
-                plan === "2day" ? "border-background bg-background" : "border-border"
-              )}
-            >
-              {plan === "2day" && (
                 <svg viewBox="0 0 12 12" className="w-3 h-3 text-foreground" fill="none">
                   <path
                     d="M2.5 6.5L5 9l4.5-5.5"
