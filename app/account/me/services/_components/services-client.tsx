@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { logger } from "@/lib/logger";
 import { useAuth } from "@/contexts/auth-context";
 import { useFindManylistings, useUpdatelistings, useDeletelistings } from "@/lib/hooks/listings";
 import { useFindManylisting_boosts, useCreatelisting_boosts } from "@/lib/hooks/listing-boosts";
@@ -604,7 +605,7 @@ export function ServicesClient({ ssrData, ssrUserId }: ServicesClientProps = {})
       // Storage cleanup in the background. Errors here don't roll
       // back — the DB state is already correct, so we just log.
       void deleteAllListingImages(user.id, id).then((r) => {
-        if (r.error) console.warn("Storage cleanup warning:", r.error);
+        if (r.error) logger.warn("Storage cleanup warning:", r.error);
       });
     } catch (error) {
       console.error("Delete error:", error);

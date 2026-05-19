@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import type { Metadata } from "next";
 import { PublicProfileClient } from "./public-profile-client";
 import { fetchPublicProfileData, type PublicProfileData } from "@/lib/profile/public-profile-query";
+import { safeJsonLd } from "@/lib/json-ld";
 
 // Per-user cache (5 min). Overrides the page-level revalidate: 300
 // only when listings change within the window; tag-based invalidation
@@ -150,10 +151,7 @@ function ProfileJsonLd({ profile }: { profile: NonNullable<PublicProfileData["pr
       };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
   );
 }
 

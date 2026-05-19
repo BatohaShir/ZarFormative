@@ -14,7 +14,12 @@ Sentry.init({
 
   debug: false,
 
-  replaysOnErrorSampleRate: isProduction ? 0.5 : 1.0,
+  // Lower replay sampling: even with maskAllText/blockAllMedia,
+  // every captured replay is a potential PII vector (URL params,
+  // ARIA labels, focused inputs at the moment of capture). 10 %
+  // on-error is plenty for triage; raise temporarily if a specific
+  // incident needs more reproductions.
+  replaysOnErrorSampleRate: isProduction ? 0.1 : 1.0,
   replaysSessionSampleRate: isProduction ? 0.02 : 0.1,
 
   integrations: [

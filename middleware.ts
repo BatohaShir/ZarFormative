@@ -67,10 +67,23 @@ function validateOrigin(request: NextRequest): NextResponse | null {
 }
 
 /**
- * Add security headers to response: CSP, X-Frame-Options, etc.
+ * Add the Content Security Policy header.
+ *
+ * The other security headers (X-Content-Type-Options, X-Frame-Options,
+ * Referrer-Policy, Permissions-Policy, HSTS) are emitted from
+ * `next.config.ts#headers()`, which applies to ALL responses including
+ * /api/* and static assets — middleware's matcher would skip those.
+ * We keep CSP here because it depends on runtime env (Supabase URL)
+ * which `next.config.ts` can't read per-request.
+ *
+ * `report-uri` points at the same `/monitoring` rewrite that Sentry's
+ * `tunnelRoute` uses, so violations land in the existing Sentry project
+ * without requiring a separate collector. Browsers that only speak the
+ * newer `report-to` directive will ignore `report-uri`; we don't ship a
+ * `Reporting-Endpoints` header yet because Sentry's tunnel doesn't
+ * implement the report-to spec.
  */
 function addSecurityHeaders(response: NextResponse): NextResponse {
-  // Content Security Policy
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   // CSP: tighter in production (no unsafe-eval), relaxed in dev for Next.js hot reload
   const scriptSrc = isDev
@@ -87,14 +100,14 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
     `frame-ancestors 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
+    `report-uri /monitoring`,
   ].join("; ");
 
   response.headers.set("Content-Security-Policy", csp);
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
+  // X-XSS-Protection is legacy (Chromium / Edge removed it; modern
+  // guidance is "do not set"), but kept here as a no-op for older
+  // browsers that still honour it.
   response.headers.set("X-XSS-Protection", "1; mode=block");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
 
   return response;
 }

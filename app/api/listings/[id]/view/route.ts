@@ -6,7 +6,10 @@ import { withRateLimit, rateLimitResponse, addRateLimitHeaders } from "@/lib/rat
 import { logger } from "@/lib/logger";
 import { toNumber } from "@/lib/prisma-utils";
 
-// Период уникальности просмотра (24 часа)
+// Период уникальности просмотра (24 часа). Multiplied into a fixed
+// `INTERVAL '1 hour'` literal in SQL — passed as a regular `${}`
+// parameter so this stays SQL-injection-safe even if someone later
+// makes the constant configurable.
 const VIEW_UNIQUENESS_PERIOD_HOURS = 24;
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         SELECT 1
         FROM listings_views v, target t
         WHERE v.listing_id = t.id
-          AND v.viewed_at > NOW() - INTERVAL '${Prisma.raw(String(VIEW_UNIQUENESS_PERIOD_HOURS))} hours'
+          AND v.viewed_at > NOW() - (INTERVAL '1 hour' * ${VIEW_UNIQUENESS_PERIOD_HOURS})
           AND (
             ${viewerId ? Prisma.sql`v.viewer_id = ${viewerId}::uuid` : Prisma.sql`v.viewer_id IS NULL AND v.ip_address = ${ip}`}
           )

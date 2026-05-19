@@ -9,6 +9,7 @@ import {
 import { fetchServiceDetailBySlug, type ServiceDetailSsrData } from "@/lib/services/detail-query";
 import { formatListingPrice } from "@/lib/utils";
 import { getProviderName, getFirstImageUrl } from "@/lib/formatters";
+import { safeJsonLd } from "@/lib/json-ld";
 
 // No more force-dynamic. The page is the same for every visitor, so
 // we can cache by slug. router.refresh()/revalidateTag("listing:<slug>")
@@ -158,10 +159,7 @@ function ServiceJsonLd({ listing }: { listing: ServiceDetailListing }) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
   );
 }
 

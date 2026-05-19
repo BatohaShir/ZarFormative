@@ -1,6 +1,8 @@
 // JSON-LD Structured Data Components for SEO
 // https://schema.org/
 
+import { safeJsonLd } from "@/lib/json-ld";
+
 interface OrganizationSchemaProps {
   name?: string;
   url?: string;
@@ -21,10 +23,7 @@ export function OrganizationSchema({
     url,
     logo,
     description,
-    sameAs: [
-      "https://facebook.com/tsogts.mn",
-      "https://instagram.com/tsogts.mn",
-    ],
+    sameAs: ["https://facebook.com/tsogts.mn", "https://instagram.com/tsogts.mn"],
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer service",
@@ -33,10 +32,7 @@ export function OrganizationSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -68,10 +64,7 @@ export function WebsiteSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -145,10 +138,7 @@ export function ServiceSchema({
   }
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -208,10 +198,7 @@ export function LocalBusinessSchema({
   }
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -237,10 +224,7 @@ export function BreadcrumbSchema({ items }: BreadcrumbSchemaProps) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -268,10 +252,7 @@ export function FAQSchema({ items }: FAQSchemaProps) {
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }
 
@@ -315,9 +296,6 @@ export function ReviewSchema({
   };
 
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
   );
 }

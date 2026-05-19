@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { withRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { isAuthorizedCron } from "@/lib/cron-auth";
 
 /**
  * Cron job to cleanup orphaned files in chat-attachments bucket.
@@ -22,15 +23,8 @@ export async function GET(request: NextRequest) {
     return rateLimitResponse(rateLimitResult);
   }
 
-  // Verify cron secret
-  const authHeader = request.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (process.env.NODE_ENV === "production") {
-    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  } else if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Constant-time secret check; mirrors expire-requests route.
+  if (!isAuthorizedCron(request.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
