@@ -12,8 +12,19 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get("q")?.trim();
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
-    const offset = parseInt(searchParams.get("offset") || "0", 10);
+
+    // Both values land in LIMIT/OFFSET below, so they have to survive
+    // hostile input. `parseInt` alone returns NaN for "abc" and passes
+    // negatives straight through — the former silently produced a
+    // `LIMIT null` result set, the latter made Postgres reject the
+    // query outright ("OFFSET must not be negative") and turned a
+    // crafted URL into a 500. Clamp instead: same shape as the
+    // Number.isFinite guard /api/services already uses.
+    const limitRaw = Number.parseInt(searchParams.get("limit") ?? "", 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 50) : 20;
+
+    const offsetRaw = Number.parseInt(searchParams.get("offset") ?? "", 10);
+    const offset = Number.isFinite(offsetRaw) ? Math.max(offsetRaw, 0) : 0;
 
     if (!query || query.length < 2) {
       return NextResponse.json({

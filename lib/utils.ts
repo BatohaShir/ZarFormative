@@ -39,8 +39,22 @@ export function formatListingPrice(
 
   const numPrice = typeof price === "number" ? price : Number(price);
 
-  // Format with thousand separators
-  const formatted = numPrice.toLocaleString("mn-MN");
+  // Format with thousand separators.
+  //
+  // NOT toLocaleString("mn-MN"): Node and the browser ship different
+  // ICU data for that locale, so the server rendered "100,000" while
+  // the browser produced "100 000" for the same number. React saw the
+  // mismatch during hydration, threw, and re-rendered the whole
+  // listing tree on the client. Grouping the digits ourselves is
+  // deterministic on both sides.
+  //
+  // U+00A0 (non-breaking space) is the separator Mongolian formatting
+  // uses, and it also keeps the amount from wrapping away from ₮.
+  const formatted = Number.isFinite(numPrice)
+    ? Math.trunc(numPrice)
+        .toString()
+        .replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+    : String(numPrice);
 
   // Add currency symbol
   const currencySymbol = currency === "USD" ? "$" : "₮";

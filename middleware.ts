@@ -117,6 +117,16 @@ export async function middleware(request: NextRequest) {
   const csrfError = validateOrigin(request);
   if (csrfError) return csrfError;
 
+  // API routes only need the CSRF gate above. They authenticate per
+  // request (ZenStack/oRPC build their own Supabase client, cron uses
+  // Bearer), so running the session refresh + getUser() round-trip
+  // here would add a network hop to every API call for nothing.
+  // Returning early also keeps the CSP/HSTS headers off /api/*, which
+  // next.config.ts#headers() already covers for every response.
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({
     request,
   });
@@ -178,9 +188,18 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api routes
      * - static assets
+     *
+     * NOTE: `api/` used to be excluded here, which meant validateOrigin()
+     * never ran for /api/* — a cross-site POST to /api/orpc/* or
+     * /api/model/* sailed past the CSRF gate. SameSite=strict on the
+     * Supabase session cookie kept that from being exploitable (the
+     * attacker's request arrives unauthenticated), but the origin check
+     * is the layer that is supposed to catch it, and relying on the
+     * cookie attribute alone means one SameSite change reopens the hole.
+     * API paths now enter the middleware for the CSRF check and return
+     * immediately after it — see the early return in middleware().
      */
-    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
