@@ -1,13 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
-import {
-  useFindManyuser_favorites,
-  useCreateuser_favorites,
-  useDeleteuser_favorites,
-} from "@/lib/hooks/user-favorites";
+import { orpc } from "@/lib/orpc/client";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import type { listings, categories, aimags, listings_images, profiles } from "@prisma/client";
 
@@ -144,29 +140,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   // status='active' AND is_active=true), and the heart state stays
   // lit on pages that happen to show the card. The favorite row is
   // kept in the DB so a re-activation brings it back.
-  const { data: dbFavoritesRaw = [], isLoading } = useFindManyuser_favorites(
-    {
-      where: {
-        user_id: user?.id,
-        listing: {
-          is: {
-            status: "active",
-            is_active: true,
-          },
-        },
-      },
-      select: {
-        id: true,
-        listing_id: true,
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-    },
-    {
+  const { data: dbFavoritesRaw = [], isLoading } = useQuery(
+    orpc.favorites.ids.queryOptions({
       enabled: isAuthenticated && !!user?.id,
       ...CACHE_TIMES.FAVORITES,
-    }
+    })
   );
 
   // Полные данные загружаются через отдельный хук useFavoritesFullData
@@ -190,34 +168,38 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   }, [dbFavoriteIdsString, isAuthenticated]);
 
   // Мутации - фоновая синхронизация с rollback на ошибку
-  const createFavorite = useCreateuser_favorites({
-    onError: (_error, variables) => {
-      // Rollback: убираем из optimistic state при ошибке
-      const listingId = (variables as { data: { listing_id: string } })?.data?.listing_id;
-      if (listingId) {
-        setOptimisticIds((prev) => {
-          const next = new Set(prev);
-          next.delete(listingId);
-          return next;
-        });
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["zenstack", "user_favorites"] });
-    },
-  });
+  const createFavorite = useMutation(
+    orpc.favorites.add.mutationOptions({
+      onError: (_error, variables) => {
+        // Rollback: убираем из optimistic state при ошибке
+        const listingId = variables?.listingId;
+        if (listingId) {
+          setOptimisticIds((prev) => {
+            const next = new Set(prev);
+            next.delete(listingId);
+            return next;
+          });
+        }
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: orpc.favorites.key() });
+      },
+    })
+  );
 
-  const deleteFavorite = useDeleteuser_favorites({
-    onError: () => {
-      // Rollback: восстанавливаем из БД при ошибке удаления
-      if (dbFavoriteIdsString) {
-        setOptimisticIds(new Set(dbFavoriteIdsString.split(",")));
-      }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["zenstack", "user_favorites"] });
-    },
-  });
+  const deleteFavorite = useMutation(
+    orpc.favorites.remove.mutationOptions({
+      onError: () => {
+        // Rollback: восстанавливаем из БД при ошибке удаления
+        if (dbFavoriteIdsString) {
+          setOptimisticIds(new Set(dbFavoriteIdsString.split(",")));
+        }
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: orpc.favorites.key() });
+      },
+    })
+  );
 
   // Set для O(1) проверки - комбинируем optimistic state
   const favoriteListingIds = React.useMemo(() => {
@@ -235,12 +217,9 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     [favoriteListingIds]
   );
 
-  // Ref для dbFavorites чтобы toggleFavorite не пересоздавался при изменении данных
-  const dbFavoritesRef = React.useRef(dbFavorites);
-  React.useEffect(() => {
-    dbFavoritesRef.current = dbFavorites;
-  }, [dbFavorites]);
-
+  // dbFavorites no longer needs a ref: removal used to look up the
+  // favourite row's id from this list before calling delete, but the
+  // server now resolves the row from (user_id, listing_id) itself.
   const optimisticIdsRef = React.useRef(optimisticIds);
   React.useEffect(() => {
     optimisticIdsRef.current = optimisticIds;
@@ -286,13 +265,10 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       // on a remote Supabase link).
       if (isCurrentlyFavorite) {
         // Remove matching rows from every user_favorites cache entry.
-        queryClient.setQueriesData<unknown>(
-          { queryKey: ["zenstack", "user_favorites"] },
-          (prev: unknown) => {
-            if (!Array.isArray(prev)) return prev;
-            return (prev as { listing_id: string }[]).filter((f) => f.listing_id !== listingId);
-          }
-        );
+        queryClient.setQueriesData<unknown>({ queryKey: orpc.favorites.key() }, (prev: unknown) => {
+          if (!Array.isArray(prev)) return prev;
+          return (prev as { listing_id: string }[]).filter((f) => f.listing_id !== listingId);
+        });
       } else if (listingSnapshot) {
         // Insert a provisional row at the top. id is synthetic; when
         // the real row lands via refetch onSettled below it replaces
@@ -301,49 +277,39 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         // reduced placeholder — the UI that consumes that shape only
         // needs listing_id anyway.
         const provisionalId = `optimistic-${listingId}`;
-        queryClient.setQueriesData<unknown>(
-          { queryKey: ["zenstack", "user_favorites"] },
-          (prev: unknown) => {
-            if (!Array.isArray(prev)) return prev;
-            const list = prev as Array<Record<string, unknown>>;
-            if (list.some((f) => f.listing_id === listingId)) return list;
-            const hasListingShape = list[0] && "listing" in list[0];
-            const provisional = hasListingShape
-              ? {
-                  id: provisionalId,
-                  user_id: user.id,
-                  listing_id: listingId,
-                  created_at: new Date().toISOString(),
-                  listing: listingSnapshot,
-                }
-              : {
-                  id: provisionalId,
-                  user_id: user.id,
-                  listing_id: listingId,
-                  created_at: new Date().toISOString(),
-                };
-            return [provisional, ...list];
-          }
-        );
+        queryClient.setQueriesData<unknown>({ queryKey: orpc.favorites.key() }, (prev: unknown) => {
+          if (!Array.isArray(prev)) return prev;
+          const list = prev as Array<Record<string, unknown>>;
+          if (list.some((f) => f.listing_id === listingId)) return list;
+          const hasListingShape = list[0] && "listing" in list[0];
+          const provisional = hasListingShape
+            ? {
+                id: provisionalId,
+                user_id: user.id,
+                listing_id: listingId,
+                created_at: new Date().toISOString(),
+                listing: listingSnapshot,
+              }
+            : {
+                id: provisionalId,
+                user_id: user.id,
+                listing_id: listingId,
+                created_at: new Date().toISOString(),
+              };
+          return [provisional, ...list];
+        });
       }
 
       // Фоновая синхронизация с сервером (без await)
       if (isCurrentlyFavorite) {
-        // Удаляем - ищем в dbFavorites (теперь только id и listing_id)
-        const existingFavorite = dbFavoritesRef.current.find((f) => f.listing_id === listingId);
-        if (existingFavorite) {
-          deleteFavorite.mutate({
-            where: { id: existingFavorite.id },
-          });
-        }
+        // Delete by listing_id: the server scopes the row to the
+        // signed-in user, so we no longer have to look up the
+        // favourite's own id first.
+        deleteFavorite.mutate({ listingId });
       } else {
-        // Добавляем
-        createFavorite.mutate({
-          data: {
-            user_id: user.id,
-            listing_id: listingId,
-          },
-        });
+        // user_id comes from the session server-side — the client
+        // cannot create a favourite on somebody else's behalf.
+        createFavorite.mutate({ listingId });
       }
     },
     [isAuthenticated, user, createFavorite, deleteFavorite, queryClient]
@@ -462,73 +428,16 @@ export function useFavoritesFullData(options?: { initialData?: unknown[] }) {
   const { user, isAuthenticated } = useAuth();
   const { favoriteListingIds } = useFavoriteIds();
 
-  const { data: fullFavorites = [], isLoading } = useFindManyuser_favorites(
-    {
-      where: {
-        user_id: user?.id,
-        // Mirror the SSR CTE so the grid stays consistent after a
-        // refetch — otherwise archived/deactivated listings would
-        // reappear once React Query invalidates and re-hits the
-        // ZenStack endpoint.
-        listing: {
-          is: {
-            status: "active",
-            is_active: true,
-          },
-        },
-      },
-      select: {
-        id: true,
-        listing_id: true,
-        user_id: true,
-        created_at: true,
-        listing: {
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            description: true,
-            price: true,
-            currency: true,
-            is_negotiable: true,
-            views_count: true,
-            favorites_count: true,
-            category: {
-              select: { id: true, name: true, slug: true },
-            },
-            aimag: {
-              select: { id: true, name: true },
-            },
-            images: {
-              where: { is_cover: true },
-              take: 1,
-              select: { id: true, url: true },
-            },
-            user: {
-              select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                avatar_url: true,
-                is_verified: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-    },
-    {
+  const { data: fullFavorites = [], isLoading } = useQuery(
+    orpc.favorites.list.queryOptions({
       enabled: isAuthenticated && !!user?.id,
       ...CACHE_TIMES.FAVORITES,
       // When the page SSR'd the list, feed it back as initialData so
       // the hook considers the query already fresh and doesn't fire a
-      // mount-time findMany. SSR shape is structurally compatible —
+      // mount-time fetch. SSR shape is structurally compatible —
       // same keys the UI reads.
       initialData: options?.initialData as never,
-    }
+    })
   );
 
   // Применяем optimistic filtering

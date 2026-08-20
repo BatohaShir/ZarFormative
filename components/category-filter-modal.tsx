@@ -14,7 +14,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useFindManycategories } from "@/lib/hooks/categories";
+import { useQuery } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/client";
 import type { categories } from "@prisma/client";
 import {
   isImageIcon,
@@ -58,17 +59,12 @@ export function CategoryFilterModal({
   // when the parent page has one (e.g. /services fetches it in its
   // SSR payload) so the modal skips the mount-time findMany entirely
   // for the common case.
-  const { data: fetchedCategories } = useFindManycategories(
-    {
-      where: { is_active: true },
-      orderBy: { sort_order: "asc" },
-      take: 100,
-    },
-    {
+  const { data: fetchedCategories } = useQuery(
+    orpc.categories.list.queryOptions({
       staleTime: 60 * 60 * 1000,
       gcTime: 2 * 60 * 60 * 1000,
       initialData: initialCategories,
-    }
+    })
   );
 
   const allCategoriesFlat = fetchedCategories || [];

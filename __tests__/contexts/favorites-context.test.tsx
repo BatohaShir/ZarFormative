@@ -5,6 +5,16 @@ import { FavoritesProvider, useFavorites } from "@/contexts/favorites-context";
 jest.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
     invalidateQueries: jest.fn(),
+    setQueriesData: jest.fn(),
+  }),
+  useQuery: () => ({
+    data: [],
+    isLoading: false,
+  }),
+  useMutation: () => ({
+    mutate: jest.fn(),
+    mutateAsync: jest.fn(),
+    isPending: false,
   }),
 }));
 
@@ -15,20 +25,28 @@ jest.mock("@/contexts/auth-context", () => ({
   }),
 }));
 
-jest.mock("@/lib/hooks/user-favorites", () => ({
-  useFindManyuser_favorites: () => ({
-    data: [],
-    isLoading: false,
-  }),
-  useCreateuser_favorites: () => ({
-    mutateAsync: jest.fn(),
-    isPending: false,
-  }),
-  useDeleteuser_favorites: () => ({
-    mutateAsync: jest.fn(),
-    isPending: false,
-  }),
-}));
+// The oRPC client is mocked rather than imported: @orpc/* ships ESM
+// only, which Jest's CJS runtime cannot parse. Only `.key()` and the
+// option builders are reachable from this context — the mock returns
+// whatever the mocked useQuery/useMutation above ignore anyway.
+jest.mock("@/lib/orpc/client", () => {
+  const procedure = {
+    key: () => ["favorites"],
+    queryOptions: (opts: unknown) => opts,
+    mutationOptions: (opts: unknown) => opts,
+  };
+  return {
+    orpc: {
+      favorites: {
+        key: () => ["favorites"],
+        ids: procedure,
+        list: procedure,
+        add: procedure,
+        remove: procedure,
+      },
+    },
+  };
+});
 
 describe("FavoritesContext", () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (

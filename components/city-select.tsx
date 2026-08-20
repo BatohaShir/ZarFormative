@@ -11,8 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useFindManyaimags } from "@/lib/hooks/aimags";
-import { useFindManydistricts } from "@/lib/hooks/districts";
+import { useQuery } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/client";
 import type { aimags, districts } from "@prisma/client";
 import { writeAimagCookie, readAimagCookie, ALL_AIMAGS_CODE } from "@/lib/aimag/cookie-client";
 import { setSelectedAimagAction } from "@/lib/aimag/actions";
@@ -113,20 +113,12 @@ export const CitySelect = React.memo(function CitySelect({
   // fetched them in SSR (initialAimags prop), feed them as initialData
   // so React Query considers the query fresh and skips the mount-time
   // network request. One less round-trip on pages that can seed.
-  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags(
-    {
-      where: {
-        is_active: true,
-      },
-      orderBy: {
-        sort_order: "asc",
-      },
-    },
-    {
+  const { data: aimagsData, isLoading: isLoadingAimags } = useQuery(
+    orpc.locations.aimags.queryOptions({
       staleTime: 24 * 60 * 60 * 1000,
       gcTime: 48 * 60 * 60 * 1000,
       initialData: initialAimags,
-    }
+    })
   );
 
   // Districts are fetched lazily only for the selected aimag (~10-15 rows).
@@ -138,22 +130,14 @@ export const CitySelect = React.memo(function CitySelect({
       ? initialDistrictsForAimag.districts
       : undefined;
 
-  const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
-    {
-      where: {
-        is_active: true,
-        aimag_id: selectedAimag?.id || "",
-      },
-      orderBy: {
-        sort_order: "asc",
-      },
-    },
-    {
+  const { data: districtsData, isLoading: isLoadingDistricts } = useQuery(
+    orpc.locations.districts.queryOptions({
+      input: { aimagId: selectedAimag?.id ?? "" },
       enabled: !!selectedAimag?.id,
       staleTime: 24 * 60 * 60 * 1000,
       gcTime: 48 * 60 * 60 * 1000,
       initialData: seededDistricts,
-    }
+    })
   );
 
   const aimags = aimagsData || [];

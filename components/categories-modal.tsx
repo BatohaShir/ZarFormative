@@ -13,7 +13,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useFindManycategories } from "@/lib/hooks/categories";
+import { useQuery } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/client";
 import {
   isImageIcon,
   buildCategoryTree,
@@ -55,15 +56,11 @@ export function CategoriesModal({
   // mounts this modal, even if the user never touches it. When the parent
   // already provides a full flat list (propAllCategories), we skip the
   // fetch entirely since there is nothing to discover.
-  const { data: fetchedCategories } = useFindManycategories(
-    {
-      where: { is_active: true },
-      orderBy: { sort_order: "asc" },
-    },
-    {
+  const { data: fetchedCategories } = useQuery(
+    orpc.categories.list.queryOptions({
       enabled: open && !propAllCategories,
       staleTime: 10 * 60 * 1000, // 10 min — categories rarely change
-    }
+    })
   );
 
   // Subcategories live in fetchedCategories; propCategories (root-only from

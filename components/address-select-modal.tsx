@@ -4,15 +4,9 @@ import * as React from "react";
 import { MapPin, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useFindManyaimags } from "@/lib/hooks/aimags";
-import { useFindManydistricts } from "@/lib/hooks/districts";
-import { useFindManykhoroos } from "@/lib/hooks/khoroos";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useQuery } from "@tanstack/react-query";
+import { orpc } from "@/lib/orpc/client";
 import { CACHE_TIMES } from "@/lib/react-query-config";
 import type { AimagType, DistrictType } from "@prisma/client";
 import { cn } from "@/lib/utils";
@@ -76,45 +70,34 @@ export function AddressSelectModal({
   const [selectedDistrict, setSelectedDistrict] = React.useState<DistrictSelect | null>(null);
 
   // Fetch aimags from DB - справочники кэшируем надолго
-  const { data: aimagsData, isLoading: isLoadingAimags } = useFindManyaimags(
-    {
-      where: { is_active: true },
-      orderBy: { sort_order: "asc" },
-      select: { id: true, name: true, code: true, type: true, sort_order: true },
-    },
-    { ...CACHE_TIMES.LOCATIONS }
+  const { data: aimagsData, isLoading: isLoadingAimags } = useQuery(
+    orpc.locations.aimags.queryOptions({ ...CACHE_TIMES.LOCATIONS })
   );
 
   // Fetch districts when aimag selected
-  const { data: districtsData, isLoading: isLoadingDistricts } = useFindManydistricts(
-    selectedCity ? {
-      where: {
-        aimag_id: selectedCity.id,
-        is_active: true
-      },
-      orderBy: { sort_order: "asc" },
-      select: { id: true, name: true, aimag_id: true, type: true, sort_order: true },
-    } : undefined,
-    { enabled: !!selectedCity, ...CACHE_TIMES.LOCATIONS }
+  const { data: districtsData, isLoading: isLoadingDistricts } = useQuery(
+    orpc.locations.districts.queryOptions({
+      input: { aimagId: selectedCity?.id ?? "" },
+      enabled: !!selectedCity,
+      ...CACHE_TIMES.LOCATIONS,
+    })
   );
 
   // Fetch khoroos when district selected
-  const { data: khoroosData, isLoading: isLoadingKhoroos } = useFindManykhoroos(
-    selectedDistrict ? {
-      where: {
-        district_id: selectedDistrict.id,
-        is_active: true
-      },
-      orderBy: { sort_order: "asc" },
-      select: { id: true, name: true, district_id: true, number: true, sort_order: true },
-    } : undefined,
-    { enabled: !!selectedDistrict, ...CACHE_TIMES.LOCATIONS }
+  const { data: khoroosData, isLoading: isLoadingKhoroos } = useQuery(
+    orpc.locations.khoroos.queryOptions({
+      input: { districtId: selectedDistrict?.id ?? "" },
+      enabled: !!selectedDistrict,
+      ...CACHE_TIMES.LOCATIONS,
+    })
   );
 
   // Initialize from initial address
   React.useEffect(() => {
     if (initialAddress && open && aimagsData && !selectedCity) {
-      const city = aimagsData.find(c => c.name === initialAddress.city || c.id === initialAddress.cityId);
+      const city = aimagsData.find(
+        (c) => c.name === initialAddress.city || c.id === initialAddress.cityId
+      );
       if (city) {
         setSelectedCity(city);
         setStep("district");
@@ -126,7 +109,9 @@ export function AddressSelectModal({
   // Если hideKhoroo=true, останавливаемся на шаге district (не переходим к khoroo)
   React.useEffect(() => {
     if (initialAddress && districtsData && selectedCity && !selectedDistrict) {
-      const district = districtsData.find(d => d.name === initialAddress.district || d.id === initialAddress.districtId);
+      const district = districtsData.find(
+        (d) => d.name === initialAddress.district || d.id === initialAddress.districtId
+      );
       if (district) {
         setSelectedDistrict(district);
         // Если hideKhoroo - остаёмся на district, иначе переходим к khoroo
@@ -149,19 +134,21 @@ export function AddressSelectModal({
   };
 
   // Filter aimags
-  const filteredAimags = aimagsData?.filter(aimag =>
-    aimag.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredAimags =
+    aimagsData?.filter((aimag) => aimag.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    [];
 
   // Filter districts
-  const filteredDistricts = districtsData?.filter(district =>
-    district.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredDistricts =
+    districtsData?.filter((district) =>
+      district.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
 
   // Filter khoroos
-  const filteredKhoroos = khoroosData?.filter(khoroo =>
-    khoroo.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredKhoroos =
+    khoroosData?.filter((khoroo) =>
+      khoroo.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ) || [];
 
   // Handle city select
   const handleCitySelect = (city: AimagSelect) => {
@@ -223,9 +210,12 @@ export function AddressSelectModal({
   // Get step title
   const getStepTitle = () => {
     switch (step) {
-      case "city": return "Хот/Аймаг сонгох";
-      case "district": return "Дүүрэг/Сум сонгох";
-      case "khoroo": return "Хороо/Баг сонгох";
+      case "city":
+        return "Хот/Аймаг сонгох";
+      case "district":
+        return "Дүүрэг/Сум сонгох";
+      case "khoroo":
+        return "Хороо/Баг сонгох";
     }
   };
 
@@ -259,7 +249,13 @@ export function AddressSelectModal({
           {/* Search */}
           <div className="relative">
             <Input
-              placeholder={step === "city" ? "Хот хайх..." : step === "district" ? "Дүүрэг хайх..." : "Хороо хайх..."}
+              placeholder={
+                step === "city"
+                  ? "Хот хайх..."
+                  : step === "district"
+                    ? "Дүүрэг хайх..."
+                    : "Хороо хайх..."
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-3"
@@ -317,7 +313,8 @@ export function AddressSelectModal({
                     onClick={() => handleDistrictSelect(district)}
                     className={cn(
                       "w-full text-left px-3 py-2.5 rounded-lg hover:bg-accent flex items-center justify-between transition-colors",
-                      initialAddress?.districtId === district.id && "bg-primary/10 border border-primary/20"
+                      initialAddress?.districtId === district.id &&
+                        "bg-primary/10 border border-primary/20"
                     )}
                   >
                     <span>{district.name}</span>
